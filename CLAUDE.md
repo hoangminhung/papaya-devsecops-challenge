@@ -80,7 +80,12 @@ Rules of use:
   or personal data into the chat in the first place**. Do not print environment variables,
   settings files, or shell history without redacting values. If this rule is accidentally
   broken, stop and tell the user immediately before continuing.
-- The git author identity is whatever the user has already configured; do not change it.
+- The git author identity is set repo-locally (personal address) before the first push; all
+  commits were rewritten to it while still unpushed. Do not change it further.
+- Accepted exception (decided session 2, 2026-11-08): the committed transcripts contain the
+  author's own work email addresses (from tool output and from the context Claude Code
+  injects). They are kept unedited because the challenge requires raw transcripts; no other
+  person's data is involved.
 
 ## Rule 3 — Language
 
