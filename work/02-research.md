@@ -202,6 +202,9 @@ Recorded verbatim, as written by the repo owner in the session of 2026-11-08:
 > - Về PHI: Mặc định agent DevSecOps nằm ngoài phạm vi PHI, thiết kế để PHI không tới được agent. Chỉ xem xét gói Enterprise + BAA cho một môi trường riêng nếu sau này có nhu cầu thật.
 > - Về MDM: chưa biết, thiết kế chuẩn bị cho cả hai.
 
+- Related Topic 6 decisions (2026-11-08): auto mode, the incident JIT window, and `--restricted` /
+  auto memory are recorded in 6.6 (D1–D3), with the balance principle in 6.8.
+
 #### Items
 
 - [ ] ⚠️ Is the compliance API / audit-log export for settings changes available on the **Team**
@@ -525,6 +528,7 @@ These are my conclusions from the findings above, not documented facts:
      nothing running on the laptop can write to prod outside an approved, time-boxed window.
      **Inside that window,** any process on the laptop can use the grant. This is a residual risk
      to state openly.
+     *(2026-11-08: the owner chose a process control for this window, see 6.6 D2.)*
 2. **Changing prod: the default path is a pipeline; human write access is the exception, via JIT.**
    - **Default path:** humans hold no prod-write rights. Changes go through CI with a deploy role.
      The named-human approval happens at the CI gate (GitHub Environments, Topic 3).
@@ -1369,3 +1373,445 @@ inference (⚠️)**: it lists what the design must produce so that an auditor c
   5.7 #4 cites Decree Art. 17(3)(d) too; 5.7 #6 marks the Aurora point ⚠️ (2.7.1); 5.1.7b no
   longer repeats 5.26; this log entry. **Topic 5 closed** (no HIGH/MEDIUM remain).
 - **Owner decision (2026-11-08):** "Không mở rộng" (5.8); recorded verbatim, 5.7 #4 points to it.
+
+---
+
+## Topic 6 — Coding-agent risks: prompt injection via docs, web and MCP, and documented defenses
+
+Accessed 2026-11-08. Sources and how they were read (**local check** unless noted):
+- **Claude Code docs** (raw `.md`, HTTP 200): `security`, `permission-modes`, `auto-mode-config`,
+  `sandboxing`, `mcp`.
+- **`claude-code-action`** `docs/security.md` (raw GitHub, `main`).
+- **Anthropic Engineering**, "How we built Claude Code auto mode" (HTML, published 2026-03-25).
+- **Claude Code security advisories:** `gh api repos/anthropics/claude-code/security-advisories`
+  returned 36 published advisories. The repository also carries Claude Desktop advisories (6.3.9).
+- **OWASP GenAI Security Project**, LLM01:2025 and LLM06:2025 (HTML).
+- **NIST AI 100-2e2025** (March 2025; PDF, text extracted with `pypdf`).
+- **MCP specification**, version 2026-07-28: `server/tools` (raw `.md`) and "Security Best
+  Practices" (HTML).
+- **Incidents:** GitHub advisory GHSA-cxm3-wv7p-598c (Nx, CVE-2025-10894), via `gh api`; AWS security
+  bulletin AWS-2025-015 (HTML).
+
+Topic 1 already covers the admin keys: permission modes in 1.2, MCP controls in 1.3, plugins in
+1.4, sandbox in 1.6, and CI in 1.7. This topic covers the **threat**: how injected content reaches the
+agent, what each defense does against it, and how well each defense is documented to work.
+
+### 6.1 What prompt injection is (neutral sources)
+
+| # | Finding | Marker | Source |
+|---|---|---|---|
+| 6.1.1 | OWASP: "Indirect prompt injections occur when an LLM accepts input from external sources, such as websites or files." Injections "do not need to be human-visible/readable, as long as the content is parsed by the model". On prevention: "it is unclear if there are fool-proof methods of prevention for prompt injection". The listed mitigations include "Enforce privilege control and least privilege access", "Require human approval for high-risk actions", "Segregate and identify external content" and "Conduct adversarial testing and attack simulations". | ✅ | [OWASP LLM01:2025](https://genai.owasp.org/llmrisk/llm01-prompt-injection/) |
+| 6.1.2 | NIST: "Because GenAI models combine the data and instruction channels, attackers can leverage the data channel to affect system operations". Indirect injection is enabled by "RESOURCE CONTROL", and is mounted "not by the primary user of a model but instead by a third party". "Because current mitigations do not offer full protection against all attacker techniques, application designers may design systems with the assumption that prompt injection attacks are possible if a model is exposed to untrusted input sources, such as by using multiple LLMs with different permissions … or by allowing models to interact with potentially untrustworthy data sources only through well-defined interfaces." | ✅ | [NIST AI 100-2e2025](https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-2e2025.pdf), §3.4, §3.4.4 |
+| 6.1.3 | NIST on agents: because agents "can take actions using tools", these attacks can enable "actors to hijack agents to execute arbitrary code or exfiltrate data from the environment in which they are operating". "Security research focused specifically on agents is still in its early stages." | ✅ | NIST AI 100-2e2025, §3.5 |
+| 6.1.4 | OWASP **Excessive Agency**: the vulnerability "that enables damaging actions to be performed in response to unexpected, ambiguous or manipulated outputs from an LLM, regardless of what is causing the LLM to malfunction". Its root causes are "excessive functionality; excessive permissions; excessive autonomy".<br>Mitigations include:<br>- "Avoid open-ended extensions" (e.g. "run a shell command, fetch a URL");<br>- "Execute extensions in user's context";<br>- "Require user approval", which "may be implemented in a downstream system (outside the scope of the LLM application)". | ✅ | [OWASP LLM06:2025](https://genai.owasp.org/llmrisk/llm062025-excessive-agency/) |
+| 6.1.5 | NIST lists benchmarks: "AgentDojo [101] is an evaluation framework for measuring the vulnerability of AI agents to prompt injection attacks in which the data returned by external tools hijacks the agent to execute malicious tasks." Open-source tools such as Garak and PyRIT "are intended to help developers identify vulnerabilities". | ✅ | NIST AI 100-2e2025, §3.6 |
+
+### 6.2 How injected content reaches a DevSecOps agent at Papaya
+
+The channels are taken from the sources. Mapping them to Papaya's stack is my inference (⚠️).
+
+| # | Channel | What the sources document | Marker | Source |
+|---|---|---|---|---|
+| 6.2.1 | **Repository files and repo-controlled config** (README, docs, comments, `CLAUDE.md`, `.claude/settings.json`, `.mcp.json`) | Several advisories describe a repository that controls the agent through its own files:<br>- GHSA-mmgp-wc2j-qcv7 (fixed in 2.1.53): a committed `.claude/settings.json` could set `bypassPermissions` "causing the trust dialog to be silently skipped".<br>- GHSA-jh7p-qr78-84p7 (fixed in 2.0.65): a repo setting `ANTHROPIC_BASE_URL` caused requests "before showing the trust prompt, including potentially leaking the user's API keys".<br>- "A `-p` session shows neither prompt": neither the workspace trust dialog nor the `.mcp.json` approval (`security`). Project `.mcp.json` servers load without asking in `claude -p`, SDK and cloud sessions (1.3.5). This is the CI path. | ✅ | [Claude Code advisories](https://github.com/anthropics/claude-code/security/advisories), [security](https://code.claude.com/docs/en/security) |
+| 6.2.2 | **Issues, PR text and comments** (GitHub; by inference, also Linear tickets and Slack threads read through MCP) | The action documentation warns: "External contributors may include hidden instructions through HTML comments, invisible characters, hidden attributes, or other techniques." The action strips some of these, "but new bypass techniques may emerge". | ✅ / ⚠️ (Linear, Slack) | [claude-code-action security](https://github.com/anthropics/claude-code-action/blob/main/docs/security.md) |
+| 6.2.3 | **Web content** (WebFetch, `curl`) | WebFetch usually returns a separate model's answer, not the raw page. `curl`/`wget` are "not auto-approved by default".<br>**Web as an exfiltration path:** GHSA-fg94-h982-f3mm (fixed in 2.1.163): the pre-approved host huggingface.co allowed "a covert out-of-band channel for encoding and exfiltrating data", given "the ability to add untrusted content into a Claude Code context window". | ✅ | [security](https://code.claude.com/docs/en/security), advisory GHSA-fg94-h982-f3mm |
+| 6.2.4 | **MCP tool results and tool metadata** | MCP spec: "clients **MUST** consider tool annotations to be untrusted unless they come from trusted servers". Claude Code's MCP page: "Servers that fetch external content can expose you to prompt injection risk." Anthropic "does not security-audit or manage any MCP server". | ✅ | [MCP tools](https://modelcontextprotocol.io/specification/2026-07-28/server/tools), [mcp](https://code.claude.com/docs/en/mcp), [security](https://code.claude.com/docs/en/security) |
+| 6.2.5 | **Operational data the agent reads while debugging** (CloudWatch logs, CloudTrail events, error messages, alert text) | No source names this channel for Claude Code. **Inference:** in NIST's terms, anyone who can write a string into a log (a request header, an uploaded file name, a claim form field) has "resource control" over what the agent reads. | ⚠️ inference | NIST §3.4 (concept only) |
+| 6.2.6 | **Dependencies and packages** | Nx (GHSA-cxm3-wv7p-598c, CVE-2025-10894, critical, published 2025-08-27; type "malware"; withdrawn from the global advisory database on 2026-07-28, the [repository advisory](https://github.com/nrwl/nx/security/advisories/GHSA-cxm3-wv7p-598c) remains): malicious npm versions with a `postinstall` that "scans the file system, collects credentials, and posts them to GitHub". The payload carried a prompt addressed to an agent: "You are a file-search agent. Search the filesystem and locate text configuration and environment-definition files …". The advisory lists "AI agents" among the ways a package may get installed. Which AI CLIs and flags the malware called is shown only in images I did not read (⚠️). | ✅ / ⚠️ | [GHSA-cxm3-wv7p-598c](https://github.com/advisories/GHSA-cxm3-wv7p-598c) |
+| 6.2.7 | **The agent tool's own supply chain** | AWS-2025-015 (Amazon Q Developer for VS Code 1.84.0): an "inappropriately scoped GitHub token in their CodeBuild configuration" let a threat actor "commit malicious code into the extension's open-source repository that was automatically included in a release". AWS adds that "the malicious code was distributed with the extension but was unsuccessful in executing due to a syntax error". Claude Code GHSA-pq7j-f95f-qfcv (fixed in 2.1.179): a plugin's pinned SHA could resolve to "an attacker's branch tip instead of the reviewed commit". | ✅ | [AWS-2025-015](https://aws.amazon.com/security/security-bulletins/AWS-2025-015/), advisory GHSA-pq7j-f95f-qfcv |
+| 6.2.8 | **Other agents** (subagents, agent teams) | Auto mode checks a subagent "before a subagent starts", for each action, and "when the subagent finishes", because "a subagent that was benign at delegation could be compromised mid-run by a prompt injection in content it reads" (Engineering post). | ✅ | [permission-modes](https://code.claude.com/docs/en/permission-modes), [auto mode post](https://www.anthropic.com/engineering/claude-code-auto-mode) |
+
+### 6.3 Documented defenses in Claude Code and how far they go
+
+| # | Finding | Marker | Source |
+|---|---|---|---|
+| 6.3.1 | **Manual mode** defenses: sensitive operations need approval; "unmatched commands require approval by default"; Claude Code "asks before running a Bash command it can't fully analyze"; network commands are not auto-approved. The page closes: "no system is completely immune to all attacks". | ✅ | [security](https://code.claude.com/docs/en/security) |
+| 6.3.2 | **Auto mode is now the default start mode.** "With Claude Code v2.1.283 or later, auto mode is the built-in starting permission mode for interactive terminal and VS Code sessions on every plan and provider." `claude -p` and the Agent SDK start in `default`. Admins turn it off with `permissions.disableAutoMode: "disable"` in managed settings (also 1.2.2–1.2.3). | ✅ | [permission-modes](https://code.claude.com/docs/en/permission-modes) |
+| 6.3.3 | **What the auto-mode classifier blocks by default** includes:<br>- "Production deploys and migrations";<br>- "Granting IAM or repo permissions";<br>- "Modifying shared infrastructure";<br>- "Merging a pull request no human has approved, approving Claude's own pull request, or disabling CI checks";<br>- "Applying infrastructure changes to a protected IaC scope";<br>- "Writing to a secret manager";<br>- "Sending sensitive data to external endpoints".<br>Several of these depend on `autoMode.environment` entries. **Allowed by default:** "Pushing to any branch of the repository you're working in, including the default branch" (subject to the remote's branch protection), "Reading `.env` and sending credentials to their matching API", and "Installing dependencies declared in your lock files or manifests". | ✅ | [permission-modes § What the classifier blocks by default](https://code.claude.com/docs/en/permission-modes) |
+| 6.3.4 | **How the classifier resists injection:**<br>- "Tool results are stripped from those requests, so hostile content in a file or web page can't manipulate the classifier directly."<br>- "A separate server-side probe scans incoming tool results and flags suspicious content before Claude reads it."<br>- But the classifier **does** see "user messages, tool calls … and your CLAUDE.md content".<br>- The classifier does not read `autoMode` from `.claude/settings.json` or `.claude/settings.local.json`, so that "a checked-in repo or a build step" cannot "inject its own allow rules". | ✅ | [permission-modes § How auto mode evaluates actions](https://code.claude.com/docs/en/permission-modes), [auto-mode-config](https://code.claude.com/docs/en/auto-mode-config) |
+| 6.3.5 | **Measured effectiveness (Anthropic's own numbers):**<br>- End-to-end pipeline: 0.4% false positives on 10,000 real tool calls; **17% false negatives on 52 real "overeager" actions**; 5.7% false negatives on 1,000 synthetic data-exfiltration attempts.<br>- "The 17% false-negative rate on real overeager actions is the honest number."<br>- "It is not a drop-in replacement for careful human review on high-stakes infrastructure."<br>- The probe "injects a warning" for suspected injections. The post gives no detection rate for the probe. | ✅ | [How we built Claude Code auto mode](https://www.anthropic.com/engineering/claude-code-auto-mode) |
+| 6.3.6 | **Conversation boundaries are not rules.** A boundary such as "don't push" is honoured, but "Boundaries are not stored as rules. The classifier re-reads them from the transcript on each check, so a boundary can be lost if context compaction removes the message that stated it. For a hard guarantee, add a deny rule instead." An approval in the conversation can clear a block when it names "the action and the specific thing that makes it dangerous". | ✅ | [permission-modes](https://code.claude.com/docs/en/permission-modes) |
+| 6.3.7 | **Sandbox limits relevant to exfiltration:**<br>- "Allowing broad domains such as `github.com` can create paths for data exfiltration." The proxy decides by hostname "without inspecting TLS", so code can "potentially use domain fronting".<br>- "Effective sandboxing requires both filesystem and network isolation."<br>- The documented stronger option: "configure a custom proxy that terminates TLS and inspects traffic".<br>- Scope is shell commands only (1.6.2); command hooks and local MCP servers run outside it. | ✅ | [sandboxing](https://code.claude.com/docs/en/sandboxing) |
+| 6.3.8 | **`claude-code-action` defenses:**<br>- It runs only for actors with write access.<br>- "Allowed bots are not checked for repository permissions."<br>- `allowed_non_write_users` is "a significant security risk".<br>- On PRs it restores `.claude/`, `.mcp.json`, `.claude.json`, `.gitmodules`, `.ripgreprc`, `CLAUDE.md`, `CLAUDE.local.md` and `.husky/` from the **base branch**. "Everything else in the working tree — including `package.json`, lockfiles, `Makefile` … — stays at the PR head." A base-branch hook that runs a package-manager script or `make` target therefore "resolves through files the pull request supplies"; the docs say to keep such commands self-contained and to "treat `bunfig.toml` and `.npmrc` in the checkout as PR-controlled runtime config".<br>- **When `allowed_non_write_users` is set:** "Do not use a personal access token", because a static token "could be partially or fully recovered over time via prompt injection". Applying this to all workflows is my inference (⚠️).<br>- By default "Claude does not create pull requests automatically". | ✅ | [claude-code-action security](https://github.com/anthropics/claude-code-action/blob/main/docs/security.md) |
+| 6.3.9 | **Vulnerability history (local check, 2026-11-08):** 36 published advisories in the `anthropics/claude-code` repository, 29 rated high. Four of them are Claude Desktop-only (GHSA-v234-4jrq-mgg6, -4p2j-qj3c-6x84, -5p5x-5294-qhp3, -3rwf-2g6p-c2f9, all high), so Claude Code and its IDE extensions account for 32, of which 25 are high. Recurring classes:<br>- trust-dialog bypass or pre-trust execution through repo files (e.g. GHSA-4fgq-fpq9-mr3g, -5hhx-v7f6-x7gv, -mmgp-wc2j-qcv7, -q5hj-mxqh-vv77, -jh7p-qr78-84p7);<br>- approval-prompt bypass through command parsing, about 8 (e.g. the `echo`, `rg`, `find` and `sed` advisories);<br>- sandbox escapes (e.g. GHSA-ff64-7w26-62rf, -vp62-r36r-9xqp, -7835-87q9-rgvv). GHSA-ff64 is also a **persistence** case: code in the sandbox could "inject persistent hooks (such as SessionStart commands) that would execute with host privileges" on restart;<br>- plugin pin bypass (6.2.7).<br>34 of 36 advisories say auto-update users received the fix (wording varies). | ✅ | [advisories](https://github.com/anthropics/claude-code/security/advisories) |
+| 6.3.10 | **GHSA-gfvf-j8jh-jxxw (low, fixed in 2.1.260):** a stored API key was used "ahead of the user's valid Claude Enterprise or Team sign-in when fetching the organization's server-managed settings". The session could start "without the organization's server-managed policy … while continuing to operate as the organization's account". "Endpoint-managed (MDM or file-based) settings were not affected." Team organizations were affected "from version 2.1.38". Precondition: "Triggering this required local access to a device with such a stored API key". | ✅ | advisory GHSA-gfvf-j8jh-jxxw |
+| 6.3.11 | **Protected paths:** writes to a listed set of paths "are never auto-approved" except in `bypassPermissions` (and one plan-mode case). Per mode: `default`/`acceptEdits` → prompted; `auto` → "Routed to the classifier"; `dontAsk` → denied. With `--restricted` (v2.1.248+) "the classifier can't approve protected-path writes".<br>- Protected: the `.claude` directory (so `.claude/settings.json`), `.git`, `.husky`, `.devcontainer`, and files such as `.mcp.json`, `.claude.json`, `.gitmodules`, `.ripgreprc`, `.npmrc`, `bunfig.toml` and shell rc files.<br>- **Exceptions** inside `.claude`: "Markdown files in the project's auto memory directory, such as `~/.claude/projects/<project>/memory/`, in a session started without `--restricted`", and subagent memory under `.claude/agent-memory/`.<br>- The root `CLAUDE.md` is **not** on the list (**local check** of the list). | ✅ | [permission-modes § Protected paths](https://code.claude.com/docs/en/permission-modes) |
+
+### 6.4 MCP-specific requirements
+
+| # | Finding | Marker | Source |
+|---|---|---|---|
+| 6.4.1 | The tools spec: "there **SHOULD** always be a human in the loop with the ability to deny tool invocations". Clients **SHOULD** "Show tool inputs to the user before calling the server, to avoid malicious or accidental data exfiltration", "Validate tool results before passing to LLM" and "Log tool usage for audit purposes". Servers **MUST** "Validate all tool inputs", "Implement proper access controls", "Rate limit tool invocations" and "Sanitize tool outputs". | ✅ | [MCP tools, 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/server/tools) |
+| 6.4.2 | "Token passthrough is explicitly forbidden in the authorization specification." An MCP server must not accept "tokens issued for other resources" and forward them downstream (the "confused deputy" problem). | ✅ | [MCP Security Best Practices](https://modelcontextprotocol.io/specification/2026-07-28/basic/security_best_practices) |
+| 6.4.3 | **Local MCP server compromise:** local servers "may have direct access to the user's system". The documented attacks are "a malicious 'startup' command in a client configuration", "a malicious payload inside the server itself", and an insecure local server reached "via DNS rebinding". The client SHOULD "Execute MCP server commands in a sandboxed environment with minimal default privileges". Servers SHOULD use `stdio`, or restrict HTTP with an authorization token or IPC. | ✅ | as 6.4.2 |
+| 6.4.4 | In Claude Code, an approved MCP server "runs outside the sandbox" (README-hipaa, 5.5.5; local MCP servers are outside the sandbox scope, 1.6.2). An MCP tool marked `requiresUserInteraction` prompts "even when an allow rule matches"; that mark is set by the **server author**, not by the org. Org controls on servers are in 1.3; pinning by `serverCommand` (1.3.3) limits a server whose code changes after approval only when the argv pins an immutable version or path; `npx some-server` or `pkg@latest` still pulls new code (⚠️ inference). | ✅ | [permission-modes](https://code.claude.com/docs/en/permission-modes), [mcp](https://code.claude.com/docs/en/mcp), [sandboxing](https://code.claude.com/docs/en/sandboxing), 5.5.5, 1.3 |
+
+### 6.5 What this means for Papaya (inferences — to be used in the design)
+
+1. **Design as if injection succeeds.** NIST (6.1.2) and OWASP (6.1.1) both say there is no full
+   prevention. So the production boundary must not rest on the model or the classifier:
+   - **Outside incidents:** no standing prod write for humans or agents (2.9 #2). Prod changes go
+     only through CI with a human approval in GitHub (Topics 3–4). This is OWASP's "downstream"
+     approval (6.1.4).
+   - **Inside a JIT window:** on the laptop the agent can use the grant, because it is
+     indistinguishable from the engineer (2.9 #1, residual risk). This is exactly when the engineer
+     is reading logs and alerts, which are untrusted input (#8). So during incidents untrusted input
+     and prod write **overlap**. The compensating control is an owner decision, for example "no
+     agent session in the shell that holds the JIT grant", or the agent only proposes commands that
+     the human runs (⚠️ design).
+   - The classifier, the probe and the sandbox **reduce frequency**; IAM and the CI gate **limit
+     impact**.
+2. **Separate reading untrusted content from holding power (⚠️ design).** This follows NIST's
+   "multiple LLMs with different permissions" (6.1.2). On a laptop there is no Claude Code or AWS
+   mechanism that separates credentials per session (2.9 #1). Separation therefore means a
+   different OS user, container, VM or CI runner with **its own** credentials. Examples: a PR-review
+   agent in CI with read-only tokens, and a sandboxed dev container without the engineer's SSO
+   cache.
+3. **Auto mode is on by default, so Papaya must decide explicitly** (6.3.2). Its default block list
+   **overlaps with** the Compliance position (prod deploys, IAM grants, merging unapproved PRs,
+   6.3.3). It is not a named human, and it allows pushing to the default branch by default. That is
+   safe only if rulesets require an approved PR on `main` (3.6). The measured miss rates are
+   per risk:
+   - 17% on 52 real overeager actions;
+   - 5.7% on 1,000 synthetic exfiltration attempts;
+   - no published rate for the injection probe.
+
+   Both rates date from 2026-03-25, before the v2.1.283 default (6.3.5).
+
+   Options for the design:
+   - (a) Disable it org-wide with `disableAutoMode`.
+   - (b) Set `permissions.defaultMode` in managed settings so sessions start in Manual. People
+     "can still switch to auto mode" ([permission-modes](https://code.claude.com/docs/en/permission-modes)).
+   - (c) Allow it only in environments whose credentials are non-prod. No setting ties auto mode
+     to credentials, so this needs a separate machine, container or profile (#2, ⚠️).
+
+   With (b) and (c), `autoMode.environment` must not list PHI-holding buckets as trusted, because
+   "Sending data to the trusted domains, buckets, and services you list" is allowed by default.
+   The trade-off is a measured miss rate against approval fatigue. Anthropic itself says that for
+   someone "manually approving every action carefully, it's arguably a regression". So the owner
+   decides (6.6). My unverified expectation (⚠️) is that (a) increases prompt fatigue.
+4. **Version floor and two policy channels.** The advisory record (6.3.9) makes a minimum client
+   version a security control. GHSA-gfvf (6.3.10) affected **Team** server-managed settings and not
+   endpoint-managed files. So:
+   - set `requiredMinimumVersion` at or above 2.1.260 (and above later fixes). Note it does not end
+     a running session and fails open on an invalid value (1.1.13). Clients on 2.1.283 or later start in
+     auto mode anyway; a floor there makes that universal unless #3 changes it;
+   - deliver the key settings **both** server-managed and as an endpoint file where MDM exists
+     (1.9: MDM unknown). A local admin can still edit the endpoint file (1.1.8).
+5. **Repository-controlled configuration is a recurring bug class** (6.2.1, 6.3.9).
+   - Put `CLAUDE.md`, `CLAUDE.local.md`, `.claude/`, `.claude.json`, `.mcp.json`, `.husky/`,
+     `.gitmodules`, `.ripgreprc` and `.github/` under CODEOWNERS. This extends 3.2.8, which covers `.github/workflows` only.
+   - In CI, run the agent only with base-branch configuration (6.3.8). Remember that
+     `package.json`, `Makefile`, lockfiles, `.npmrc` and `bunfig.toml` still come from the PR head.
+     So keep hook, `statusLine` and `apiKeyHelper` commands self-contained.
+   - In `-p`/CI sessions, project `.mcp.json` servers load without a prompt (6.2.1). The CI
+     configuration should therefore fix the MCP set itself (1.3).
+   - `CLAUDE.md` is also classifier input (6.3.4), so a PR that edits it changes what the
+     classifier treats as intent (⚠️ inference).
+6. **Exfiltration goes through allowed channels.** Allowing `github.com` wholesale is a documented
+   path (6.3.7). The README says injected content can move data "through the developer's own shell
+   and Git", limited only by the network allowlist (5.5.5). Other outbound channels are PR, issue,
+   Linear and Slack posts through MCP. Controls:
+   - a narrow egress allowlist, or a TLS-inspecting proxy for the strongest guarantee (6.3.7);
+   - MCP write tools for chat and tickets only where needed.
+
+   The Engineering cost is the workflows that break.
+7. **Supply chain is an agent risk, not only a CI risk.** Agents run installs (6.2.6), and auto mode
+   allows "Installing dependencies declared in your lock files or manifests" by default (6.3.3). A
+   lockfile does not stop a locked malicious version from running `postinstall`. Candidate controls
+   (⚠️):
+   - `--ignore-scripts` where workable, and an internal registry or mirror;
+   - least-privilege, short-lived CI tokens (Topic 3). The Amazon Q release was built with a
+     mis-scoped token; the payload was "unsuccessful in executing due to a syntax error" (6.2.7);
+   - pinned plugins from Papaya's private marketplace, with a client version that includes the
+     pin fix (2.1.179).
+8. **Logs and tickets are untrusted input** (6.2.5, ⚠️). Text from customer-facing systems can carry
+   instructions when it reaches CloudWatch, Linear or Slack. Papaya is multi-tenant, so a session
+   that reads one insurer's logs and can write to shared places (PRs, tickets, chat) is also a
+   cross-tenant leak path (⚠️). This falls under #2.
+9. **Persistence and transcripts.** An injection that writes to agent configuration or memory
+   outlives the session (GHSA-ff64, 6.3.9). The controls differ per target (6.3.11):
+   - `.claude/settings.json` (hooks) is a protected path: prompted in Manual, sent to the
+     classifier in auto mode, and never classifier-approved with `--restricted`;
+   - the repo's `CLAUDE.md` is not protected. Only CODEOWNERS and PR review control it (#5);
+   - **auto memory** (`~/.claude/projects/<project>/memory/`) is exempt from protected paths unless
+     the session runs with `--restricted`, and it lives outside the repo, so CODEOWNERS cannot see
+     it (⚠️ gap; see 6.6);
+   - session transcripts under `~/.claude/projects/` hold tool output, which is a store for secrets
+     and data (1.11.4). Auto mode blocks "Printing a live credential or token into the
+     transcript" (permission-modes block list), but tool output that already contains data is
+     still stored.
+10. **Attribution depends on where the agent runs** (3.3.1, 3.3.4).
+    - **Laptop:** agent commits and PR comments carry the engineer's identity; MCP posts (Slack,
+      Linear) probably do too, depending on how each server authenticates (⚠️). This is
+      the git-side twin of 2.9 #1. GitHub already blocks the engineer from approving that PR
+      (3.3.1).
+    - **`claude-code-action` / GitHub App:** if the app opens the PR, the author is the app, and the
+      engineer who triggered it is **not** blocked from approving it. One approval could then mean
+      zero independent reviewers. The mitigations are in 3.3.4.
+11. **Open-ended tools are a deliberate trade-off.** OWASP says to "Avoid open-ended extensions (e.g.
+    run a shell command, fetch a URL)" (6.1.4). Claude Code's Bash and WebFetch are exactly that.
+    Keeping them is the Engineering value; the sandbox, egress limits and the CI boundary are the
+    price paid for keeping them.
+12. **Test the controls.** OWASP lists adversarial testing (6.1.1), and NIST names AgentDojo (6.1.5).
+    The rollout should include a planted-injection exercise against the real configuration, for
+    example a PR comment or a log line that asks the agent to exfiltrate data or deploy.
+
+### 6.6 Open items (Topic 6)
+
+#### Quyết định của owner (2026-11-08)
+
+Recorded as the owner wrote them (Vietnamese, verbatim). These are **design assumptions for
+Papaya**; the owner has no access to Papaya's systems. The consequences, metrics and review
+conditions under each decision are my additions for the design; the follow-up research is in 6.9.
+
+**D1 — Auto mode.** Owner's text:
+
+> Auto mode: chọn (b) ngay (managed defaultMode = Manual, kèm allowlist lệnh chỉ đọc an toàn để giảm số prompt; người dùng vẫn tự bật auto được, và ghi rõ đây là mặc định chứ không phải kiểm soát cứng). Giai đoạn 60-90 ngày thêm (c): môi trường riêng với credential non-prod nơi auto mode được khuyến khích. (a) là phương án dự phòng, chỉ bật khi: bài kiểm tra planted-injection trên cấu hình thật cho thấy auto mode bị lừa, hoặc có advisory nghiêm trọng mới, hoặc audit thấy auto mode đụng vào phạm vi được bảo vệ.
+>
+> Lý do: Ranh giới production nằm ở IAM và cổng CI, không nằm ở classifier (6.5 #1). Khi agent trên laptop không có quyền ghi prod thường trực và không chạm PHI, classifier trượt (17% trên hành động overeager thật, 6.3.5) chỉ gây thiệt hại có giới hạn. Tắt hẳn auto mode (a) không làm ranh giới mạnh hơn, nhưng tăng số prompt và dễ dẫn tới phê duyệt theo thói quen, đúng hiện trạng đề mô tả (kỹ sư tắt permission prompt cho nhanh). Manual mặc định kèm allowlist bỏ prompt cho thao tác an toàn, giữ người trong vòng lặp cho thao tác có hậu quả, và vẫn để kỹ sư chọn auto khi thấy phù hợp. (c) cho tốc độ cao nhất ở nơi thiệt hại thấp nhất, nhưng cần công dựng môi trường nên đưa vào lộ trình. Số liệu classifier có từ 03/2026, trước khi auto mode thành mặc định, nên tôi không dựa vào nó để quyết cuối cùng: bài planted-injection trên cấu hình thật sẽ quyết có cần chuyển sang (a) hay không.
+
+- **Consequences for the design:**
+  - managed settings set `permissions.defaultMode` to `default` (Manual), plus a managed allowlist of
+    safe read-only commands (6.9.3);
+  - it is documented as a **default, not a hard control**: the CLI flag and the VS Code mode picker
+    override it (6.9.3);
+  - managed settings set `allowManagedPermissionRulesOnly` (owner's answer to Q4). So the managed
+    rule set must also carry every deny/ask rule that projects relied on, because project and user
+    rules are ignored (6.9.3);
+  - the 60–90-day roadmap adds a non-prod environment where auto mode is encouraged (option c);
+  - a fallback runbook switches to `disableAutoMode` when a trigger fires;
+  - the planted-injection test (6.5 #12) becomes a required rollout step, because it decides
+    whether the fallback is needed.
+- **Metrics** (telemetry fields from [monitoring-usage](https://code.claude.com/docs/en/monitoring-usage), ✅ read
+  this session; feasibility per metric as marked):
+  - share of tool calls in auto mode: `claude_code.tool_decision` carries `permission_mode` (✅
+    field exists). "Per tier" needs a tier attribute, e.g. a resource attribute, which was not
+    researched (⚠️);
+  - permission prompts per session in Manual, and the share approved in under ~2 s (a
+    rubber-stamping signal): `claude_code.tool.blocked_on_user` has `duration_ms`, "Time spent
+    waiting for the permission decision", and `decision` (✅ fields exist; the threshold is ⚠️ to
+    calibrate);
+  - auto-mode blocks by rule: `classifier_verdict` (v2.1.301+) and `classifier_category` (needs
+    `OTEL_LOG_TOOL_DETAILS=1`) (✅ fields exist);
+  - requests to extend the allowlist, and planted-injection results per release (process records,
+    not telemetry);
+  - caveat: an engineer can turn the signals off unless the exporter selectors are also set in
+    managed settings (1.1.20).
+- **Review when:**
+  - a planted-injection test shows auto mode being steered;
+  - a new serious advisory appears (owner's wording: "advisory nghiêm trọng mới"; my reading, to
+    confirm: high or critical, affecting the permission or classifier path);
+  - an audit finds auto mode touched a protected scope;
+  - the (c) environment goes live;
+  - Anthropic publishes newer classifier numbers;
+  - otherwise at the 90-day review.
+
+**D2 — Incident JIT window.** Owner's text:
+
+> Cửa sổ JIT: agent đề xuất lệnh bằng danh tính chỉ đọc, người trực chạy lệnh ghi trong terminal riêng giữ quyền JIT sau khi đọc lệnh. Quyền JIT hẹp và TTL ngắn. Mọi thay đổi tay phải có PR codify lại trong thời hạn cố định và có job phát hiện drift. Ghi rõ đây là kiểm soát bằng quy trình, chưa phải kỹ thuật (2.9 #1). Giai đoạn sau: break-glass từ môi trường không cài agent (đánh dấu ⚠️ phương án thiết kế).
+>
+> Lý do: Trong sự cố, việc đọc log không tin cậy và việc giữ quyền ghi prod xảy ra cùng lúc (6.5 #1, #8), đúng điều kiện để prompt injection gây hại nhiều nhất. Cấm agent tham gia sự cố thì mất giá trị lớn nhất của nó là đọc log và lập giả thuyết nhanh; cho agent dùng quyền JIT thì một dòng log bị cài có thể thành lệnh chạy trên prod. Vì vậy tôi tách "nghĩ" và "làm": agent phân tích bằng danh tính chỉ đọc, người chạy lệnh ghi. Chi phí chỉ vài giây mỗi lệnh, đổi lại mỗi thay đổi prod có một người có tên trong CloudTrail, đúng yêu cầu của Compliance. Quyền hẹp và TTL ngắn giới hạn cả lỗi của người; PR codify và drift detection đưa thay đổi tay trở lại luồng review. Tôi ghi rõ đây là kiểm soát bằng quy trình, vì trên laptop chưa có cơ chế tách credential theo session (2.9 #1), và sẽ nâng lên tách kỹ thuật khi có nguồn lực.
+
+- **Consequences for the design:**
+  - an incident runbook with two roles: the agent session on a read-only incident identity, and a
+    separate human terminal holding the narrow, short-TTL JIT grant (Topic 2 JIT design);
+  - every manual change gets a codify PR within a fixed deadline, plus a drift-detection job
+    (Topic 4: Pulumi refresh / CloudFormation drift);
+  - the design states openly that this is a **process control**: on a laptop nothing technically
+    stops the agent process from using the grant (2.9 #1);
+  - later phase: break-glass from an environment without the agent (⚠️ design option).
+- **Metrics:**
+  - JIT grants per month, with scope and TTL;
+  - manual changes (CloudTrail write events under JIT roles) with no codify PR after the deadline;
+  - drift findings and their age;
+  - JIT-window write events whose session is not the human's terminal (⚠️ detectability depends
+    on 2.5 / 2.9 #1; probably not separable on a laptop).
+- **Review when:**
+  - a technical per-session credential separation becomes available (e.g. a separate OS user or
+    VM for break-glass);
+  - a codify-PR deadline is missed repeatedly;
+  - an incident review shows a write ran from the agent session;
+  - otherwise at the 90-day review.
+
+**D3 — `--restricted` and auto memory.** Owner's text:
+
+> --restricted và auto memory: bắt buộc --restricted cho session có quyền ghi (tier JIT) và ở nơi chạy không giám sát, khuyến nghị ở nơi khác. Auto memory coi là trạng thái bền vững không tin cậy: kiến thức dùng chung đặt trong CLAUDE.md dưới CODEOWNERS; memory cá nhân kỹ sư tự xem lại định kỳ và xóa sau session đã xử lý nội dung đáng ngờ; phần không kiểm soát tập trung được ghi nhận là rủi ro dư có chủ sở hữu.
+>
+> Lý do: Rủi ro chính ở đây là persistence: injection ghi được vào cấu hình hoặc memory thì sống qua nhiều session (GHSA-ff64, 6.3.9). --restricted đóng đường classifier tự duyệt ghi vào đường dẫn được bảo vệ và vào auto memory (6.3.11), với chi phí thấp vì công việc thường ngày hiếm khi sửa các file đó. Tôi chỉ bắt buộc ở nơi thiệt hại lớn (session có quyền ghi, nơi chạy không giám sát), theo nguyên tắc ma sát tỉ lệ với thiệt hại; nơi khác chỉ khuyến nghị để không thêm prompt vô ích. Auto memory nằm trong thư mục home của từng kỹ sư, ngoài repo, nên với công cụ hiện có (chưa rõ có MDM, 1.9) không review tập trung được. Thay vì giả vờ kiểm soát được, tôi chuyển kiến thức dùng chung sang CLAUDE.md có CODEOWNERS review, và ghi nhận phần còn lại là rủi ro dư có chủ sở hữu, xem lại khi có cơ chế quản lý tập trung.
+
+- **Consequences for the design:**
+  - CI and other unattended runs start Claude Code with `--restricted`, set in the workflow file,
+    which is under CODEOWNERS (3.2.8). Each workflow names its tools explicitly in `--tools`, and
+    its rules come only from managed settings or a `--settings` file on the runner, not from the
+    repo's rules or hooks (owner's answer to Q5). Whether `claude-code-action` accepts the flag
+    through `claude_args` is still ⚠️ (6.9.4 Q5);
+  - laptops: a process rule (owner's answer to Q1, 2026-11-08). It applies to the agent's
+    incident-analysis session (owner's answer to Q2), which then needs `--tools` to name Bash and
+    the read-only file tools (6.9.1b);
+  - shared knowledge moves to `CLAUDE.md` under CODEOWNERS (6.5 #5);
+  - engineers review personal auto memory periodically, and delete it after a session that handled
+    suspicious content;
+  - the remaining risk goes into the risk register with a named owner.
+- **Metrics:**
+  - share of unattended runs started with `--restricted` (checkable in workflow files);
+  - `CLAUDE.md` changes merged with CODEOWNERS approval;
+  - number of memory clean-ups reported after suspicious sessions (self-reported, ⚠️ weak);
+  - the risk-register entry's review date.
+- **Review when:**
+  - central device management (MDM) is confirmed (1.9);
+  - Claude Code adds a managed way to force restricted mode or to audit memory;
+  - a persistence incident occurs;
+  - otherwise at the 90-day review.
+
+#### Items
+
+- [x] Owner decision on auto mode: (a) disable, (b) start in Manual via managed `defaultMode`,
+      or (c) only in environments with non-prod credentials (6.5 #3). **Decided 2026-11-08 (D1 above).**
+- [x] Owner decision on the incident overlap: what compensating control applies inside a JIT
+      prod window (6.5 #1)? **Decided 2026-11-08 (D2 above).**
+- [ ] ⚠️ MCP tool-description changes after approval ("rug pull") and tool poisoning: not covered
+      by the sources read beyond `serverCommand` pinning (6.4.4).
+- [ ] ⚠️ Detection rate of the server-side prompt-injection probe: not published in the sources
+      read.
+- [ ] ⚠️ Which AI CLIs and flags the Nx payload invoked (shown only as images, 6.2.6).
+- [ ] ⚠️ OWASP Top 10 for Agentic Applications and the OWASP MCP guidance were not read; they could
+      add agent-specific items.
+- [ ] ⚠️ Whether `CLAUDE.md` changes in a PR can widen what the auto-mode classifier allows
+      (6.5 #5).
+- [x] Whether to require `--restricted` for agent sessions, and how to review auto-memory
+      content, which is outside both protected paths and CODEOWNERS (6.5 #9). **Decided 2026-11-08
+      (D3 above).**
+- [ ] ⚠️ The current latest fixed version to use as `requiredMinimumVersion` (re-check the advisory
+      list at rollout time).
+
+### 6.8 Nguyên tắc cân bằng bảo mật và thuận tiện
+
+Set by the owner on 2026-11-08 as a cross-cutting principle for Phase 4 (verbatim):
+
+> Nguyên tắc cân bằng (dùng làm nguyên tắc xuyên suốt cho Phase 4): đặt ma sát ở nơi thiệt hại lớn, bỏ ma sát ở nơi thiệt hại nhỏ. Ranh giới thật nằm ở IAM và cổng CI; kiểm soát phía agent giảm tần suất. Nếu đường an toàn chậm hơn đường tắt thì kỹ sư sẽ đi đường tắt, nên ma sát phải đo được và có lối thoát có thời hạn.
+
+English rendering for `docs/`: put friction where the damage is large and remove it where the
+damage is small. The real boundary is IAM and the CI gate; agent-side controls reduce frequency.
+If the safe path is slower than the shortcut, engineers take the shortcut, so friction must be
+measurable and come with a time-boxed escape hatch.
+
+### 6.9 Follow-up research for the owner decisions (2026-11-08)
+
+Sources: Claude Code docs `cli-reference`, `env-vars`, `settings-reference`, `memory`,
+`permissions`, `permission-modes`, `corporate-launcher` and `monitoring-usage` (raw `.md`, HTTP 200, **local check**).
+
+| # | Finding | Marker | Source |
+|---|---|---|---|
+| 6.9.1 | **(a) Can managed settings force `--restricted`? No setting found.** Restricted mode starts only from the CLI flag `--restricted` or the variable `CLAUDE_CODE_RESTRICTED=1`. The variable is "the same as passing `--restricted`", but "Claude Code ignores this variable in a settings file's `env` block": it is read "from the launch environment only" and "is ignored from every file", which includes managed settings. A search of `settings-reference` for "restricted" finds no setting that turns it on (**local check**). | ✅ | [cli-reference](https://code.claude.com/docs/en/cli-reference), [env-vars](https://code.claude.com/docs/en/env-vars), [settings-reference](https://code.claude.com/docs/en/settings-reference) |
+| 6.9.1b | **What `--restricted` does** (more than protected paths):<br>- Intended "when an evaluation harness drives `claude` on a shared machine and Claude Code must not run commands or read that machine's user and project settings".<br>- It "removes the built-in tools that run commands or code, and WebFetch, unless you name them individually in `--tools`".<br>- It confines file tools to the working directories, "loads only managed settings and `--settings`", refuses `bypassPermissions`, and refuses cloud sessions.<br>- Requires v2.1.248 or later.<br>- With it, "the classifier can't approve protected-path writes", and auto memory is no longer exempt from protected paths (6.3.11). | ✅ | [cli-reference](https://code.claude.com/docs/en/cli-reference), [permission-modes](https://code.claude.com/docs/en/permission-modes) |
+| 6.9.1c | **Ways to make it the norm without a setting:**<br>- CI: put the flag in the workflow file under CODEOWNERS (enforceable through review).<br>- Laptops: a script named `claude` earlier on `PATH` that sets `CLAUDE_CODE_RESTRICTED=1`. The launcher doc says a session "you start yourself in a terminal … runs however you invoked it" and that only such a `PATH` script covers it. `CLAUDE_CODE_PROCESS_WRAPPER` / `processWrapper` covers Claude Code's background service and agent-view sessions, **not** terminal sessions.<br>- **Inference (⚠️):** the variable is read from the launch environment, so a user can call the real binary or unset it. Even with MDM, a `PATH` script is a default, not a hard control. | ✅ (launcher text) / ⚠️ (bypass) | [corporate-launcher](https://code.claude.com/docs/en/corporate-launcher), [settings-reference](https://code.claude.com/docs/en/settings-reference) |
+| 6.9.2 | **(b) Can auto memory be turned off or limited?**<br>- `autoMemoryEnabled` (scope "Any file", so managed settings too): "When `false`, Claude doesn't read from or write to the auto memory directory." But `CLAUDE_CODE_DISABLE_AUTO_MEMORY` "takes precedence over this key for one session, in either direction". Setting it to `0` forces auto memory on even when `autoMemoryEnabled: false`.<br>- `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`: "When disabled, Claude does not create or load auto memory files." Setting it in a managed `env` block is my inference from the general `env` rules (⚠️ untested): an `env` value "overwrites the same variable exported in your shell", which would make it stronger than `autoMemoryEnabled: false` alone, because a shell export of `0` beats the key. When Claude Desktop or a Claude Code self-hosted environment runner starts the session, "the launch environment it builds takes precedence instead".<br>- `autoMemoryDirectory` (any scope) moves the directory.<br>- "Outside Claude Tag sessions, a session in a self-hosted environment runs with auto memory off by default" (Claude Code's self-hosted environments feature, not GitHub self-hosted runners).<br>So a central **default-off** exists. It is not a hard lock: launch environments and local admins (1.1.8) can still override it. | ✅ | [memory](https://code.claude.com/docs/en/memory), [settings-reference](https://code.claude.com/docs/en/settings-reference), [env-vars](https://code.claude.com/docs/en/env-vars) |
+| 6.9.3 | **(c) `defaultMode` and the allowlist in managed settings:**<br>- "Every terminal session in your organization: Set `permissions.defaultMode` in managed settings. Terminal sessions start in that mode and people can still switch to auto mode." To remove auto mode, set `disableAutoMode` instead.<br>- Start-mode precedence: the `--permission-mode` flag beats any `defaultMode`.<br>- VS Code takes the first of: `claudeCode.initialPermissionMode`, then "The mode you last picked from the mode indicator", then managed or user `defaultMode`. **A user who picks Auto once in VS Code keeps starting there.**<br>- **Built-in read-only set:** `ls`, `cat`, `grep`, `find`, `diff`, read-only `git` and others run "without a permission prompt in every mode". "The set is not configurable."<br>- **Managed allow rules:** `permissions.allow` entries such as `Bash(npm test)` skip the prompt. Rules are evaluated "deny, then ask, then allow". Bash rules match the command text; the docs say a deny or ask rule "isn't a security boundary around the program" (1.2.6), and an allow rule likewise matches only the text written. Broad interpreter rules are dropped on entering auto mode. `allowManagedPermissionRulesOnly` decides whether engineers' own allow rules count (1.2.5). | ✅ | [permission-modes](https://code.claude.com/docs/en/permission-modes), [permissions](https://code.claude.com/docs/en/permissions) |
+
+#### 6.9.4 How the research affects the decisions (for the owner to decide; decisions unchanged)
+
+- **Q1 (D3) — "required" `--restricted` on laptops is procedural.** Managed settings cannot
+  force it (6.9.1). In CI it is enforceable through the workflow file and CODEOWNERS. On laptops
+  even a `claude` script on `PATH` is only a default that can be bypassed (6.9.1c).
+  **Owner's answer (2026-11-08), verbatim:** "Chấp nhận quy trình thôi. Vì nếu kiểm soát chặt thì cần
+  MDM."
+- **Q2 (D3 with D2) — which session is the "write-capable tier"?** Under D2 the agent session uses a
+  **read-only** identity, and only the human's separate terminal holds the JIT grant. That
+  terminal runs no agent. So does D3's mandatory `--restricted` apply to the agent's
+  incident-analysis session? If so, note that `--restricted` removes Bash and WebFetch unless they
+  are named in `--tools` (6.9.1b). The analysis session would need, for example,
+  `--tools "Bash,Read,Grep,Glob"` to run read-only CLI commands. It would also load no user or
+  project settings, only managed settings and `--settings`.
+  **Owner's answer (2026-11-08), verbatim:** "Session phần tích của agent."
+- **Q3 (D3) — auto memory has a central default-off.** D3 says memory cannot be controlled
+  centrally. Content review indeed cannot be done centrally. But a default-off exists
+  (`autoMemoryEnabled: false` or a managed `env` value, 6.9.2). It is overridable, so it is not a
+  hard control. Options:
+  - keep D3 as written (memory on, personal review);
+  - default-off in the JIT and unattended tiers only;
+  - default-off org-wide, with a personal opt-in.
+  **Owner's answer (2026-11-08), verbatim:** "Giữ như hiện tại."
+- **Q4 (D1) — the default is "sticky" in VS Code.** After one pick of Auto, the VS Code extension
+  starts there regardless of the managed `defaultMode` (6.9.3). This matches D1's "default, not a
+  hard control". It means the auto-mode share metric will likely drift up over time (⚠️ inference), and the
+  design should expect that. A related choice: whether to set `allowManagedPermissionRulesOnly`. It
+  "ignores `allow`, `ask`, and `deny` rules in user, project, local, and `--settings` files,
+  ([settings-reference](https://code.claude.com/docs/en/settings-reference#allowmanagedpermissionrulesonly), ✅)
+  ignores `--allowedTools`, hides the always-allow choices in permission prompts, and stops saving
+  new rules". So it also drops project and user deny/ask rules (✅, from the quoted text), and it
+  likely raises the prompt count, which works against D1's aim (⚠️ inference).
+  **Owner's answer (2026-11-08), verbatim:** "Có, rule nên được quản lý tập trung và nhất quán với
+  tất cả."
+- **Q5 (D3) — the cost of `--restricted` in CI.** With the flag, CI runs lose Bash and WebFetch
+  unless they are named in `--tools`. They load "only managed settings and `--settings`", so the
+  repo's `.claude/settings.json` deny rules and hooks do not load. That makes the base-branch
+  restore of 1.7.9 / 6.3.8 matter less, but every needed rule must come from a `--settings` file
+  or managed settings on the runner (6.9.1b). Whether `anthropics/claude-code-action` passes
+  `--restricted` through `claude_args` was not verified (⚠️). Does D3 keep "required in CI" with
+  this cost?
+  **Owner's answer (2026-11-08), verbatim:** "Có, CI cần khai báo tool cụ thể và không tự nạp rule hay
+  hook của repo."
+- **No conclusion in 6.1–6.5 becomes wrong** because of the decisions. 6.5 #1, #3 and #9 listed
+  options and open questions, and the decisions now answer them (D1–D3).
+
+### 6.7 Review log (Topic 6)
+
+- **Round 1 (2026-11-08)**, independent reviewer subagent. It checked every quote against the local
+  source copies and the cross-referenced rows.
+  - Result: 1 HIGH, 6 MEDIUM, 8 LOW, plus 8 coverage gaps.
+  - I re-checked the HIGH and MEDIUM items against the sources (2.9 #1, `nx.json`, the
+    advisory list, `permission-modes`, `action-security.md`, 1.3.5). All were accepted:
+    - **HIGH:** 6.5 #1–#2 contradicted 2.9 #1. On a laptop the agent can use a JIT prod grant,
+      and per-session separation has no mechanism. Both items are rewritten. The incident overlap
+      is stated openly and listed as an owner decision in 6.6;
+    - the advisory count now separates the 4 Claude Desktop-only advisories (32 Claude Code, 25
+      of them high);
+    - the Nx advisory is marked withdrawn from the global database, with the repository advisory
+      and its CVE;
+    - 6.5 #3 is reframed: "overlaps with", a miss rate per risk with sample size and date, option
+      (b) `defaultMode` in managed settings added, the non-prod option marked ⚠️, the trusted-bucket
+      caveat, the counterpoint from Anthropic's post;
+    - the PAT advice is conditional on `allowed_non_write_users`;
+    - the base-branch restore list is complete, with the hook caveat;
+    - `.mcp.json` loads unprompted in `-p`, SDK and cloud sessions (1.3.5).
+  - LOW items fixed: "recurring" instead of "most frequent"; advisory wording count;
+    GHSA-gfvf precondition plus the 1.1.13 / 1.1.8 caveats; supply-chain controls and the AWS
+    context; NIST §3.6 row 6.1.5; MCP links pinned to 2026-07-28; the 6.4.4 source and author-set
+    flag; GHSA-fg94 labelled as an exfiltration path.
+  - Gaps added in 6.5 #6–#11: persistence (GHSA-ff64), hooks outside the sandbox, exfiltration
+    through allowed channels with the TLS-inspecting proxy, transcripts, attribution, open-ended
+    tools, and multi-tenant leakage. MCP "rug pull" was moved to 6.6.
+- **Round 2 (2026-11-08)**, same reviewer: all round-1 findings FIXED (one partly, now
+  completed); new: 0 HIGH, 2 MEDIUM, 6 LOW. I re-checked both MEDIUM items against
+  `permission-modes` § Protected paths and 3.3.4. Both were accepted:
+  - 6.5 #9 named the wrong controls. New row 6.3.11 on protected paths: root `CLAUDE.md` is not
+    protected, and auto memory is exempt unless `--restricted`. #9 is rewritten per target, and an
+    open item added;
+  - 6.5 #10 contradicted 3.3.4 for app-opened PRs. It is now split into the laptop and the
+    GitHub App case.
+  - All 6 LOW fixed: 34 of 36; `serverCommand` pinning caveat; the install quote added to 6.3.3;
+    AWS wording; "both rates" and the 2.1.283 wording; `.gitmodules` and `.ripgreprc` added to the
+    CODEOWNERS list. The transcript cross-reference is now 1.11.4.
+- **Round 3 (2026-11-08)**, same reviewer: all 8 round-2 findings FIXED; no new HIGH/MEDIUM.
+  One optional LOW fixed (MCP-post identity marked ⚠️ in 6.5 #10). **Topic 6 closed.**
+- **Owner decisions (2026-11-08):** the owner decided D1 (auto mode), D2 (incident JIT window) and
+  D3 (`--restricted` and auto memory), and set the balance principle (6.8). All are recorded
+  verbatim in 6.6 and 6.8. I added consequences, metrics and review conditions, the follow-up
+  research 6.9, and cross-reference notes in 1.9 and 2.9. Q1–Q4 in 6.9.4 are open for the owner;
+  no decision was changed. (Later the same day: Q1 answered; Q5 added.)
+- **Review of the owner-decision additions (2026-11-08)**, independent reviewer subagent: 0 HIGH,
+  5 MEDIUM, 6 LOW. All were fixed after a check against the sources: the launcher covers background
+  sessions, not terminal ones, and a `PATH` script is bypassable (6.9.1c); Q5 added for the CI cost
+  of `--restricted`; D1 metrics tied to documented telemetry fields; Q4 lists what
+  `allowManagedPermissionRulesOnly` really does; the 6.8 rendering now says "escape hatch"; the
+  self-hosted qualifier, the managed-`env` inference ⚠️, the 1.2.6 scope, the owner's advisory
+  wording, the "above" labels, and the ⚠️ on metric drift. Owner answered Q1 ("Chấp nhận quy trình
+  thôi."), recorded in 6.9.4.
+- **Round 2 of that review (2026-11-08)**, same reviewer: all 11 findings FIXED; 0 HIGH, 0 MEDIUM,
+  4 LOW, all fixed (stale Q1 notes, Q4 marker and link, the 6.9 sources line). **Closed.**
+- **Owner answers (2026-11-08):** Q1 (with reason), Q2, Q3 and Q4 answered by the owner, recorded
+  verbatim in 6.9.4. The D3 consequences are updated for Q1 and Q2, and the D1 consequences for Q4. Q5 stays open.
+- **Owner answer (2026-11-08):** Q5 answered (keep `--restricted` required in CI, with explicit
+  `--tools` and no repo rules or hooks), recorded verbatim in 6.9.4; D3 consequence updated. All
+  of Q1–Q5 are now answered.

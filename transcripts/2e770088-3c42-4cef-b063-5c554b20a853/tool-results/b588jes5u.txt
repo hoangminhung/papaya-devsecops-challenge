@@ -1,0 +1,216 @@
+L     1	## Topic 6 — Coding-agent risks: prompt injection via docs, web and MCP, and documented defenses
+L     2	
+L     3	Accessed 2026-11-08. Sources and how they were read (**local check** unless noted):
+L     4	- **Claude Code docs** (raw `.md`, HTTP 200): `security`, `permission-modes`, `auto-mode-config`,
+L     5	  `sandboxing`, `mcp`.
+L     6	- **`claude-code-action`** `docs/security.md` (raw GitHub, `main`).
+L     7	- **Anthropic Engineering**, "How we built Claude Code auto mode" (HTML, published 2026-03-25).
+L     8	- **Claude Code security advisories:** `gh api repos/anthropics/claude-code/security-advisories`
+L     9	  returned 36 published advisories. The repository also carries Claude Desktop advisories (6.3.9).
+L    10	- **OWASP GenAI Security Project**, LLM01:2025 and LLM06:2025 (HTML).
+L    11	- **NIST AI 100-2e2025** (March 2025; PDF, text extracted with `pypdf`).
+L    12	- **MCP specification**, version 2026-07-28: `server/tools` (raw `.md`) and "Security Best
+L    13	  Practices" (HTML).
+L    14	- **Incidents:** GitHub advisory GHSA-cxm3-wv7p-598c (Nx, CVE-2025-10894), via `gh api`; AWS security
+L    15	  bulletin AWS-2025-015 (HTML).
+L    16	
+L    17	Topic 1 already covers the admin keys: permission modes in 1.2, MCP controls in 1.3, plugins in
+L    18	1.4, sandbox in 1.6, and CI in 1.7. This topic covers the **threat**: how injected content reaches the
+L    19	agent, what each defense does against it, and how well each defense is documented to work.
+L    20	
+L    21	### 6.1 What prompt injection is (neutral sources)
+L    22	
+L    23	| # | Finding | Marker | Source |
+L    24	|---|---|---|---|
+L    25	| 6.1.1 | OWASP: "Indirect prompt injections occur when an LLM accepts input from external sources, such as websites or files." Injections "do not need to be human-visible/readable, as long as the content is parsed by the model". On prevention: "it is unclear if there are fool-proof methods of prevention for prompt injection". The listed mitigations include "Enforce privilege control and least privilege access", "Require human approval for high-risk actions", "Segregate and identify external content" and "Conduct adversarial testing and attack simulations". | ✅ | [OWASP LLM01:2025](https://genai.owasp.org/llmrisk/llm01-prompt-injection/) |
+L    26	| 6.1.2 | NIST: "Because GenAI models combine the data and instruction channels, attackers can leverage the data channel to affect system operations". Indirect injection is enabled by "RESOURCE CONTROL", and is mounted "not by the primary user of a model but instead by a third party". "Because current mitigations do not offer full protection against all attacker techniques, application designers may design systems with the assumption that prompt injection attacks are possible if a model is exposed to untrusted input sources, such as by using multiple LLMs with different permissions … or by allowing models to interact with potentially untrustworthy data sources only through well-defined interfaces." | ✅ | [NIST AI 100-2e2025](https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-2e2025.pdf), §3.4, §3.4.4 |
+L    27	| 6.1.3 | NIST on agents: because agents "can take actions using tools", these attacks can enable "actors to hijack agents to execute arbitrary code or exfiltrate data from the environment in which they are operating". "Security research focused specifically on agents is still in its early stages." | ✅ | NIST AI 100-2e2025, §3.5 |
+L    28	| 6.1.4 | OWASP **Excessive Agency**: the vulnerability "that enables damaging actions to be performed in response to unexpected, ambiguous or manipulated outputs from an LLM, regardless of what is causing the LLM to malfunction". Its root causes are "excessive functionality; excessive permissions; excessive autonomy".<br>Mitigations include:<br>- "Avoid open-ended extensions" (e.g. "run a shell command, fetch a URL");<br>- "Execute extensions in user's context";<br>- "Require user approval", which "may be implemented in a downstream system (outside the scope of the LLM application)". | ✅ | [OWASP LLM06:2025](https://genai.owasp.org/llmrisk/llm062025-excessive-agency/) |
+L    29	| 6.1.5 | NIST lists benchmarks: "AgentDojo [101] is an evaluation framework for measuring the vulnerability of AI agents to prompt injection attacks in which the data returned by external tools hijacks the agent to execute malicious tasks." Open-source tools such as Garak and PyRIT "are intended to help developers identify vulnerabilities". | ✅ | NIST AI 100-2e2025, §3.6 |
+L    30	
+L    31	### 6.2 How injected content reaches a DevSecOps agent at Papaya
+L    32	
+L    33	The channels are taken from the sources. Mapping them to Papaya's stack is my inference (⚠️).
+L    34	
+L    35	| # | Channel | What the sources document | Marker | Source |
+L    36	|---|---|---|---|---|
+L    37	| 6.2.1 | **Repository files and repo-controlled config** (README, docs, comments, `CLAUDE.md`, `.claude/settings.json`, `.mcp.json`) | Several advisories describe a repository that controls the agent through its own files:<br>- GHSA-mmgp-wc2j-qcv7 (fixed in 2.1.53): a committed `.claude/settings.json` could set `bypassPermissions` "causing the trust dialog to be silently skipped".<br>- GHSA-jh7p-qr78-84p7 (fixed in 2.0.65): a repo setting `ANTHROPIC_BASE_URL` caused requests "before showing the trust prompt, including potentially leaking the user's API keys".<br>- "A `-p` session shows neither prompt": neither the workspace trust dialog nor the `.mcp.json` approval (`security`). Project `.mcp.json` servers load without asking in `claude -p`, SDK and cloud sessions (1.3.5). This is the CI path. | ✅ | [Claude Code advisories](https://github.com/anthropics/claude-code/security/advisories), [security](https://code.claude.com/docs/en/security) |
+L    38	| 6.2.2 | **Issues, PR text and comments** (GitHub; by inference, also Linear tickets and Slack threads read through MCP) | The action documentation warns: "External contributors may include hidden instructions through HTML comments, invisible characters, hidden attributes, or other techniques." The action strips some of these, "but new bypass techniques may emerge". | ✅ / ⚠️ (Linear, Slack) | [claude-code-action security](https://github.com/anthropics/claude-code-action/blob/main/docs/security.md) |
+L    39	| 6.2.3 | **Web content** (WebFetch, `curl`) | WebFetch usually returns a separate model's answer, not the raw page. `curl`/`wget` are "not auto-approved by default".<br>**Web as an exfiltration path:** GHSA-fg94-h982-f3mm (fixed in 2.1.163): the pre-approved host huggingface.co allowed "a covert out-of-band channel for encoding and exfiltrating data", given "the ability to add untrusted content into a Claude Code context window". | ✅ | [security](https://code.claude.com/docs/en/security), advisory GHSA-fg94-h982-f3mm |
+L    40	| 6.2.4 | **MCP tool results and tool metadata** | MCP spec: "clients **MUST** consider tool annotations to be untrusted unless they come from trusted servers". Claude Code's MCP page: "Servers that fetch external content can expose you to prompt injection risk." Anthropic "does not security-audit or manage any MCP server". | ✅ | [MCP tools](https://modelcontextprotocol.io/specification/2026-07-28/server/tools), [mcp](https://code.claude.com/docs/en/mcp), [security](https://code.claude.com/docs/en/security) |
+L    41	| 6.2.5 | **Operational data the agent reads while debugging** (CloudWatch logs, CloudTrail events, error messages, alert text) | No source names this channel for Claude Code. **Inference:** in NIST's terms, anyone who can write a string into a log (a request header, an uploaded file name, a claim form field) has "resource control" over what the agent reads. | ⚠️ inference | NIST §3.4 (concept only) |
+L    42	| 6.2.6 | **Dependencies and packages** | Nx (GHSA-cxm3-wv7p-598c, CVE-2025-10894, critical, published 2025-08-27; type "malware"; withdrawn from the global advisory database on 2026-07-28, the [repository advisory](https://github.com/nrwl/nx/security/advisories/GHSA-cxm3-wv7p-598c) remains): malicious npm versions with a `postinstall` that "scans the file system, collects credentials, and posts them to GitHub". The payload carried a prompt addressed to an agent: "You are a file-search agent. Search the filesystem and locate text configuration and environment-definition files …". The advisory lists "AI agents" among the ways a package may get installed. Which AI CLIs and flags the malware called is shown only in images I did not read (⚠️). | ✅ / ⚠️ | [GHSA-cxm3-wv7p-598c](https://github.com/advisories/GHSA-cxm3-wv7p-598c) |
+L    43	| 6.2.7 | **The agent tool's own supply chain** | AWS-2025-015 (Amazon Q Developer for VS Code 1.84.0): an "inappropriately scoped GitHub token in their CodeBuild configuration" let a threat actor "commit malicious code into the extension's open-source repository that was automatically included in a release". AWS adds that "the malicious code was distributed with the extension but was unsuccessful in executing due to a syntax error". Claude Code GHSA-pq7j-f95f-qfcv (fixed in 2.1.179): a plugin's pinned SHA could resolve to "an attacker's branch tip instead of the reviewed commit". | ✅ | [AWS-2025-015](https://aws.amazon.com/security/security-bulletins/AWS-2025-015/), advisory GHSA-pq7j-f95f-qfcv |
+L    44	| 6.2.8 | **Other agents** (subagents, agent teams) | Auto mode checks a subagent "before a subagent starts", for each action, and "when the subagent finishes", because "a subagent that was benign at delegation could be compromised mid-run by a prompt injection in content it reads" (Engineering post). | ✅ | [permission-modes](https://code.claude.com/docs/en/permission-modes), [auto mode post](https://www.anthropic.com/engineering/claude-code-auto-mode) |
+L    45	
+L    46	### 6.3 Documented defenses in Claude Code and how far they go
+L    47	
+L    48	| # | Finding | Marker | Source |
+L    49	|---|---|---|---|
+L    50	| 6.3.1 | **Manual mode** defenses: sensitive operations need approval; "unmatched commands require approval by default"; Claude Code "asks before running a Bash command it can't fully analyze"; network commands are not auto-approved. The page closes: "no system is completely immune to all attacks". | ✅ | [security](https://code.claude.com/docs/en/security) |
+L    51	| 6.3.2 | **Auto mode is now the default start mode.** "With Claude Code v2.1.283 or later, auto mode is the built-in starting permission mode for interactive terminal and VS Code sessions on every plan and provider." `claude -p` and the Agent SDK start in `default`. Admins turn it off with `permissions.disableAutoMode: "disable"` in managed settings (also 1.2.2–1.2.3). | ✅ | [permission-modes](https://code.claude.com/docs/en/permission-modes) |
+L    52	| 6.3.3 | **What the auto-mode classifier blocks by default** includes:<br>- "Production deploys and migrations";<br>- "Granting IAM or repo permissions";<br>- "Modifying shared infrastructure";<br>- "Merging a pull request no human has approved, approving Claude's own pull request, or disabling CI checks";<br>- "Applying infrastructure changes to a protected IaC scope";<br>- "Writing to a secret manager";<br>- "Sending sensitive data to external endpoints".<br>Several of these depend on `autoMode.environment` entries. **Allowed by default:** "Pushing to any branch of the repository you're working in, including the default branch" (subject to the remote's branch protection), and "Reading `.env` and sending credentials to their matching API". | ✅ | [permission-modes § What the classifier blocks by default](https://code.claude.com/docs/en/permission-modes) |
+L    53	| 6.3.4 | **How the classifier resists injection:**<br>- "Tool results are stripped from those requests, so hostile content in a file or web page can't manipulate the classifier directly."<br>- "A separate server-side probe scans incoming tool results and flags suspicious content before Claude reads it."<br>- But the classifier **does** see "user messages, tool calls … and your CLAUDE.md content".<br>- The classifier does not read `autoMode` from `.claude/settings.json` or `.claude/settings.local.json`, so that "a checked-in repo or a build step" cannot "inject its own allow rules". | ✅ | [permission-modes § How auto mode evaluates actions](https://code.claude.com/docs/en/permission-modes), [auto-mode-config](https://code.claude.com/docs/en/auto-mode-config) |
+L    54	| 6.3.5 | **Measured effectiveness (Anthropic's own numbers):**<br>- End-to-end pipeline: 0.4% false positives on 10,000 real tool calls; **17% false negatives on 52 real "overeager" actions**; 5.7% false negatives on 1,000 synthetic data-exfiltration attempts.<br>- "The 17% false-negative rate on real overeager actions is the honest number."<br>- "It is not a drop-in replacement for careful human review on high-stakes infrastructure."<br>- The probe "injects a warning" for suspected injections. The post gives no detection rate for the probe. | ✅ | [How we built Claude Code auto mode](https://www.anthropic.com/engineering/claude-code-auto-mode) |
+L    55	| 6.3.6 | **Conversation boundaries are not rules.** A boundary such as "don't push" is honoured, but "Boundaries are not stored as rules. The classifier re-reads them from the transcript on each check, so a boundary can be lost if context compaction removes the message that stated it. For a hard guarantee, add a deny rule instead." An approval in the conversation can clear a block when it names "the action and the specific thing that makes it dangerous". | ✅ | [permission-modes](https://code.claude.com/docs/en/permission-modes) |
+L    56	| 6.3.7 | **Sandbox limits relevant to exfiltration:**<br>- "Allowing broad domains such as `github.com` can create paths for data exfiltration." The proxy decides by hostname "without inspecting TLS", so code can "potentially use domain fronting".<br>- "Effective sandboxing requires both filesystem and network isolation."<br>- The documented stronger option: "configure a custom proxy that terminates TLS and inspects traffic".<br>- Scope is shell commands only (1.6.2); command hooks and local MCP servers run outside it. | ✅ | [sandboxing](https://code.claude.com/docs/en/sandboxing) |
+L    57	| 6.3.8 | **`claude-code-action` defenses:**<br>- It runs only for actors with write access.<br>- "Allowed bots are not checked for repository permissions."<br>- `allowed_non_write_users` is "a significant security risk".<br>- On PRs it restores `.claude/`, `.mcp.json`, `.claude.json`, `.gitmodules`, `.ripgreprc`, `CLAUDE.md`, `CLAUDE.local.md` and `.husky/` from the **base branch**. "Everything else in the working tree — including `package.json`, lockfiles, `Makefile` … — stays at the PR head." A base-branch hook that runs a package-manager script or `make` target therefore "resolves through files the pull request supplies"; the docs say to keep such commands self-contained and to "treat `bunfig.toml` and `.npmrc` in the checkout as PR-controlled runtime config".<br>- **When `allowed_non_write_users` is set:** "Do not use a personal access token", because a static token "could be partially or fully recovered over time via prompt injection". Applying this to all workflows is my inference (⚠️).<br>- By default "Claude does not create pull requests automatically". | ✅ | [claude-code-action security](https://github.com/anthropics/claude-code-action/blob/main/docs/security.md) |
+L    58	| 6.3.9 | **Vulnerability history (local check, 2026-11-08):** 36 published advisories in the `anthropics/claude-code` repository, 29 rated high. Four of them are Claude Desktop-only (GHSA-v234-4jrq-mgg6, -4p2j-qj3c-6x84, -5p5x-5294-qhp3, -3rwf-2g6p-c2f9, all high), so Claude Code and its IDE extensions account for 32, of which 25 are high. Recurring classes:<br>- trust-dialog bypass or pre-trust execution through repo files (e.g. GHSA-4fgq-fpq9-mr3g, -5hhx-v7f6-x7gv, -mmgp-wc2j-qcv7, -q5hj-mxqh-vv77, -jh7p-qr78-84p7);<br>- approval-prompt bypass through command parsing, about 8 (e.g. the `echo`, `rg`, `find` and `sed` advisories);<br>- sandbox escapes (e.g. GHSA-ff64-7w26-62rf, -vp62-r36r-9xqp, -7835-87q9-rgvv). GHSA-ff64 is also a **persistence** case: code in the sandbox could "inject persistent hooks (such as SessionStart commands) that would execute with host privileges" on restart;<br>- plugin pin bypass (6.2.7).<br>33 of 36 advisories say auto-update users received the fix (wording varies). | ✅ | [advisories](https://github.com/anthropics/claude-code/security/advisories) |
+L    59	| 6.3.10 | **GHSA-gfvf-j8jh-jxxw (low, fixed in 2.1.260):** a stored API key was used "ahead of the user's valid Claude Enterprise or Team sign-in when fetching the organization's server-managed settings". The session could start "without the organization's server-managed policy … while continuing to operate as the organization's account". "Endpoint-managed (MDM or file-based) settings were not affected." Team organizations were affected "from version 2.1.38". Precondition: "Triggering this required local access to a device with such a stored API key". | ✅ | advisory GHSA-gfvf-j8jh-jxxw |
+L    60	
+L    61	### 6.4 MCP-specific requirements
+L    62	
+L    63	| # | Finding | Marker | Source |
+L    64	|---|---|---|---|
+L    65	| 6.4.1 | The tools spec: "there **SHOULD** always be a human in the loop with the ability to deny tool invocations". Clients **SHOULD** "Show tool inputs to the user before calling the server, to avoid malicious or accidental data exfiltration", "Validate tool results before passing to LLM" and "Log tool usage for audit purposes". Servers **MUST** "Validate all tool inputs", "Implement proper access controls", "Rate limit tool invocations" and "Sanitize tool outputs". | ✅ | [MCP tools, 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/server/tools) |
+L    66	| 6.4.2 | "Token passthrough is explicitly forbidden in the authorization specification." An MCP server must not accept "tokens issued for other resources" and forward them downstream (the "confused deputy" problem). | ✅ | [MCP Security Best Practices](https://modelcontextprotocol.io/specification/2026-07-28/basic/security_best_practices) |
+L    67	| 6.4.3 | **Local MCP server compromise:** local servers "may have direct access to the user's system". The documented attacks are "a malicious 'startup' command in a client configuration", "a malicious payload inside the server itself", and an insecure local server reached "via DNS rebinding". The client SHOULD "Execute MCP server commands in a sandboxed environment with minimal default privileges". Servers SHOULD use `stdio`, or restrict HTTP with an authorization token or IPC. | ✅ | as 6.4.2 |
+L    68	| 6.4.4 | In Claude Code, an approved MCP server "runs outside the sandbox" (README-hipaa, 5.5.5; local MCP servers are outside the sandbox scope, 1.6.2). An MCP tool marked `requiresUserInteraction` prompts "even when an allow rule matches"; that mark is set by the **server author**, not by the org. Org controls on servers are in 1.3; pinning by `serverCommand` (1.3.3) limits a server whose code changes after approval. | ✅ | [permission-modes](https://code.claude.com/docs/en/permission-modes), [mcp](https://code.claude.com/docs/en/mcp), [sandboxing](https://code.claude.com/docs/en/sandboxing), 5.5.5, 1.3 |
+L    69	
+L    70	### 6.5 What this means for Papaya (inferences — to be used in the design)
+L    71	
+L    72	1. **Design as if injection succeeds.** NIST (6.1.2) and OWASP (6.1.1) both say there is no full
+L    73	   prevention. So the production boundary must not rest on the model or the classifier:
+L    74	   - **Outside incidents:** no standing prod write for humans or agents (2.9 #2). Prod changes go
+L    75	     only through CI with a human approval in GitHub (Topics 3–4). This is OWASP's "downstream"
+L    76	     approval (6.1.4).
+L    77	   - **Inside a JIT window:** on the laptop the agent can use the grant, because it is
+L    78	     indistinguishable from the engineer (2.9 #1, residual risk). This is exactly when the engineer
+L    79	     is reading logs and alerts, which are untrusted input (#8). So during incidents untrusted input
+L    80	     and prod write **overlap**. The compensating control is an owner decision, for example "no
+L    81	     agent session in the shell that holds the JIT grant", or the agent only proposes commands that
+L    82	     the human runs (⚠️ design).
+L    83	   - The classifier, the probe and the sandbox **reduce frequency**; IAM and the CI gate **limit
+L    84	     impact**.
+L    85	2. **Separate reading untrusted content from holding power (⚠️ design).** This follows NIST's
+L    86	   "multiple LLMs with different permissions" (6.1.2). On a laptop there is no Claude Code or AWS
+L    87	   mechanism that separates credentials per session (2.9 #1). Separation therefore means a
+L    88	   different OS user, container, VM or CI runner with **its own** credentials. Examples: a PR-review
+L    89	   agent in CI with read-only tokens, and a sandboxed dev container without the engineer's SSO
+L    90	   cache.
+L    91	3. **Auto mode is on by default, so Papaya must decide explicitly** (6.3.2). Its default block list
+L    92	   **overlaps with** the Compliance position (prod deploys, IAM grants, merging unapproved PRs,
+L    93	   6.3.3). It is not a named human, and it allows pushing to the default branch by default. That is
+L    94	   safe only if rulesets require an approved PR on `main` (3.6). The measured miss rates are
+L    95	   per risk:
+L    96	   - 17% on 52 real overeager actions;
+L    97	   - 5.7% on 1,000 synthetic exfiltration attempts;
+L    98	   - no published rate for the injection probe.
+L    99	
+L   100	   All three date from 2026-03-25, before the v2.1.283 default (6.3.5).
+L   101	
+L   102	   Options for the design:
+L   103	   - (a) Disable it org-wide with `disableAutoMode`.
+L   104	   - (b) Set `permissions.defaultMode` in managed settings so sessions start in Manual. People
+L   105	     "can still switch to auto mode" ([permission-modes](https://code.claude.com/docs/en/permission-modes)).
+L   106	   - (c) Allow it only in environments whose credentials are non-prod. No setting ties auto mode
+L   107	     to credentials, so this needs a separate machine, container or profile (#2, ⚠️).
+L   108	
+L   109	   With (b) and (c), `autoMode.environment` must not list PHI-holding buckets as trusted, because
+L   110	   "Sending data to the trusted domains, buckets, and services you list" is allowed by default.
+L   111	   The trade-off is a measured miss rate against approval fatigue. Anthropic itself says that for
+L   112	   someone "manually approving every action carefully, it's arguably a regression". So the owner
+L   113	   decides (6.6). My unverified expectation (⚠️) is that (a) increases prompt fatigue.
+L   114	4. **Version floor and two policy channels.** The advisory record (6.3.9) makes a minimum client
+L   115	   version a security control. GHSA-gfvf (6.3.10) affected **Team** server-managed settings and not
+L   116	   endpoint-managed files. So:
+L   117	   - set `requiredMinimumVersion` at or above 2.1.260 (and above later fixes). Note it does not end
+L   118	     a running session and fails open on an invalid value (1.1.13). A floor at or above 2.1.283 also
+L   119	     makes auto mode the default start mode (#3);
+L   120	   - deliver the key settings **both** server-managed and as an endpoint file where MDM exists
+L   121	     (1.9: MDM unknown). A local admin can still edit the endpoint file (1.1.8).
+L   122	5. **Repository-controlled configuration is a recurring bug class** (6.2.1, 6.3.9).
+L   123	   - Put `CLAUDE.md`, `CLAUDE.local.md`, `.claude/`, `.claude.json`, `.mcp.json`, `.husky/` and
+L   124	     `.github/` under CODEOWNERS. This extends 3.2.8, which covers `.github/workflows` only.
+L   125	   - In CI, run the agent only with base-branch configuration (6.3.8). Remember that
+L   126	     `package.json`, `Makefile`, lockfiles, `.npmrc` and `bunfig.toml` still come from the PR head.
+L   127	     So keep hook, `statusLine` and `apiKeyHelper` commands self-contained.
+L   128	   - In `-p`/CI sessions, project `.mcp.json` servers load without a prompt (6.2.1). The CI
+L   129	     configuration should therefore fix the MCP set itself (1.3).
+L   130	   - `CLAUDE.md` is also classifier input (6.3.4), so a PR that edits it changes what the
+L   131	     classifier treats as intent (⚠️ inference).
+L   132	6. **Exfiltration goes through allowed channels.** Allowing `github.com` wholesale is a documented
+L   133	   path (6.3.7). The README says injected content can move data "through the developer's own shell
+L   134	   and Git", limited only by the network allowlist (5.5.5). Other outbound channels are PR, issue,
+L   135	   Linear and Slack posts through MCP. Controls:
+L   136	   - a narrow egress allowlist, or a TLS-inspecting proxy for the strongest guarantee (6.3.7);
+L   137	   - MCP write tools for chat and tickets only where needed.
+L   138	
+L   139	   The Engineering cost is the workflows that break.
+L   140	7. **Supply chain is an agent risk, not only a CI risk.** Agents run installs (6.2.6), and auto mode
+L   141	   allows "Installing dependencies declared in your lock files or manifests" by default (6.3.3). A
+L   142	   lockfile does not stop a locked malicious version from running `postinstall`. Candidate controls
+L   143	   (⚠️):
+L   144	   - `--ignore-scripts` where workable, and an internal registry or mirror;
+L   145	   - least-privilege, short-lived CI tokens (Topic 3). The Amazon Q release was built with a
+L   146	     mis-scoped token; the payload failed only by accident (6.2.7);
+L   147	   - pinned plugins from Papaya's private marketplace, with a client version that includes the
+L   148	     pin fix (2.1.179).
+L   149	8. **Logs and tickets are untrusted input** (6.2.5, ⚠️). Text from customer-facing systems can carry
+L   150	   instructions when it reaches CloudWatch, Linear or Slack. Papaya is multi-tenant, so a session
+L   151	   that reads one insurer's logs and can write to shared places (PRs, tickets, chat) is also a
+L   152	   cross-tenant leak path (⚠️). This falls under #2.
+L   153	9. **Persistence and transcripts.**
+L   154	   - An injection that writes to `CLAUDE.md`, `.claude/settings.json` hooks or auto memory outlives
+L   155	     the session (GHSA-ff64, 6.3.9). Protected paths and CODEOWNERS (#5) are the controls.
+L   156	   - Session transcripts under `~/.claude/projects/` hold tool output, which is a store for secrets
+L   157	     and data (1.11.4, 5.5.5). Auto mode blocks "Printing a live credential or token into the
+L   158	     transcript" (permission-modes block list, 6.3.3), but tool output that already contains data is still stored.
+L   159	10. **Attribution.** Agent commits, PR comments and MCP posts carry the engineer's identity. This is
+L   160	    the git-side twin of 2.9 #1 (agent and engineer cannot be told apart). The named-human approval
+L   161	    must therefore be a **different** person from the one whose session produced the change
+L   162	    (3.3).
+L   163	11. **Open-ended tools are a deliberate trade-off.** OWASP says to "Avoid open-ended extensions (e.g.
+L   164	    run a shell command, fetch a URL)" (6.1.4). Claude Code's Bash and WebFetch are exactly that.
+L   165	    Keeping them is the Engineering value; the sandbox, egress limits and the CI boundary are the
+L   166	    price paid for keeping them.
+L   167	12. **Test the controls.** OWASP lists adversarial testing (6.1.1), and NIST names AgentDojo (6.1.5).
+L   168	    The rollout should include a planted-injection exercise against the real configuration, for
+L   169	    example a PR comment or a log line that asks the agent to exfiltrate data or deploy.
+L   170	
+L   171	### 6.6 Open items (Topic 6)
+L   172	
+L   173	- [ ] ⚠️ Owner decision on auto mode: (a) disable, (b) start in Manual via managed `defaultMode`,
+L   174	      or (c) only in environments with non-prod credentials (6.5 #3).
+L   175	- [ ] ⚠️ Owner decision on the incident overlap: what compensating control applies inside a JIT
+L   176	      prod window (6.5 #1)?
+L   177	- [ ] ⚠️ MCP tool-description changes after approval ("rug pull") and tool poisoning: not covered
+L   178	      by the sources read beyond `serverCommand` pinning (6.4.4).
+L   179	- [ ] ⚠️ Detection rate of the server-side prompt-injection probe: not published in the sources
+L   180	      read.
+L   181	- [ ] ⚠️ Which AI CLIs and flags the Nx payload invoked (shown only as images, 6.2.6).
+L   182	- [ ] ⚠️ OWASP Top 10 for Agentic Applications and the OWASP MCP guidance were not read; they could
+L   183	      add agent-specific items.
+L   184	- [ ] ⚠️ Whether `CLAUDE.md` changes in a PR can widen what the auto-mode classifier allows
+L   185	      (6.5 #5).
+L   186	- [ ] ⚠️ The current latest fixed version to use as `requiredMinimumVersion` (re-check the advisory
+L   187	      list at rollout time).
+L   188	
+L   189	### 6.7 Review log (Topic 6)
+L   190	
+L   191	- **Round 1 (2026-11-08)**, independent reviewer subagent. It checked every quote against the local
+L   192	  source copies and the cross-referenced rows.
+L   193	  - Result: 1 HIGH, 6 MEDIUM, 8 LOW, plus 8 coverage gaps.
+L   194	  - I re-checked the HIGH and MEDIUM items against the sources (2.9 #1, `nx.json`, the
+L   195	    advisory list, `permission-modes`, `action-security.md`, 1.3.5). All were accepted:
+L   196	    - **HIGH:** 6.5 #1–#2 contradicted 2.9 #1. On a laptop the agent can use a JIT prod grant,
+L   197	      and per-session separation has no mechanism. Both items are rewritten. The incident overlap
+L   198	      is stated openly and listed as an owner decision in 6.6;
+L   199	    - the advisory count now separates the 4 Claude Desktop-only advisories (32 Claude Code, 25
+L   200	      of them high);
+L   201	    - the Nx advisory is marked withdrawn from the global database, with the repository advisory
+L   202	      and its CVE;
+L   203	    - 6.5 #3 is reframed: "overlaps with", a miss rate per risk with sample size and date, option
+L   204	      (b) `defaultMode` in managed settings added, the non-prod option marked ⚠️, the trusted-bucket
+L   205	      caveat, the counterpoint from Anthropic's post;
+L   206	    - the PAT advice is conditional on `allowed_non_write_users`;
+L   207	    - the base-branch restore list is complete, with the hook caveat;
+L   208	    - `.mcp.json` loads unprompted in `-p`, SDK and cloud sessions (1.3.5).
+L   209	  - LOW items fixed: "recurring" instead of "most frequent"; advisory wording count;
+L   210	    GHSA-gfvf precondition plus the 1.1.13 / 1.1.8 caveats; supply-chain controls and the AWS
+L   211	    context; NIST §3.6 row 6.1.5; MCP links pinned to 2026-07-28; the 6.4.4 source and author-set
+L   212	    flag; GHSA-fg94 labelled as an exfiltration path.
+L   213	  - Gaps added in 6.5 #6–#11: persistence (GHSA-ff64), hooks outside the sandbox, exfiltration
+L   214	    through allowed channels with the TLS-inspecting proxy, transcripts, attribution, open-ended
+L   215	    tools, and multi-tenant leakage. MCP "rug pull" was moved to 6.6.
+1375:## Topic 6 — Coding-agent risks: prompt injection via docs, web and MCP, and documented defenses
