@@ -130,6 +130,9 @@ Rules of use:
 - Keep the challenge's two voices (Engineering vs Compliance) in view; every control should
   say what it costs engineers and what it gives compliance.
 - Record decisions and discarded options in `work/` so the reasoning survives the session.
+- Research and design steps go through an independent reviewer (a fresh subagent given the file
+  and the review criteria, not the author's conclusions): review → fix → re-review until no
+  HIGH/MEDIUM findings remain; only then present the result to the user. (Agreed 2026-11-08.)
 - Ask the user when a choice materially changes the deliverable; otherwise pick the sensible
   default, state it, and continue.
 - Before finishing a session, remind the user to copy the current transcript into
