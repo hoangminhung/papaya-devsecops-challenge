@@ -42,7 +42,8 @@ Two things make this repo unusual and shape every rule below:
 | `transcripts/` | Copies of the raw Claude Code session files (`*.jsonl`) for this project, unedited | n/a |
 | `CLAUDE.md` | This file | English |
 
-Numbered prefixes (`00-`, `01-`, …) in `docs/` and `work/` define reading order.
+Numbered prefixes (`00-`, `01-`, …) in `docs/` and `work/` define reading order. Running logs
+that are not part of the reading order stay unnumbered (e.g. `work/session-log.md`).
 
 ## Rule 1 — Every claim about a tool's capability needs a source marker
 
@@ -98,6 +99,15 @@ Rules of use:
 
 ## Decisions taken so far
 
+- **Scope and assumptions (2026-11-08):** confirmed in `work/01-problem-framing.md` §6
+  (rounds 1–2). In short: non-prod holds synthetic data only; prod and non-prod are separate
+  AWS accounts; security of agent-written code is in scope at the PR/CI-guardrail level;
+  security of Papaya's production AI agents is out of scope (noted only); all prod changes
+  are approved before they are applied, including during incidents (incident approval within
+  15 min, 24/7).
+- **Deliverable form (2026-11-08):** Markdown docs in `docs/` plus `examples/` artifacts that
+  can be validated locally. The audience is a panel of Engineering and Compliance, so every
+  control states its cost to engineers and its value to compliance.
 - **Branch:** everything is on `master`; no `main` branch.
 - **Permission mode:** session 1 ran in auto mode. From session 2 on, sessions run in the
   default permission mode so the transcripts show the way of working the deliverable

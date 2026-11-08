@@ -29,3 +29,28 @@
 - Agent không được phép chạy installer của kit vào profile mới (auto-mode classifier: "Security Weaken",
   vì cài hook và permission rule). Người dùng tự chạy `work/setup-clean-config.sh`.
 - Git author email khác domain với tài khoản Claude; cả hai sẽ lộ trong repo/transcript. Người dùng quyết.
+
+## 2026-11-08 — Session 2: git identity, transcripts, problem framing
+
+- Git author: đặt `user.email` local cho repo, viết lại 2 commit chưa push sang email cá nhân;
+  xoá `user.email` global theo yêu cầu người dùng. Tag `backup/pre-email-rewrite` giữ commit cũ (không push).
+- Transcript commit nguyên bản; chấp nhận việc chứa email công việc của chính tác giả (ghi trong `CLAUDE.md`).
+- Viết `work/01-problem-framing.md`; người dùng xác nhận giả định (mục 6 của file đó).
+- Đổi `work/01-session-notes.md` → `work/session-log.md` (nhật ký không thuộc thứ tự đọc).
+- Phát hiện ✅ (`ps`, biến môi trường): phiên này chạy qua **VSCode extension**, `CLAUDE_CONFIG_DIR` không được đặt
+  → dùng `~/.claude` (profile mặc định, có sync skill/connector từ claude.ai), và extension khởi động với
+  `--permission-mode=auto`. Cả hai trái với quyết định "từ session 2" trong `CLAUDE.md`.
+  Profile sạch không cần tài khoản khác; chỉ cần chạy CLI: `CLAUDE_CONFIG_DIR=~/.claude-papaya claude`.
+  Người dùng chấp nhận giữ nguyên transcript phiên này.
+
+## 2026-11-08 — Session 3: rà soát problem framing (grill-me)
+
+- Chạy qua VSCode extension, lần này với `CLAUDE_CONFIG_DIR=~/.claude-papaya` ✅ (biến môi trường).
+  Transcript lưu ở `~/.claude-papaya/projects/…/28544ac2-2bc6-4da2-845a-d8dfd0339f26.jsonl` ✅.
+- Các session ngắn `a95ee902` và `2e7942e6` (profile sạch, khởi động/thử extension) cũng được copy vào `transcripts/`.
+- Rà `work/01-problem-framing.md` so với đề. Chỗ hở: dữ liệu ở non-prod, bảo mật code do agent viết,
+  phạm vi prod AI agents, GĐ-2 chưa xác nhận, mục tiêu S7, hình thức và người đọc của deliverable.
+- Hỏi 2 vòng; người dùng chọn đề xuất ở cả 7 câu. Kết quả ghi ở §6 "Vòng 2" của framing:
+  thêm P9, nhóm 7, mục 1.4 (out of scope), GĐ-14, S10, S11; xác nhận GĐ-2 và S7.
+- Bước tiếp theo: thiết kế (docs/ + examples/). Tra docs cho GĐ-5 (GitHub environment protection)
+  và GĐ-6 (managed settings trên gói Team).
