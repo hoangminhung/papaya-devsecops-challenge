@@ -166,7 +166,7 @@ Mục nào "chịu lực" (đổi giả định thì đổi thiết kế) đư�
 | GĐ-2 ★ ✔ | AWS có ít nhất một ranh giới account giữa prod và non-prod (AWS Organizations). Đăng nhập qua IAM Identity Center ("SSO profiles" trong đề). | Phân quyền theo môi trường cần ranh giới. | Nếu prod và non-prod chung account: tách account trở thành điều kiện tiên quyết, kéo dài lộ trình. |
 | GĐ-3 | Dữ liệu các tenant cách ly logic (schema/bucket/prefix) trong cùng account, không phải account riêng cho từng tenant. | Ảnh hưởng tới khả năng giới hạn quyền theo tenant. | Nếu mỗi tenant một account: phân quyền theo tenant dễ hơn nhiều. |
 | GĐ-4 | k0s chạy trên hạ tầng AWS (EC2); engineer truy cập bằng kubeconfig, chưa có SSO cho cluster. | Xác định k0s là đường thay đổi riêng cần kiểm soát. | Nếu đã có OIDC cho cluster: phần k0s nhẹ hơn. |
-| GĐ-5 | Gói GitHub của Papaya hỗ trợ environment protection rules (required reviewers) cho private repo. ⚠️ Tính năng phụ thuộc gói GitHub; chưa kiểm tra. | Có thể là một điểm ép duyệt có sẵn trong công cụ hiện tại. | Phải tìm điểm ép khác trong GitHub Actions hiện có. |
+| GĐ-5 ★ ✔ (đã đổi 2026-11-08) | **Giả định của owner, không phải sự thật về Papaya:** Papaya dùng gói GitHub **Team**, không phải Enterprise. Theo docs (`work/02-research.md` 3.1.2, ✅), trên Team thì required reviewers của environment chỉ có cho repo public. Vì vậy monorepo private **không** có cổng duyệt ở environment. | Xác định chỗ đặt cổng duyệt: merge PR vào `main`, ép bằng rulesets (có trên Team cho repo private; 02-research 3.2.1, 3.6 #1, 3.7 A1). Environment `production` chỉ giới hạn branch = `main`. | Nếu Papaya dùng Enterprise Cloud: thêm required reviewers, prevent self-review và chặn admin bypass cho environment `production`. Chỉ đổi cấu hình, không đổi workflow (suy luận, 02-research 3.7 A1). |
 | GĐ-6 ★ ✔ | **Coi laptop là không tin cậy.** Kiểm soát chính đặt ở cloud/CI. Cấu hình Claude Code do tổ chức đẩy xuống (managed settings, plugin marketplace) chỉ là lớp thứ hai. ⚠️ Gói Team Premium hỗ trợ ép cấu hình đến đâu chưa kiểm tra; sẽ kiểm ở bước thiết kế và đánh dấu 📖. | Quyết định chính sách cho agent là "ép" hay chỉ "khuyến nghị". | Nếu ép được tốt: lớp thứ hai mạnh hơn, nhưng thiết kế vẫn không dựa vào nó. |
 | GĐ-7 | Laptop được quản lý tập trung (MDM) ở mức tối thiểu. | Một số kiểm soát cấu hình cần kênh đẩy xuống máy. | Không có MDM: càng phải dựa vào GĐ-6 hoặc kiểm soát phía server. |
 | GĐ-8 ★ ✔ (đã đổi) | **Mọi thay đổi prod phải được duyệt trước khi áp dụng, kể cả trong sự cố.** Không có ngoại lệ "làm trước, duyệt sau" (break-glass không duyệt). Người dùng đã bác đề xuất ban đầu (cho phép một tập thao tác khẩn cấp, review sau). | Đây là ràng buộc cứng của Compliance. Hệ quả: trong sự cố, việc duyệt phải **nhanh và luôn có người duyệt**, 24/7. | — (đã là quyết định). Hệ quả cần thiết kế: người duyệt trực ngoài giờ, đường duyệt rút gọn cho thao tác khẩn cấp. Xem mâu thuẫn với ưu tiên 30 ngày ở mục 6. |
@@ -245,4 +245,11 @@ Người dùng trả lời trong chat, session 3 (2026-11-08). Mỗi câu hỏi 
 | 14 | Hình thức deliverable | Docs markdown kèm `examples/` chạy/validate được (managed settings/hooks, GitHub Actions OIDC + environment, IAM sketch, plugin manifest) |
 | 15 | Người đọc chính | Panel gồm Engineering và Compliance. Mỗi kiểm soát nêu chi phí cho engineer và giá trị cho compliance |
 
-Giả định chưa xác nhận, vẫn là [GĐ]: GĐ-3, 4, 5, 7, 10, 12, 13. GĐ-5 và GĐ-6 sẽ được tra docs và đánh dấu 📖 ở bước thiết kế.
+Giả định chưa xác nhận, vẫn là [GĐ]: GĐ-3, 4, 7, 10, 12, 13. GĐ-6 sẽ được tra docs và đánh dấu 📖 ở bước thiết kế.
+
+**Thay đổi GĐ-5 (2026-11-08):**
+- **Trước:** "Gói GitHub của Papaya hỗ trợ environment protection rules (required reviewers) cho private repo", chưa kiểm tra.
+- **Kiểm tra docs** (`work/02-research.md` 3.1.2): tính năng này trên repo private chỉ có ở Enterprise.
+- **Quyết định của owner:** giả định gói **Team**. Đây là giả định để thiết kế, không phải sự thật về Papaya.
+- **Hệ quả:** cổng duyệt chuyển từ environment sang merge PR vào `main` bằng rulesets.
+- **Ghi chú:** owner từng giả định có dùng merge queue (02-research 3.7 A4). Theo docs, merge queue trên repo private cần Enterprise Cloud, nên hai giả định này mâu thuẫn. **Owner quyết định (2026-11-08): "Giữ Team và bỏ merge queue."** Thiết kế giả định không có merge queue.
