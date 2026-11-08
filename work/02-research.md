@@ -900,3 +900,238 @@ assumptions do not answer them):
 - **Owner decision (2026-11-08):** on the A1/A4 conflict, the owner (the user) chose "Giữ Team và
   bỏ merge queue". It is recorded verbatim in 3.7. A4 is marked superseded, and its row is kept as
   reference only. GĐ-5's note was updated.
+
+---
+
+## Topic 4 — Pulumi and Serverless Framework in CI
+
+Accessed 2026-11-08. Sources and how they were read (all **local check**, HTTP 200):
+- **Pulumi docs:** the raw Markdown that pulumi.com serves at `<page>/index.md`. Links point to the
+  canonical URL each page declares.
+- **Serverless Framework v4 docs:** read from the official repository `serverless/serverless`
+  (`docs/sf/…` on `main`), plus its GitHub release notes. Links point to the docs site.
+- **AWS CloudFormation pages:** raw `.md` from docs.aws.amazon.com.
+
+**Papaya facts that are unknown:** whether Pulumi uses Pulumi Cloud or a DIY (S3) backend, and
+which Pulumi Cloud edition. The same goes for the Serverless Framework major version and
+subscription. Each row says when it depends on one of these.
+
+### 4.1 Pulumi: preview and up in CI
+
+| # | Finding | Marker | Source |
+|---|---|---|---|
+| 4.1.1 | `pulumi preview` flags relevant to CI: `--diff`, `--json`, `--expect-no-changes` ("Return an error if any changes are proposed"), `--policy-pack`, `--refresh`, `--target`, and `--save-plan` (marked **[PREVIEW]**). `--show-secrets` defaults to false; "if used with `--save-plan` the secrets will also be shown in the plan file". | ✅ | [pulumi preview](https://www.pulumi.com/docs/iac/cli/commands/pulumi_preview/) |
+| 4.1.2 | `pulumi up` flags: `--yes` ("Automatically approve and perform the update after previewing it"), `--skip-preview`, `--plan <file>` (**[EXPERIMENTAL]**: "will not perform operations that exceed its plan"), `--strict` (**[EXPERIMENTAL]**: generate a plan during preview and constrain the update to it), and `--expect-no-changes`, where "This check happens after the update is applied". | ✅ | [pulumi up](https://www.pulumi.com/docs/iac/cli/commands/pulumi_up/) |
+| 4.1.3 | **Update plans:** "`pulumi preview --save-plan=plan.json`" then "`pulumi up --plan=plan.json`" constrains the update "to allow only the changes described in the plan". The docs say this "may be useful in organizations with strict approval processes".<br>Limits:<br>- Values unknown at preview time are recorded as `unknown`.<br>- Resources created inside an `apply` are not recorded, which causes an error at update time.<br>- Providers with unknown inputs are not fully diffed.<br>- The docs say the plan is "not as strong a guarantee as to what the program will do".<br>- The plan file format "is currently experimental and subject to change". | ✅ | [Update plans](https://www.pulumi.com/docs/iac/operations/stack-management/update-plans/) |
+| 4.1.4 | Pulumi's GitHub Actions guide uses `pulumi/actions` (`command: preview` on `pull_request`, `up` on push), with optional PR comments. It recommends **OIDC token exchange** through `pulumi/auth-actions` ("no stored secret") over a stored `PULUMI_ACCESS_TOKEN`. Cloud credentials come either from Pulumi ESC or directly from cloud OIDC, for example `aws-actions/configure-aws-credentials`. The guide assumes Pulumi Cloud, but "Pulumi Cloud isn't required to run Pulumi in CI/CD". The guide calls ESC "the recommended way to provide cloud credentials". For deployments it advises "a shared group *without* `cancel-in-progress`" because "canceling a deployment mid-run can leave infrastructure half-applied". | ✅ | [GitHub Actions](https://www.pulumi.com/docs/iac/operations/continuous-delivery/github-actions/) |
+| 4.1.5 | **Pulumi Cloud OIDC trust for GitHub:**<br>- Organization tokens are available on the Essentials, Pro and Enterprise editions.<br>- Team tokens are available on Pro and Enterprise. Personal tokens also exist.<br>- The example subject is `repo:<organization>/<repo>:*`. **Inference:** that is the old `sub` format (3.4.4) with a wildcard, which matches any branch, PR or environment.<br>- Whether the Pulumi policy can pin `environment:production` was not checked (⚠️).<br>- Setting it up requires being "an admin of your Pulumi organization". | ✅ / ⚠️ | [OIDC: GitHub](https://www.pulumi.com/docs/administration/guides/oidc-issuers/github/) |
+
+### 4.2 Pulumi: policy as code ("CrossGuard")
+
+| # | Finding | Marker | Source |
+|---|---|---|---|
+| 4.2.1 | **Naming:** the current docs call the product **"Pulumi Policies"**. "CrossGuard" does not appear in any Pulumi page downloaded (`grep -c -i crossguard` = 0). The old URL `https://www.pulumi.com/docs/using-pulumi/crossguard/` redirects (HTTP 200) to the policy-as-code page (**local check**, `curl -sIL`). So "CrossGuard" is the old name of Pulumi Policies. | ✅ | [Policy as code](https://www.pulumi.com/docs/discovery-governance/concepts/policy-as-code/) |
+| 4.2.2 | Policies are written in TypeScript, JavaScript, Python or OPA Rego. They run as analyzer plugins during `pulumi preview` and `pulumi up`, "before anything changes in your cloud provider", and "a violation of a mandatory policy stops the deployment". The enforcement levels are `advisory`, `mandatory`, `remediate` and `disabled`. | ✅ | [Policy as code](https://www.pulumi.com/docs/discovery-governance/concepts/policy-as-code/), [Policy packs](https://www.pulumi.com/docs/discovery-governance/concepts/policy-as-code/policy-packs/) |
+| 4.2.3 | **Two ways to enforce:**<br>- **Open source, local:** the job runs `--policy-pack <path>`. This works "with any backend, including the self-managed backend". The pack must be on disk where Pulumi runs.<br>- **Pulumi Cloud** (Essentials, Pro and Enterprise): policy groups apply packs to stacks "without passing `--policy-pack` on each command", and the CLI downloads them automatically. Pre-built compliance packs (CIS, HITRUST, ISO 27001, NIST, PCI DSS) are on Enterprise. Audit policies over discovered resources need Pulumi Cloud. | ✅ | [Policy as code](https://www.pulumi.com/docs/discovery-governance/concepts/policy-as-code/) |
+| 4.2.4 | **Inference:**<br>- **Local enforcement:** the policy flag lives in the CI workflow. A PR that edits the workflow can drop it, so it is only as strong as CODEOWNERS on `.github/` (3.2.8).<br>- **PR preview:** policy packs run on "the machine that runs Pulumi", together with the PR's code. So in a PR preview a policy result is advice. The **enforcing** run is `up` on `main`.<br>- **Cloud policy groups:** they do not depend on the flag. But `pulumi policy disable` exists, so a Pulumi org admin can switch a policy off. Whether a CLI user can opt out was not found (⚠️).<br>- **`remediate`:** this level "fixes the resource automatically", so the deployed resource can differ from the code the reviewer read.<br><br>Status: ⚠️ inference; ✅ for the quotes. | ⚠️ inference / ✅ (quotes) | [Policy as code](https://www.pulumi.com/docs/discovery-governance/concepts/policy-as-code/), [Policy packs](https://www.pulumi.com/docs/discovery-governance/concepts/policy-as-code/policy-packs/), [Policy groups](https://www.pulumi.com/docs/discovery-governance/concepts/policy-as-code/policy-groups/) |
+
+### 4.3 Pulumi: drift, state and secrets
+
+| # | Finding | Marker | Source |
+|---|---|---|---|
+| 4.3.1 | Pulumi does **not** refresh automatically: preview and up compare the program with the **recorded** state. Out-of-band changes are not seen, and "may produce unexpected results including overwriting them". `pulumi refresh` updates only state. `--refresh` on preview or up refreshes first. | ✅ | [State and backends](https://www.pulumi.com/docs/iac/concepts/state-and-backends/) |
+| 4.3.2 | **Drift detection:**<br>- **Scheduled (Pulumi Cloud Deployments):** available on the **Pro and Enterprise** editions. It needs the stack's "deployment settings", so Pulumi Cloud must hold credentials for the target. Optional **auto-remediation** "runs `pulumi up --refresh`". That is an unreviewed prod change.<br>- **From the CLI:** `pulumi refresh --preview-only` ("Only show a preview of the refresh"), which a job on any backend can run on a schedule (inference).<br>- The CLI drift guide (`/docs/iac/operations/stack-management/drift/`) was **not read** (⚠️). | ✅ / ⚠️ | [Drift detection and remediation](https://www.pulumi.com/docs/deployments/concepts/drift/), [pulumi refresh](https://www.pulumi.com/docs/iac/cli/commands/pulumi_refresh/) |
+| 4.3.3 | **Backends:** Pulumi Cloud, the default, or **DIY**: S3, Azure Blob, GCS, an S3-compatible store, PostgreSQL or local disk. "DIY backends include built-in state locking and history tracking". The S3 backend needs `s3:ListBucket`, `GetObject`, `PutObject` and `DeleteObject` under `.pulumi/` "across the full stack lifecycle", including `pulumi preview`. DIY backends "cannot transparently recover from certain kinds of partial failures". | ✅ | [State and backends](https://www.pulumi.com/docs/iac/concepts/state-and-backends/), [Using a DIY backend](https://www.pulumi.com/docs/iac/operations/stack-management/using-a-diy-backend/) |
+| 4.3.4 | **Secrets:** Pulumi tracks secrets transitively and encrypts them in state "no matter which backend you've chosen". With Pulumi Cloud the default key is a per-stack key managed by Pulumi Cloud. Alternatives are set with `--secrets-provider` at stack init: `awskms`, `azurekeyvault`, `gcpkms`, `hashivault`, `passphrase`. Config values are plain text unless set with `--secret`. | ✅ | [Secrets](https://www.pulumi.com/docs/iac/concepts/secrets/), [State and backends](https://www.pulumi.com/docs/iac/concepts/state-and-backends/) |
+| 4.3.5 | **Pulumi Cloud audit logs:** Pro and Enterprise editions. Automatic export to S3 or Microsoft Sentinel: Enterprise only. | ✅ | [Audit logs](https://www.pulumi.com/docs/administration/concepts/audit-logs/) |
+
+### 4.4 Serverless Framework (v4) in CI
+
+| # | Finding | Marker | Source |
+|---|---|---|---|
+| 4.4.1 | `serverless deploy` turns `serverless.yml` into **one CloudFormation stack** and updates it. Since v4 the default `deploymentMethod` is `direct`, and `changesets` is opt-in. **State is the CloudFormation stack plus the deployment bucket.** Compose services also keep state in S3, located through an SSM parameter in `us-east-1`. | ✅ | [Deploying](https://www.serverless.com/framework/docs/providers/aws/guide/deploying), [serverless.yml reference](https://www.serverless.com/framework/docs/providers/aws/guide/serverless.yml), [State](https://www.serverless.com/framework/docs/guides/state) |
+| 4.4.2 | **Preview:** `serverless diff` shows Lambda code changes and a structured CloudFormation template diff (resources, **IAM statements**, security groups, outputs), with "(requires replacement)" markers, `--json` "for CI consumption", and `--package` to diff an already built package. It was **added in sf-core 4.37.0 (2026-05-27)**, per the release notes; older v4 versions do not have it. **It is informational:** "Differences against the deployed stack do not cause a non-zero exit code", so a CI gate must parse `--json` itself. | ✅ | [diff](https://www.serverless.com/framework/docs/providers/aws/cli-reference/diff), [release sf-core@4.37.0](https://github.com/serverless/serverless/releases/tag/sf-core%404.37.0) |
+| 4.4.3 | **Build once, deploy that artifact:** `serverless package` then `serverless deploy --package <dir>`, which "bypasses the package step and uses the existing package". | ✅ | [Deploying](https://www.serverless.com/framework/docs/providers/aws/guide/deploying) |
+| 4.4.4 | **`serverless deploy function`** "does not touch your AWS CloudFormation Stack". The CLI reference adds: "This command **now** deploys both function configuration and code by default", and "A later `serverless deploy` does not undo a configuration change made this way". The docs say to use it "for faster development cycles and not production deployments". | ✅ | [Deploying](https://www.serverless.com/framework/docs/providers/aws/guide/deploying), [deploy function](https://www.serverless.com/framework/docs/providers/aws/cli-reference/deploy-function) |
+| 4.4.5 | `provider.iam.deploymentRole`: "ARN of an IAM role for CloudFormation service. If specified, CloudFormation uses the role's credentials". AWS warns: "It is not possible to remove a service role attached to a stack after the stack is created". Also: "Other users that have permissions to perform operations on this stack are able to use this role, regardless of whether those users have the `iam:PassRole` permission". Other relevant options: `stackPolicy`, `rollbackConfiguration`, `disableRollback` (non-prod). | ✅ | [serverless.yml reference](https://www.serverless.com/framework/docs/providers/aws/guide/serverless.yml), [CloudFormation service role](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-servicerole.html) |
+| 4.4.6 | **Drift:** Serverless has no drift command. `serverless reconcile` is about billing ("reconciles your org's list of billable instances"). CloudFormation drift detection applies to the stack, with limits: it covers only resource types that support it (others are `NOT_CHECKED`), and only "property values that are explicitly set", not defaults. | ✅ | [reconcile](https://www.serverless.com/framework/docs/providers/aws/cli-reference/reconcile), [CloudFormation drift detection](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html) |
+| 4.4.7 | **Secrets:** `${ssm:…}` variables, and Secrets Manager through `ssm:/aws/reference/secretsmanager/…`. They are resolved with "the deployment (provider) AWS credentials". SecureString values are decrypted unless `noDecrypt` is set. Whether resolved values then sit in plain text in the CloudFormation template, for example as Lambda environment variables, is not stated on the page read (⚠️). | ✅ / ⚠️ | [Variables: SSM & Secrets Manager](https://www.serverless.com/framework/docs/guides/variables/aws/ssm) |
+| 4.4.8 | **Licensing and authentication:** "Starting with Version 4, authentication is required for all users". Organizations with "annual revenue exceeding $2M USD" need a subscription. In CI, **License Keys** "do not offer access control or permissions", have "No Expiration" (rotate them as a best practice), and disable Dashboard access. "As of Serverless Framework version 4.4.19 you can store your License Key in AWS SSM Parameter Store", read with the deploy credentials. Inference: then no CI secret is needed. | ✅ / ⚠️ (inference) | [License keys](https://www.serverless.com/framework/docs/guides/license-keys), [Upgrading to v4](https://www.serverless.com/framework/docs/guides/upgrading-v4) |
+| 4.4.9 | **Other paths that hold prod credentials, outside the GitHub gate:**<br>- **Pulumi ESC**, recommended by Pulumi for cloud credentials (4.1.4).<br>- **Pulumi Deployments:** Click to Deploy, schedules, drift runs. They need deployment settings (4.3.2).<br>- **Serverless Dashboard Providers** ("the easiest and simplest way" to connect to AWS with an IAM role). Credential *resolvers* only pick credentials through the standard AWS provider chain. Inference: so they are not a third-party path.<br><br>Each is a trust path to AWS that does not pass through the GitHub `production` environment (inference). | ✅ (features) / ⚠️ (inference) | [GitHub Actions](https://www.pulumi.com/docs/iac/operations/continuous-delivery/github-actions/), [AWS credentials](https://www.serverless.com/framework/docs/providers/aws/guide/credentials) |
+
+### 4.5 Mapping to Terraform / OpenTofu
+
+One sentence: `pulumi preview`/`up` correspond to Terraform/OpenTofu `plan`/`apply`, `pulumi
+refresh` to a refresh-only plan, Pulumi Policies to Sentinel/OPA, and a Pulumi Cloud or DIY S3
+backend to HCP Terraform or an S3 backend. So the controls below carry over.
+
+Markers:
+- ✅ for the Pulumi side and for the existence of Sentinel
+  ([Pulumi vs Terraform](https://www.pulumi.com/docs/iac/comparisons/terraform/));
+- ⚠️ for the Terraform/OpenTofu command names, whose docs were not read this session.
+
+A Pulumi update plan is weaker than a Terraform saved plan: Pulumi says it is "not as strong a
+guarantee" (4.1.3).
+
+### 4.6 What this means for Papaya (inferences — to be used in the design)
+
+These are my conclusions from the findings above, not documented facts:
+
+1. **Make "what the reviewer approved" equal "what gets applied", as far as the tools allow.**
+   - **What the PR reviewer sees:** after #2, a PR shows only **non-prod** previews (`pulumi
+     preview --diff` with policies, `sls diff --json` parsed by CI because it always exits 0,
+     4.4.2). The prod diff differs, because prod has different stack config and state.
+   - **On merge:** `pulumi up` / `package` + `deploy --package` from `main` under `production`
+     (3.6 #1, 4.4.3). Deploy jobs share a concurrency group **without** `cancel-in-progress`
+     (4.1.4).
+   - **Core tension on Team:** with the assumed Team plan (3.7 A1), the merge is the approval for
+     prod, yet **no human sees the prod diff before it is applied**. This should be stated
+     openly to the panel. Options (all ⚠️ design):
+     - (a) **Enterprise:** a prod preview job, then the environment approval, then `up`. The
+       approver sees the prod diff (3.1.1).
+     - (b) **Team:** the deploy workflow on `main` previews prod and **stops automatically** on
+       risky changes: replace or delete of stateful resources, IAM changes, policy violations.
+       Those cases need a second, separate approval path. Safe diffs proceed. This uses
+       `--save-plan` / `up --plan` as a guard only (4.1.3).
+     - (c) A prod-preview identity that cannot write state, for example a Pulumi Cloud stack-read
+       token. Its preview could then be shown on the PR. Unverified whether preview works with
+       read-only access (4.7). **Caveat:** stack read access is enough to decrypt the stack's secrets
+       (4.3.4), and preview runs the PR's code. So (c) stops state writes but still lets PR code
+       read prod secrets and outputs (#2). It is acceptable only if the prod stack holds no secrets,
+       or if preview can run without decrypting them (⚠️ unverified, 4.7).
+   - **Staleness:** a PR preview is computed against the base at that time (no merge queue, 3.7).
+     Require branches to be up to date (strict status checks).
+   - **Plan files:** `--save-plan` files can carry secrets if `--show-secrets` is used (4.1.1).
+2. **PR previews against prod are not read-only, so do not give PRs prod credentials.**
+   - **State writes:** with an S3 backend, Pulumi needs `PutObject`/`DeleteObject` on `.pulumi/`
+     "across the full stack lifecycle", including preview (4.3.3). PR code running with that role
+     could overwrite or delete prod state. A tampered state makes the next `up` change resources
+     nobody reviewed.
+   - **Secrets:** preview must decrypt stack secrets (KMS decrypt, or Pulumi Cloud stack read
+     access, 4.3.4). `sls diff` resolves `${ssm:…}` with the deploy credentials (4.4.7).
+   - **Code execution:** the program runs as part of preview: "The new desired state is computed by
+     running a Pulumi program" (pulumi preview). Anyone who can open a PR, including an agent,
+     could read prod secrets and state outputs.
+   - **Recommendation:** PRs preview **non-prod stacks only**. The **prod** preview runs after
+     merge, on `main`, in the deploy workflow just before `up`. On Enterprise the environment
+     approval could sit between the two; on Team the merge was the approval (3.6 #1).
+   - Splitting S3 permissions so that preview can write only `locks/` is ⚠️ unverified. The docs
+     list permissions for the whole lifecycle, not per command.
+   - **Roles and trust needed (AWS), each scoped by the `sub` in the repo's format (3.7 A2):**
+     - **non-prod plan/apply:** trusts `pull_request` or non-prod environments. PR code can
+       therefore apply to non-prod, which is acceptable because non-prod holds no real data
+       (GĐ-14);
+     - **prod deploy:** trusts `environment:production` only;
+     - **prod drift check:** a separate read role trusted only from a dedicated `drift`
+       environment restricted to `main`. It must not be able to change state, so state writes
+       stay with the deploy role (⚠️ whether refresh preview needs lock writes, see 4.7).
+       It probably needs `kms:Decrypt`, or Pulumi Cloud stack read, to read state that
+       contains secrets. The drift job can then read prod secrets, which must be noted and
+       restricted.
+3. **Close the bypass paths inside the tools:**
+   - **`serverless deploy function`** changes code **and configuration** outside CloudFormation.
+     The change persists after the next deploy (4.4.4). In prod, deny
+     `lambda:UpdateFunctionCode` **and** `lambda:UpdateFunctionConfiguration` to every principal
+     except the CloudFormation `deploymentRole`.
+     - This works only if `deploymentRole` is set. Otherwise CloudFormation uses the caller's
+       credentials, and the CI role would need those rights itself (4.4.5).
+     - Using `aws:CalledVia` for this is an option (⚠️ untested).
+   - **Least-privilege `deploymentRole`:** it cannot be removed later, and anyone who may operate
+     the stack can use it (4.4.5). Add a `stackPolicy` for stateful resources.
+   - **Pulumi:** prod workflows use an **allowlist** of commands and flags (`preview`, `up`
+     without `--target`, `--target-replace`, `--replace`, `--exclude` or `--skip-preview`).
+     IAM cannot tell `pulumi` commands apart: the deploy role can write state anyway. So keeping
+     state-changing commands (`state …`, `import`, `destroy`, `stack rm`) out of prod runs is
+     enforced only by the workflow allowlist plus CODEOWNERS on `.github/` (3.2.8). Any other
+     use needs a separately approved run.
+4. **Policy as code where the agent can't switch it off.**
+   - **Enforcement point:** the policy that counts is the one evaluated during `up` on `main`
+     (4.2.4).
+     - Prefer Pulumi Cloud policy groups (Essentials+) if Papaya is on Pulumi Cloud, and limit who
+       can run `pulumi policy disable`.
+     - Otherwise use `--policy-pack` in a CODEOWNERS-protected reusable workflow (4.2.3).
+   - **No `remediate` level in prod** (4.2.4).
+   - **Serverless:** the CloudFormation template from `sls package` can be checked by a CI policy
+     tool (⚠️ tool not researched). Add IAM Access Analyzer `check-no-new-access` on changed
+     policies (2.8.1).
+5. **Drift is a compliance signal: it means an unreviewed change happened.**
+   - **Pulumi:** scheduled `pulumi refresh --preview-only`, or `pulumi preview --refresh
+     --expect-no-changes`. Without `--refresh`, a preview compares only against recorded state and
+     cannot see drift (4.3.1). Or use Pulumi Cloud drift detection (Pro+), **with auto-remediation
+     off in prod**, because it runs an unreviewed `up` (4.3.2).
+   - **Serverless:** scheduled CloudFormation drift detection, with its coverage limits (4.4.6).
+     It may not catch a `deploy function` code change (⚠️, 4.7).
+   - Every drift finding maps to a CloudTrail actor (2.5) and an incident or ticket.
+6. **Third-party credential paths must be closed or put under the same gate** (4.4.9). Pulumi
+   ESC, Pulumi Deployments and Serverless Dashboard Providers each hold a path to prod.
+   - **Default:** do not use them for prod.
+   - **If they are used:** their AWS trust and their admin roles must be as narrow as the GitHub
+     `production` path, and audited (Pulumi Cloud audit logs need Pro+, 4.3.5).
+7. **State and secrets:**
+   - **State buckets:** Pulumi state and Serverless state buckets are prod-sensitive stores
+     (encrypted secrets, resource outputs). Restrict them to the deploy roles (4.3.3, 4.4.1).
+   - **Pulumi secrets:** use `awskms` as the secrets provider on a DIY backend (4.3.4).
+   - **Serverless secrets:** resolve them at runtime, not baked into templates (⚠️ 4.4.7).
+   - **Serverless License Key:** keep it in SSM per account, read by the deploy role (≥ 4.4.19).
+     This avoids a long-lived GitHub secret (4.4.8, 3.5.3b).
+
+### 4.7 Open items (Topic 4)
+
+- [ ] ⚠️ Papaya's Pulumi backend (Pulumi Cloud vs DIY S3) and edition; Serverless version
+      (≥ 4.37.0 for `diff`?) and subscription.
+- [ ] ⚠️ Can a CLI user bypass Pulumi Cloud policy-group enforcement? Who may run
+      `pulumi policy disable` (4.2.4)?
+- [ ] ⚠️ Does `pulumi preview` / `refresh --preview-only` on an S3 backend write only lock
+      objects (4.6 #2)? Read `/docs/iac/operations/stack-management/drift/`.
+- [ ] ⚠️ Do Serverless-resolved SSM/Secrets Manager values end up in plain text in the
+      CloudFormation template (4.4.7)?
+- [ ] ⚠️ Does CloudFormation drift detection catch a Lambda code change made by
+      `deploy function` (4.4.6, 4.6 #5)?
+- [ ] ⚠️ Not covered yet: Pulumi resource options `protect`, `retainOnDelete` and `ignoreChanges`
+      (which hides drift); Pulumi Cloud RBAC; CloudFormation change sets as a review artifact
+      (`deploymentMethod: changesets`); stack termination protection; Serverless `.env` loading.
+- [ ] ⚠️ Does `pulumi preview` work with read-only stack access, and can it run without
+      decrypting stack secrets (4.6 #1 c)? Does the Pulumi
+      Cloud OIDC policy match the immutable `sub` format assumed in 3.7 A2 (4.1.5)?
+- [ ] ⚠️ The exact Terraform/OpenTofu command names (4.5); CI policy tools for CloudFormation
+      templates (4.6 #4).
+
+### 4.8 Review log (Topic 4)
+
+- **Round 1 (2026-11-08)**, independent reviewer subagent. It checked every quote, flag, edition
+  note and link, and the `sf-core@4.37.0` release.
+  - Result: 2 HIGH, 6 MEDIUM, 9 LOW, 6 coverage gaps.
+  - I re-checked the HIGH and the MEDIUM items against the raw pages: `deploy function` "now
+    deploys both function configuration and code"; stack secrets need read access to decrypt;
+    `sls diff` always exits 0; auto-remediation "runs `pulumi up --refresh`"; the Pulumi
+    concurrency advice; the CrossGuard redirect. All were accepted.
+  - The HIGH items:
+    - 4.6 #2 called the PR plan role read-only. It can write state and decrypt prod secrets, so
+      PRs now preview non-prod only;
+    - 4.6 #3 must deny `UpdateFunctionConfiguration` too, and depends on `deploymentRole`.
+  - The MEDIUM items:
+    - drift needs `--refresh`;
+    - no auto-remediation in prod;
+    - preview staleness and the concurrency group;
+    - a command allowlist;
+    - the full set of roles and trust;
+    - CrossGuard rename now ✅.
+  - LOW items: fixed. Gaps: added (4.4.9, 4.6 #6) or moved to 4.7.
+- **Round 2 (2026-11-08)**, same reviewer:
+  - Round 1: 16 findings FIXED, 2 PARTLY.
+  - New: 0 HIGH, 1 MEDIUM, 7 LOW.
+  - The MEDIUM: 4.6 #1 still described a prod diff on the PR, which contradicted #2. #1 was
+    rewritten. It now states the Team-plan tension openly: no human sees the prod diff before it
+    is applied. Options (a)–(c) are listed for the design.
+  - All 7 LOW items were fixed: the 4.3.2 marker; IAM vs the workflow allowlist; the Policy as
+    code source; resolvers are not a SaaS path; the license-key inference label; the A2 `sub`
+    check; and the drift role reading secrets plus PR code applying to non-prod.
+- **Round 3 (2026-11-08)**, same reviewer:
+  - Round 2: 8/8 FIXED.
+  - New: 1 MEDIUM, 1 LOW.
+    - The MEDIUM: option (c) would still let PR code read prod secrets. A caveat was added, and
+      the 4.7 item extended.
+    - The LOW: an inference label in 4.4.9.
+  - Both fixed.
+- **Round 4 (2026-11-08)**, same reviewer: both verified FIXED, no new findings. **Topic 4
+  closed.**
