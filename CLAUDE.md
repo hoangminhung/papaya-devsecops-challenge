@@ -91,6 +91,22 @@ Rules of use:
   terms in English.
 - This file overrides the global rule that writes handover docs in Vietnamese.
 
+## Decisions taken so far
+
+- **Branch:** everything is on `master`; no `main` branch.
+- **Permission mode:** session 1 ran in auto mode. From session 2 on, sessions run in the
+  default permission mode so the transcripts show the way of working the deliverable
+  recommends (the challenge names "permission prompts turned off" as a problem).
+- **Clean config directory:** from session 2 on, Claude Code runs with
+  `CLAUDE_CONFIG_DIR=~/.claude-papaya`, built by `work/setup-clean-config.sh`. It contains only
+  the DevOps kit and the personal global CLAUDE.md, and disables claude.ai skill/plugin sync
+  and connectors. Reason: the transcript embeds the system prompt, which lists every loaded
+  skill, plugin and connector; the default profile pulls those from the user's employer
+  account. Session 1's transcript still contains them; this is accepted and documented.
+- **Transcript copies:** sessions under the clean profile write to
+  `~/.claude-papaya/projects/<encoded-repo-path>/`; the copy command in `README.md` covers
+  both locations.
+
 ## Rule 4 — Working method
 
 - Design, don't execute: this project needs no live infrastructure. Do not run cloud CLIs,

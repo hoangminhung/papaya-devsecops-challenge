@@ -24,16 +24,19 @@ Submission for [DevSecOps Challenge 1](https://github.com/papaya-insurtech/pumpk
 
 ## Transcripts
 
-All Claude Code sessions for this challenge were run in this repository, so their native
-session files live under `~/.claude/projects/<encoded-repo-path>/`. Each session is one
+All Claude Code sessions for this challenge were run in this repository. Session 1 used the
+default profile (`~/.claude`); later sessions use a clean profile (`~/.claude-papaya`, see
+[work/setup-clean-config.sh](work/setup-clean-config.sh)). Each session is one
 `<session-id>.jsonl` file plus an optional `<session-id>/` directory holding subagent
 transcripts and large tool results (📖 [Claude directory reference](https://code.claude.com/docs/en/claude-directory#cleaned-up-automatically)).
-Both are copied, unedited, into [transcripts/](transcripts/) before each commit that ends a session:
+They are copied, unedited, into [transcripts/](transcripts/) before each commit that ends a session:
 
 ```bash
-SRC=~/.claude/projects/-home-do-hoang-minh-hung-papaya-devsecops-challenge
-rsync -a --exclude='memory/' --include='*.jsonl' --include='*/' --include='*/**' "$SRC"/ transcripts/
+for CFG in ~/.claude ~/.claude-papaya; do
+  SRC="$CFG/projects/-home-do-hoang-minh-hung-papaya-devsecops-challenge"
+  [ -d "$SRC" ] && rsync -a --exclude='memory/' --include='*.jsonl' --include='*/' --include='*/**' "$SRC"/ transcripts/
+done
 ```
 
 Claude Code deletes local transcripts after `cleanupPeriodDays` (default 30 days, minimum 1,
-cannot be disabled). On the machine used for this challenge it is set to 365 days.
+cannot be disabled). Both profiles on the machine used for this challenge set it to 365 days.
