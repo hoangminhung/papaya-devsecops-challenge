@@ -130,9 +130,9 @@ class WorkflowPolicyTest(unittest.TestCase):
                     flags = {t.split("=")[0] for t in tokens if t.startswith("-")}
                     self.assertLessEqual(flags, allowed[key], line)
         self.assertLessEqual({("pulumi", "up"), ("pulumi", "preview"), ("npx", "serverless")}, seen)
-        text = read(DEPLOY)
+        runs = "\n".join(s.get("run", "") for s in self.steps())
         for bad in ("pulumi state", "pulumi import", "pulumi destroy", "pulumi refresh", "deploy function"):
-            self.assertNotIn(bad, text)
+            self.assertNotIn(bad, runs)
 
     def test_risk_stop_cannot_be_skipped_or_ignored(self):
         job = self.wfs[DEPLOY]["jobs"]["deploy"]
@@ -183,6 +183,15 @@ class WorkflowPolicyTest(unittest.TestCase):
         self.assertTrue(installs)
         for i in installs:
             self.assertLess(i, creds, steps[i].get("name"))
+
+    def test_one_credentials_step_per_tool_without_fallback(self):
+        creds = [s for s in self.steps()
+                 if str(s.get("uses", "")).startswith("aws-actions/configure-aws-credentials@")]
+        roles = {s["if"]: s["with"]["role-to-assume"] for s in creds}
+        self.assertEqual(roles, {
+            "inputs.tool == 'pulumi'": "${{ vars.PROD_PULUMI_DEPLOY_ROLE_ARN }}",
+            "inputs.tool == 'serverless'": "${{ vars.PROD_SERVERLESS_DEPLOY_ROLE_ARN }}",
+        })
 
     def test_full_history_for_approval_checks(self):
         [co] = [s for s in self.steps() if str(s.get("uses", "")).startswith("actions/checkout@")]

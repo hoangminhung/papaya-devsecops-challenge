@@ -1,0 +1,110 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "LambdaChangesOnlyThroughDeployAndJitRoles",
+      "Effect": "Deny",
+      "Action": [
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalArn": [
+            "arn:aws:iam::*:role/cfn-deployment-*",
+            "arn:aws:iam::*:role/github-prod-deploy-pulumi",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_InfraOperator-*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*/AWSReservedSSO_InfraOperator-*"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "ClaimDataReadsOnlyByAppAndApprovedDataReadRoles",
+      "Effect": "Deny",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:GetObjectTorrent",
+        "s3:GetObjectVersionTorrent",
+        "sqs:ReceiveMessage",
+        "states:GetExecutionHistory",
+        "states:DescribeExecution",
+        "states:StartSyncExecution",
+        "sqs:StartMessageMoveTask"
+      ],
+      "Resource": [
+        "arn:aws:s3:::example-claim-documents-*/*",
+        "arn:aws:sqs:*:*:claims-*",
+        "arn:aws:states:*:*:execution:claims-*:*",
+        "arn:aws:states:*:*:stateMachine:claims-*"
+      ],
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalArn": [
+            "arn:aws:iam::*:role/app-claims-*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_DataRead-*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*/AWSReservedSSO_DataRead-*"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "ExemptRoleNamesOnlyChangedByTheIamStack",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePermissionsBoundary",
+        "iam:DeleteRolePermissionsBoundary",
+        "iam:UpdateRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/app-claims-*",
+        "arn:aws:iam::*:role/cfn-deployment-*",
+        "arn:aws:iam::*:role/github-prod-deploy-*"
+      ],
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalArn": [
+            "arn:aws:iam::*:role/github-prod-deploy-pulumi"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "RevokedIdentityCenterUsers",
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "identitystore:UserId": [
+            "<REVOKED_USER_ID_PLACEHOLDER>"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "NoTamperingWithTrailsInProdAccounts",
+      "Effect": "Deny",
+      "Action": [
+        "cloudtrail:StopLogging",
+        "cloudtrail:DeleteTrail",
+        "cloudtrail:UpdateTrail",
+        "cloudtrail:PutEventSelectors",
+        "cloudtrail:PutInsightSelectors",
+        "cloudtrail:DeleteEventDataStore",
+        "cloudtrail:StopEventDataStoreIngestion",
+        "cloudtrail:UpdateEventDataStore"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

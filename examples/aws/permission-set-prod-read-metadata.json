@@ -1,0 +1,73 @@
+{
+  "PermissionSet": {
+    "Name": "ProdReadMetadata",
+    "Description": "Prod metrics and metadata; per-service logs and config only where redacted",
+    "SessionDuration": "PT1H"
+  },
+  "InlinePolicy": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "MetricsAlarmsAndResourceMetadata",
+        "Effect": "Allow",
+        "Action": [
+          "cloudwatch:GetMetricData",
+          "cloudwatch:GetMetricStatistics",
+          "cloudwatch:ListMetrics",
+          "cloudwatch:DescribeAlarms",
+          "cloudwatch:DescribeAlarmHistory",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams",
+          "ecs:ListClusters",
+          "ecs:ListServices",
+          "ecs:DescribeClusters",
+          "ecs:DescribeServices",
+          "sqs:ListQueues",
+          "sqs:GetQueueAttributes",
+          "states:ListStateMachines",
+          "states:DescribeStateMachine",
+          "states:ListExecutions",
+          "rds:DescribeDBClusters",
+          "rds:DescribeDBInstances",
+          "sns:ListTopics",
+          "cloudformation:ListStacks",
+          "health:DescribeEvents",
+          "ecs:ListTasks",
+          "ec2:DescribeInstances",
+          "elasticloadbalancing:DescribeTargetGroups",
+          "elasticloadbalancing:DescribeTargetHealth",
+          "lambda:ListEventSourceMappings",
+          "lambda:GetFunctionConcurrency",
+          "cloudformation:DescribeStackResources",
+          "rds:DescribeEvents",
+          "sqs:ListDeadLetterSourceQueues"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Sid": "LogsOfServicesRedactedAtSource",
+        "Effect": "Allow",
+        "Action": [
+          "logs:GetLogEvents",
+          "logs:FilterLogEvents",
+          "logs:StartQuery",
+          "logs:GetQueryResults"
+        ],
+        "Resource": [
+          "arn:aws:logs:*:<AWS_ACCOUNT_ID>:log-group:/aws/lambda/claims-ingest",
+          "arn:aws:logs:*:<AWS_ACCOUNT_ID>:log-group:/aws/lambda/claims-ingest:*"
+        ]
+      },
+      {
+        "Sid": "ConfigOfServicesWithRuntimeSecrets",
+        "Effect": "Allow",
+        "Action": [
+          "lambda:GetFunctionConfiguration"
+        ],
+        "Resource": [
+          "arn:aws:lambda:*:<AWS_ACCOUNT_ID>:function:claims-ingest"
+        ]
+      }
+    ]
+  }
+}

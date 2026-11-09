@@ -18,8 +18,9 @@
 # catches risky diffs nobody looked at, not malicious code that was approved. `pulumi up`
 # previews again; a change made outside the pipeline between the two previews is not re-checked.
 #
-# Variables of the `production` environment (not secrets): AWS_REGION, PROD_DEPLOY_ROLE_ARN,
-# PULUMI_BACKEND_URL, PULUMI_CLI_VERSION, NODE_VERSION. The Serverless License Key is read from
+# Variables of the `production` environment (not secrets): AWS_REGION,
+# PROD_PULUMI_DEPLOY_ROLE_ARN, PROD_SERVERLESS_DEPLOY_ROLE_ARN, PULUMI_BACKEND_URL,
+# PULUMI_CLI_VERSION, NODE_VERSION. The Serverless License Key is read from
 # SSM Parameter Store with the deploy role (sf >= 4.4.19, R4.4.8), so no CI secret holds it.
 name: deploy-prod
 
@@ -82,8 +83,9 @@ jobs:
             exit 1
           fi
 
-      # Everything that downloads code is installed here, before any prod credential exists in
-      # the job, so install scripts and downloads never see the deploy role.
+      # Everything that downloads code is installed here, before the AWS credentials are in the
+      # job's environment. Install scripts can still request the job's OIDC token (id-token:
+      # write is job-wide) or leave a process behind (examples/README.md, "Limits").
       - name: Install dependencies before any prod credential exists in the job
         working-directory: ${{ inputs.workdir }}
         run: npm ci
@@ -111,12 +113,27 @@ jobs:
         working-directory: ${{ inputs.workdir }}
         run: npx serverless --version
 
-      - name: AWS credentials through GitHub OIDC (no stored keys)
+      # Two roles (framework layer 1; SCP in examples/aws/scp-prod-ou.json): only the Pulumi role is
+      # exempt from the Lambda-update deny; the Serverless role only passes the CloudFormation
+      # deploymentRole. This stops drift from `serverless deploy function`; it does NOT stop
+      # malicious code in this job, which can request its own OIDC token for either role
+      # (examples/README.md, "Limits"). One step per tool, so an unset variable fails the step
+      # instead of falling back to the other role.
+      - name: AWS credentials through GitHub OIDC (Pulumi deploy role)
+        if: inputs.tool == 'pulumi'
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: ${{ vars.PROD_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ vars.PROD_PULUMI_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
           # The run ID in the session name links CloudTrail events to this run (layer 7 change record).
+          role-session-name: deploy-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: AWS credentials through GitHub OIDC (Serverless deploy role)
+        if: inputs.tool == 'serverless'
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.PROD_SERVERLESS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
           role-session-name: deploy-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Preview prod (Pulumi)

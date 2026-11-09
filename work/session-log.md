@@ -370,3 +370,62 @@ Running log of the working sessions, not part of the reading order.
   - chỉ deploy đỉnh `main`;
   - lỗ hở "bản duyệt merge sớm" là giới hạn được chấp nhận, giao G19.
   - Dừng review bước 1 ở vòng 3.
+- Commit bước 1 (`b0881c7`).
+
+## 2026-11-09 — Bước 2: identity & access (E4–E6)
+- Danh mục IAM action: tải từ Service Authorization Reference dạng máy đọc của AWS ✅ (`servicereference.us-east-1.amazonaws.com`,
+  19 service), lưu `examples/schemas/aws-actions.json`. Dùng để mở rộng wildcard, bắt tên action sai, kiểm `IsWrite`.
+- Viết:
+  - E4: trust OIDC prod (`environment:production`, `sub` dạng immutable) + non-prod (`pull_request`). Không cần `sts:TagSession`
+    vì action không gắn tag khi dùng OIDC (📖 README của action).
+  - E5: SCP prod OU, phase 2.
+  - E6: permission set `ProdReadMetadata`, bỏ các lệnh "metadata" làm lộ config/dữ liệu.
+- 14 test mới, 8 mutation đều bị bắt. `validate.sh`: 76 test đạt ✅.
+- Phát hiện:
+  - SCP "bảo vệ org trail" phần lớn thừa (R2.6.2);
+  - một số lệnh đọc metadata làm lộ config;
+  - nhãn `IsDataPlane` của AWS không có nghĩa là dữ liệu khách hàng.
+- Review độc lập bước 2: đang chạy.
+- Review bước 2, vòng 1: 1 HIGH, 4 MEDIUM, 6 LOW. Agent tự kiểm H1 trong docs AWS ✅ trước khi sửa. Đã sửa:
+  - H1: ARN role Identity Center không có đoạn region khi identity source ở us-east-1 (📖 referencingpermissionsets)
+    → liệt kê cả hai dạng.
+  - M1: test lọt các mutation → ghim chính xác principal được miễn, action bị chặn, ARN theo service; `Resource: "*"`
+    chỉ cho action `IsList` hoặc allowlist đã xem xét. 9 mutation của reviewer đều bị bắt.
+  - M2: điều kiện tiên quyết là opt-in định dạng `sub` mới (R3.4.4) cho repo cũ.
+  - M3: tách deploy role Pulumi / Serverless; SCP chỉ miễn role Pulumi (đúng framework layer 1).
+  - M4: luật đặt tên của SCP chặn đọc dữ liệu là [design]; điều kiện phase 2 là kiểm kê caller thật.
+  - LOW: tên [design]; bỏ `StopQuery`; sửa finding 11; thêm torrent/`StartSyncExecution`, CloudTrail Lake;
+    thêm EC2/ELB/`ecs:ListTasks`, cố ý bỏ `ecs:DescribeTasks`.
+  - Kết quả: `validate.sh` đạt, 78 test ✅.
+- Review bước 2, vòng 2: 1 HIGH, 4 MEDIUM, 7 LOW. Đã sửa:
+  - H1 và M4 (code trong job deploy, kể cả install script, xin được OIDC token cho cả hai role): cùng loại với OD15.
+    Sửa câu chữ: tách role chỉ chặn drift, không chặn code độc hại. Ghi vào Limits; đưa build job không `id-token`
+    và environment riêng cho từng role vào roadmap phase 2 cùng OD15.
+  - M1: `Resource: "*"` chỉ cho allowlist tường minh; bỏ tin nhãn `IsList` (nhiều action `IsList` trả dữ liệu).
+  - M2: SCP chặn tạo/sửa role có tên được miễn, trừ deploy role của IAM stack [design]; ghi rủi ro còn lại của JIT.
+  - M3: sửa finding về trail.
+  - LOW:
+    - một bước credential cho mỗi tool, không fallback;
+    - số service;
+    - câu chữ "pinned";
+    - placeholder;
+    - `secrets.md`;
+    - thêm `sqs:StartMessageMoveTask`, `cloudtrail:UpdateEventDataStore`;
+    - thêm action metadata cho phân tích sự cố;
+    - ghi lỗ hở access point/KMS vào G13.
+  - Thêm IAM vào catalogue (22 service). 7 mutation mới đều bị bắt. `validate.sh`: 80 test đạt ✅.
+- Owner: "đồng ý" cho OD19 (SCP bảo vệ tên role được miễn) và OD20 (OIDC token toàn job → roadmap phase 2 cùng OD15);
+  đồng ý chạy vòng 3 ngắn rồi commit.
+- Review bước 2, vòng 3 (ngắn, chỉ phần vừa sửa): 2 HIGH, 2 MEDIUM, 5 LOW. Agent tự kiểm H2 trong API reference ✅ trước khi sửa.
+  - H2: `DescribeStackEvents` trả `ResourceProperties` (📖 StackEvent), có thể chứa biến môi trường → bỏ khỏi permission set.
+  - H1: "chỉ IAM stack" trong OD19 chưa đúng: role Pulumi deploy mọi stack Pulumi, và theo OD20 job nào cũng lấy được.
+    Ghi rõ trong finding 16. Cách hiểu của agent về OD19 (cần owner xác nhận): chỉ đúng sau OD20; trước đó là
+    "chỉ một lần deploy Pulumi prod đã duyệt".
+  - M1/M2: rủi ro còn lại từ `PassRole` + `CreateFunction`; ràng buộc phase 2 (role `app-claims-*` nằm ở IAM stack,
+    tạo trước khi gắn SCP, sửa trust của role Pulumi chỉ bằng cách đổi SCP) → finding 16.
+  - LOW:
+    - bỏ `StopQuery`/`DescribeQueries`;
+    - ghim đủ 10 action IAM;
+    - comment `StartMessageMoveTask` và chi phí redrive DLQ;
+    - điều kiện cho `states:ListExecutions`.
+  - `validate.sh` đạt, 80 test ✅. Theo đồng ý của owner: commit sau vòng 3, không chạy vòng 4; các sửa vòng 3 chưa có vòng kiểm lại.
