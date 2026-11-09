@@ -1,6 +1,6 @@
 # Compliance mapping: control and evidence register
 
-> Status: draft for owner review · Updated: 2026-11-09 · Builds on [`01-framework.md`](01-framework.md)
+> Status: approved by the owner 2026-11-09 · Updated: 2026-11-09 · Builds on [`01-framework.md`](01-framework.md)
 > Audience: Compliance and auditors.
 
 ## How to use this register
@@ -15,7 +15,8 @@
   §4). HIPAA applicability is a legal question (⚠️ R1.11.1.11).
 - Short forms: **6 y** = at least 6 years, HIPAA's documentation rule (📖 R5.2.9), applied by the
   framework to approval and change records (⚠️ R5.7 #2). **O-n** = not decided in the framework, see
-  [open items](#known-gaps-for-compliance). **Ph n** = rollout phase ([rollout plan](03-rollout-plan.md)).
+  [open items](#known-gaps-for-compliance). **Ph n** and **From phase** = rollout phase ([rollout plan](03-rollout-plan.md)); "—" = not set
+  in the rollout plan.
   **Owner:** DevSecOps is the control owner of every row ([Roles](01-framework.md#roles)); the
   column adds who runs or approves it where the framework says.
 
@@ -29,57 +30,57 @@ Standards for each group: [cross-reference](#standards-cross-reference).
 
 ### Access ([layer 1](01-framework.md#layer-1--identity-and-access))
 
-| ID | Control | Owner | Evidence → where | Kept | Checked | S |
-|---|---|---|---|---|---|---|
-| C-01 | No standing prod write; `ProdReadMetadata` is the only standing prod role | IAM code: L3 owner team + on-call group (OD9) | Identity Center assignment export; IAM users and keys with prod write; permission sets and trust policies in git (E4, E6) | git; export O-2 | quarterly; monthly S1 | S1, S9 |
-| C-02 | SCPs on the prod OU and outside-org write deny, Ph 2 | L3 owner team only (OD13) | SCP code and PRs (E5), the written access rule for sensitive data (📖 R5.4.3; ⚠️ R5.7 #5); Access Analyzer `check-no-new-access` on policy PRs (📖 R2.8.1) | git | per PR | S1, S9 |
-| C-03 | Review of permission sets, GitHub admins, Claude org Owners | O-6 | Review record (O-6) | O-2 | quarterly | S1 |
+| ID | Control | From phase | Owner | Evidence → where | Kept | Checked | S |
+|---|---|---|---|---|---|---|---|
+| C-01 | No standing prod write; `ProdReadMetadata` is the only standing prod role | 1 | IAM code: L3 owner team + on-call group (OD9) | Identity Center assignment export; IAM users and keys with prod write; permission sets and trust policies in git (E4, E6) | git; export O-2 | quarterly; monthly S1 | S1, S9 |
+| C-02 | SCPs on the prod OU and outside-org write deny, Ph 2 | 2 | L3 owner team only (OD13) | SCP code and PRs (E5), the written access rule for sensitive data (📖 R5.4.3; ⚠️ R5.7 #5); Access Analyzer `check-no-new-access` on policy PRs (📖 R2.8.1) | git | per PR | S1, S9 |
+| C-03 | Review of permission sets, GitHub admins, Claude org Owners | — | O-6 | Review record (O-6) | O-2 | quarterly | S1 |
 
 ### Change ([layer 3](01-framework.md#layer-3--change-workflow-by-risk-level), [layer 5](01-framework.md#layer-5--cicd-hardening))
 
-| ID | Control | Owner | Evidence → where | Kept | Checked | S |
-|---|---|---|---|---|---|---|
-| C-04 | Every prod change is a PR approved before merge by a code owner ≠ author, ≠ last pusher | code owner of the path | PR: author, final diff, reviews with times, checks, squash commit (OD16) | GitHub (⚠️ not researched); 6 y in C-19 | per change | S3, S4 |
-| C-05 | Ruleset on `main` (E1 lists the rules) | platform team or named engineers (⚠️ team unknown) | Copy in git (E1); live comparison (G8); `repository_ruleset.update`, `protected_branch.policy_override` (📖 R3.5.6), alerted Ph 2 | git; audit log 180 days (📖 R3.5.6), export O-4 | on event; comparison O-5 | S3, S10 |
-| C-06 | CODEOWNERS: L3 paths for the L3 owner team; deployable paths co-owned by the on-call group; validation check | content: engineering leads; changes: L3 owner team | File in git (E2); validation per PR; report of cross-domain approvals without `incident` label (OD9) and cross-team PRs without domain review (OD10) | git; reports O-2 | per PR; monthly | S3 |
-| C-07 | Merge approval = deploy approval: `production` only from `main` and the deploy workflow; prod OIDC roles trust only it; tip of `main` only (OD17) | platform team or named engineers; changes: L3 owner team | E3, E3b, E4 in git; deploy run log; CloudTrail session `deploy-<run_id>-<attempt>` [design, E3]; `environment.*` events (📖 R3.1.4) | run log ⚠️ G7 | per change | S2, S3 |
-| C-08 | Risk stop: a risky prod diff waits for a stack owner's approval of the preview | stack owners (OD8); classifier: L3 owner team (OD14) | `risk-summary` artifact, names not values (E7); `deploy-approvals/<stack>/<sha>.yaml` with preview hash, and its PR; three-person deviations (OD11) | git; artifact ⚠️ G7 | per deploy; monthly | S3 |
-| C-09 | Required checks: secret scan, dependency check, SAST (Ph 1, G4); Access Analyzer, policy packs (Ph 2, E10); approval-gate check for app-opened PRs (G19) | DevSecOps | Check results per PR; required checks in E1 | GitHub (⚠️) | per PR; monthly | S10 |
-| C-10 | Incident lane: `incident` label, on-call approver paged, checks still run, approval wait ≤ 15 min | engineering management (schedule) | PR label and review times; on-call schedule (C-22) | O-2 | per incident; monthly | S7 |
+| ID | Control | From phase | Owner | Evidence → where | Kept | Checked | S |
+|---|---|---|---|---|---|---|---|
+| C-04 | Every prod change is a PR approved before merge by a code owner ≠ author, ≠ last pusher | 1 | code owner of the path | PR: author, final diff, reviews with times, checks, squash commit (OD16) | GitHub (⚠️ not researched); 6 y in C-19 | per change | S3, S4 |
+| C-05 | Ruleset on `main` (E1 lists the rules) | 1; alerts 2 | platform team or named engineers (⚠️ team unknown) | Copy in git (E1); live comparison (G8); `repository_ruleset.update`, `protected_branch.policy_override` (📖 R3.5.6), alerted Ph 2 | git; audit log 180 days (📖 R3.5.6), export O-4 | on event; comparison O-5 | S3, S10 |
+| C-06 | CODEOWNERS: L3 paths for the L3 owner team; deployable paths co-owned by the on-call group; validation check | 1 | content: engineering leads; changes: L3 owner team | File in git (E2); validation per PR; report of cross-domain approvals without `incident` label (OD9) and cross-team PRs without domain review (OD10) | git; reports O-2 | per PR; monthly | S3 |
+| C-07 | Merge approval = deploy approval: `production` only from `main` and the deploy workflow; prod OIDC roles trust only it; tip of `main` only (OD17) | 1 | platform team or named engineers; changes: L3 owner team | E3, E3b, E4 in git; deploy run log; CloudTrail session `deploy-<run_id>-<attempt>` [design, E3]; `environment.*` events (📖 R3.1.4) | run log ⚠️ G7 | per change | S2, S3 |
+| C-08 | Risk stop: a risky prod diff waits for a stack owner's approval of the preview | 1; policy trigger 2 | stack owners (OD8); classifier: L3 owner team (OD14) | `risk-summary` artifact, names not values (E7); `deploy-approvals/<stack>/<sha>.yaml` with preview hash, and its PR; three-person deviations (OD11) | git; artifact ⚠️ G7 | per deploy; monthly | S3 |
+| C-09 | Required checks: secret scan, dependency check, SAST (Ph 1, G4); Access Analyzer, policy packs (Ph 2, E10); approval-gate check for app-opened PRs (G19) | 1; Access Analyzer, policy packs 2 | DevSecOps | Check results per PR; required checks in E1 | GitHub (⚠️) | per PR; monthly | S10 |
+| C-10 | Incident lane: `incident` label, on-call approver paged, checks still run, approval wait ≤ 15 min | 1 | engineering management (schedule) | PR label and review times; on-call schedule (C-22) | O-2 | per incident; monthly | S7 |
 
 ### Agent runtime and supply chain ([layer 2](01-framework.md#layer-2--agent-runtime-controls), [layer 4](01-framework.md#layer-4--supply-chain-for-mcp-servers-and-plugins), layer 5)
 
-| ID | Control | Owner | Evidence → where | Kept | Checked | S |
-|---|---|---|---|---|---|---|
-| C-11 | Managed settings (phase-1 subset, rest Ph 2, OD4); OTel without prompt content | DevSecOps; console edits: Claude org Owners (📖 R1.1.5) | Copy in git with PR approvals (E8); console export diffed with git [design] (G18); `/status`, `claude doctor` samples (📖 R1.1.18; values ⚠️); OTel `permission_mode`, `blocked_on_user` (fields 📖 research 6.6 D1; thresholds ⚠️), backend O-8 (not tamper-proof, 📖 R1.1.20). Team settings audit events ⚠️ R1.1.12 | git; rest O-2 | monthly; sampling O-5 | S5 |
-| C-12 | Plugin/MCP catalogue, review ≤ 5 working days | DevSecOps | Marketplace file in git, one PR and review record per entry (E9); OTel `plugin_installed` / `plugin_loaded` (📖 R1.4.6). Which MCP server or tool was called is not recorded: that needs `OTEL_LOG_TOOL_DETAILS=1` (📖 R1.3.8), kept off until it is known whether it also logs tool inputs (⚠️); so "0 MCP servers outside the catalogue" rests on the managed lock (C-11) | git | per request; monthly | S6 |
-| C-13 | Supplier register: certificate, BAA/DPA status, allowed data (list ⚠️ R5.6) | Compliance | Register (O-9) | O-2 | per supplier; O-9 | S6 |
-| C-14 | CI credentials: OIDC, no stored keys, Actions cannot approve PRs, pinned actions; k0s/Firebase exception as `production` environment secret (OD1, OD6) | platform team or named engineers; exception owner | Workflows, lockfile (E3); secrets inventory; exception register; `org.update_actions_secret`, `repo.set_workflow_permission_can_approve_pr` (📖 R3.5.6, R3.3.3); no researched event for environment secrets (⚠️), so the settings comparison (C-21) covers the S2 exception | git; audit log as C-05 | monthly; at expiry | S2 |
+| ID | Control | From phase | Owner | Evidence → where | Kept | Checked | S |
+|---|---|---|---|---|---|---|---|
+| C-11 | Managed settings (phase-1 subset, rest Ph 2, OD4); OTel without prompt content | 1 subset; rest 2 | DevSecOps; console edits: Claude org Owners (📖 R1.1.5) | Copy in git with PR approvals (E8); console export diffed with git [design] (G18); `/status`, `claude doctor` samples (📖 R1.1.18; values ⚠️); OTel `permission_mode`, `blocked_on_user` (fields 📖 research 6.6 D1; thresholds ⚠️), backend O-8 (not tamper-proof, 📖 R1.1.20). Team settings audit events ⚠️ R1.1.12 | git; rest O-2 | monthly; sampling O-5 | S5 |
+| C-12 | Plugin/MCP catalogue, review ≤ 5 working days | 1 (may slip to 2) | DevSecOps | Marketplace file in git, one PR and review record per entry (E9); OTel `plugin_installed` / `plugin_loaded` (📖 R1.4.6). Which MCP server or tool was called is not recorded: that needs `OTEL_LOG_TOOL_DETAILS=1` (📖 R1.3.8), kept off until it is known whether it also logs tool inputs (⚠️); so "0 MCP servers outside the catalogue" rests on the managed lock (C-11) | git | per request; monthly | S6 |
+| C-13 | Supplier register: certificate, BAA/DPA status, allowed data (list ⚠️ R5.6) | — | Compliance | Register (O-9) | O-2 | per supplier; O-9 | S6 |
+| C-14 | CI credentials: OIDC, no stored keys, Actions cannot approve PRs, pinned actions; k0s/Firebase exception as `production` environment secret (OD1, OD6) | 1 | platform team or named engineers; exception owner | Workflows, lockfile (E3); secrets inventory; exception register; `org.update_actions_secret`, `repo.set_workflow_permission_can_approve_pr` (📖 R3.5.6, R3.3.3); no researched event for environment secrets (⚠️), so the settings comparison (C-21) covers the S2 exception | git; audit log as C-05 | monthly; at expiry | S2 |
 
 ### Data protection ([layer 6](01-framework.md#layer-6--data-protection-and-prompt-injection-defence))
 
-| ID | Control | Owner | Evidence → where | Kept | Checked | S |
-|---|---|---|---|---|---|---|
-| C-15 | Real-data read (L3-data): one tenant, window, agreement; approver ≠ requester; data owner co-approves or reviews next day | approver; data owner [design] | Request and approvals (O-1); data-read role CloudTrail; Aurora activity streams, Ph 2 (📖 R2.7.2), as PHI (⚠️ R2.7.3) | O-2 | per grant; monthly | S9 |
-| C-16 | PHI out of agent sessions: logs redacted at source, no raw partner documents, no PHI on Firebase, `cleanupPeriodDays` (Ph 2) | DevSecOps | SCP/IAM text (C-02); log-redaction reviews ([threat model](05-threat-model.md) T17); managed settings (C-11); planted-injection report (C-24) | git | per service, before its raw logs open | S9 |
-| C-17 | Non-prod synthetic or masked; non-prod scan; unscanned store follows L3-data | DevSecOps; tool G4 | Scan results | O-2 | start of Ph 1; then O-5 | S11 |
-| C-18 | Vietnam example: agent data flows update the transfer impact assessment (⚠️ R5.7 #4) | Papaya legal | Updated dossier | O-2 | every 6 months when something changes (📖 R5.4.5) | — |
+| ID | Control | From phase | Owner | Evidence → where | Kept | Checked | S |
+|---|---|---|---|---|---|---|---|
+| C-15 | Real-data read (L3-data): one tenant, window, agreement; approver ≠ requester; data owner co-approves or reviews next day | 1 | approver; data owner [design] | Request and approvals (O-1); data-read role CloudTrail; Aurora activity streams, Ph 2 (📖 R2.7.2), as PHI (⚠️ R2.7.3) | O-2 | per grant; monthly | S9 |
+| C-16 | PHI out of agent sessions: logs redacted at source, no raw partner documents, no PHI on Firebase, `cleanupPeriodDays` (Ph 2) | 1, per service | DevSecOps | SCP/IAM text (C-02); log-redaction reviews ([threat model](05-threat-model.md) T17); managed settings (C-11); planted-injection report (C-24) | git | per service, before its raw logs open | S9 |
+| C-17 | Non-prod synthetic or masked; non-prod scan; unscanned store follows L3-data | 1 | DevSecOps; tool G4 | Scan results | O-2 | start of Ph 1; then O-5 | S11 |
+| C-18 | Vietnam example: agent data flows update the transfer impact assessment (⚠️ R5.7 #4) | — | Papaya legal | Updated dossier | O-2 | every 6 months when something changes (📖 R5.4.5) | — |
 
 ### Logging, incident response and break-glass ([layer 7](01-framework.md#layer-7--observability-audit-incident-response-and-break-glass))
 
-| ID | Control | Owner | Evidence → where | Kept | Checked | S |
-|---|---|---|---|---|---|---|
-| C-19 | Change record per prod change; monthly reconciliation, Ph 2 | DevSecOps | Record keyed by commit SHA or JIT request ID, linking PR, approvals, run, preview, CloudTrail [design]; exported run log (⚠️ G7); report of unmatched writes and late approvals | 6 y | monthly | S3, S8 |
-| C-20 | Organization CloudTrail to a log-archive account, integrity validation, selected data events | DevSecOps | Logs and signed digests (📖 R2.6.4); actor `onBehalfOf.userId` (📖 R2.5.1) or session name + directory lookup (⚠️ R2.5.3); holds PHI (⚠️ research 1.11.4 L15) | until a lifecycle rule (📖 R2.6.5); O-2 | via C-19; digests O-5 | S3, S8 |
-| C-21 | GitHub audit-log export; alerts on ruleset and environment events; settings comparison incl. on-call members (G8, G16); drift detection, Ph 2 | DevSecOps | Export (📖 R3.5.6); alerts; comparison results; drift tickets with actor | 180 days in GitHub; export O-4 | on event; O-5 | S3, S8 |
-| C-22 | Named on-call approvers (primary + backup, 24/7) and responders; alert routing Ph 2 (G5) | engineering management | Published schedules; approval waits (C-10) | O-2 | monthly | S7 |
-| C-23 | JIT break-glass: incidents only, approval before grant, 1-hour role, command list, reconciliation, codify PR; emergency federation, Ph 2 | on-call approver; revocation SCP: L3 owner team (G20) | Request and approval (O-1); `CreateAccountAssignment` / `DeleteAccountAssignment` (📖 R2.4.2) linked by request ID [design]; writes-vs-list comparison (by hand Ph 1); codify PR; JIT metrics | 6 y | per grant; monthly | S3, S7 |
+| ID | Control | From phase | Owner | Evidence → where | Kept | Checked | S |
+|---|---|---|---|---|---|---|---|
+| C-19 | Change record per prod change; monthly reconciliation, Ph 2 | 2 | DevSecOps | Record keyed by commit SHA or JIT request ID, linking PR, approvals, run, preview, CloudTrail [design]; exported run log (⚠️ G7); report of unmatched writes and late approvals | 6 y | monthly | S3, S8 |
+| C-20 | Organization CloudTrail to a log-archive account, integrity validation, selected data events | — | DevSecOps | Logs and signed digests (📖 R2.6.4); actor `onBehalfOf.userId` (📖 R2.5.1) or session name + directory lookup (⚠️ R2.5.3); holds PHI (⚠️ research 1.11.4 L15) | until a lifecycle rule (📖 R2.6.5); O-2 | via C-19; digests O-5 | S3, S8 |
+| C-21 | GitHub audit-log export; alerts on ruleset and environment events; settings comparison incl. on-call members (G8, G16); drift detection, Ph 2 | 2 | DevSecOps | Export (📖 R3.5.6); alerts; comparison results; drift tickets with actor | 180 days in GitHub; export O-4 | on event; O-5 | S3, S8 |
+| C-22 | Named on-call approvers (primary + backup, 24/7) and responders; alert routing Ph 2 (G5) | 1; alert routing 2 | engineering management | Published schedules; approval waits (C-10) | O-2 | monthly | S7 |
+| C-23 | JIT break-glass: incidents only, approval before grant, 1-hour role, command list, reconciliation, codify PR; emergency federation, Ph 2 | 1; automated reconciliation, emergency federation 2 | on-call approver; revocation SCP: L3 owner team (G20) | Request and approval (O-1); `CreateAccountAssignment` / `DeleteAccountAssignment` (📖 R2.4.2) linked by request ID [design]; writes-vs-list comparison (by hand Ph 1); codify PR; JIT metrics | 6 y | per grant; monthly | S3, S7 |
 
 ### Governance ([layer 8](01-framework.md#layer-8--governance-and-rollout))
 
-| ID | Control | Owner | Evidence → where | Kept | Checked | S |
-|---|---|---|---|---|---|---|
-| C-24 | Policy as code; metrics S1–S11, JIT and prompt metrics; exception register; 90-day review of D1–D3; planted-injection test (Ph 3) | DevSecOps; Compliance reviews evidence | Git history of policy files; monthly report; register; review minutes; test report | git; rest O-2 | per PR; monthly; 90 days | all |
+| ID | Control | From phase | Owner | Evidence → where | Kept | Checked | S |
+|---|---|---|---|---|---|---|---|
+| C-24 | Policy as code; metrics S1–S11, JIT and prompt metrics; exception register; 90-day review of D1–D3; planted-injection test (Ph 3) | 1; injection test 3 | DevSecOps; Compliance reviews evidence | Git history of policy files; monthly report; register; review minutes; test report | git; rest O-2 | per PR; monthly; 90 days | all |
 
 ## Evidence for one prod change (S8)
 

@@ -3,7 +3,7 @@
 Submission for [DevSecOps Challenge 1](https://github.com/papaya-insurtech/pumpkin/blob/main/Hiring/DevSecOps_Challenges/DevSecOps_Challenge_1.md)
 (local copy: [work/00-challenge.md](work/00-challenge.md)).
 
-> Status: complete for review; the compliance register awaits the owner's review · Updated: 2026-11-09
+> Status: complete; all documents approved by the owner · Updated: 2026-11-09
 
 ## The problem and the answer
 

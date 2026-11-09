@@ -531,3 +531,9 @@ Running log of the working sessions, not part of the reading order.
 - Vòng review lại (ngắn, chỉ phần sửa): 0 HIGH, 2 MEDIUM, 6 LOW. MEDIUM: README nói sai "các session ngày 11-08 dùng
   profile mặc định" (chỉ session 1–2); threat model T1 và đoạn "excluded commands" còn mô tả phase 1/auto mode cũ.
   Đã sửa cả 2 MEDIUM và 6 LOW. Không chạy thêm vòng nữa: phần còn lại chỉ là sửa một câu; các sửa này chưa có vòng kiểm lại.
+- Owner (sau khi được báo xong các bước):
+  - Permission mode: "Không sao, session này tôi dùng phát triển framework." Giữ `CLAUDE.md` nguyên; sự thật ghi ở README.
+  - Độ dài framework (~11k từ): đồng ý giữ nguyên.
+  - Rollout plan: duyệt tất cả phần thêm (owner, "done when" vẫn là [design], "measured from", 2.9, 2.4, rủi ro S4).
+  - Compliance register: duyệt, thêm cột "From phase" (đã thêm; "—" = rollout chưa đặt phase).
+  - O-1…O-9: để mở cho Papaya quyết khi triển khai.

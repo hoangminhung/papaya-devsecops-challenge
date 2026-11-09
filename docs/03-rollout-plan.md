@@ -2,8 +2,8 @@
 
 > Status: moved out of framework layer 8 on 2026-11-09 and expanded. The items, their order and the
 > phase-1 subset were approved with the framework (OD4, OD7, OD21); the allowlist became two repo
-> scripts after examples finding 19. Added here, for owner review
-> [design]: the owner and "done when" of each item, the "measured from" column, item 2.9 (from OD15,
+> scripts after examples finding 19. Added here and approved by the owner on
+> 2026-11-09 ("done when" checks stay [design]): the owner and "done when" of each item, the "measured from" column, item 2.9 (from OD15,
 > OD20), the run-log export in 2.4 (from layer 3, G7) and the S4 risk (framing §5) · Updated:
 > 2026-11-09 · Builds on [`01-framework.md`](01-framework.md)
 
