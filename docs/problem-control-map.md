@@ -1,6 +1,6 @@
 # Problem → control map
 
-> Status: draft for owner review · Updated: 2026-11-09 · Source of the problems:
+> Status: approved by the owner 2026-11-09 · Updated: 2026-11-09 · Source of the problems:
 > `work/01-problem-framing.md` §1 (P = sentences of the brief, A = facts of its Appendix A)
 
 ## How to read this

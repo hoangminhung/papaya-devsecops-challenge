@@ -286,3 +286,14 @@ Running log of the working sessions, not part of the reading order.
   - Số đếm cuối: Covered 10, Partial 27, Gap 2, Out of scope 1. Chưa có vòng kiểm lại; trình owner.
 - Owner chọn (nguyên văn) "commit đi" sau khi được trình mục 4. Commit gồm framework, ADR, threat model, bảng đối chiếu và
   transcript tới thời điểm này. Trước khi commit đã quét mẫu secret: 0 kết quả.
+
+## 2026-11-09 — Plan deliverable (`work/05-deliverable-plan.md`)
+- Đọc docs/ và work/, viết plan: danh sách file nộp (người đọc, độ dài, nguồn), thứ tự viết, examples E1–E10 kèm cách kiểm
+  cục bộ và giới hạn của từng kiểm tra, danh sách không đưa vào, 7 câu hỏi cho owner.
+- Kiểm cục bộ ✅: schemastore settings schema thiếu `allowedProviders`, `managedSourcesBehavior`; `claude plugin validate` có trong 2.1.319;
+  có `mmdc`, `yamllint`, `jq`, `jsonschema`; thiếu `actionlint`, `zizmor`, `checkov`, `pulumi`, `tsc`, `pytest`.
+- Phản biện gợi ý của owner: không có environment approval trên Team/private (R3.1.2) → cổng là ruleset `main`; thêm OIDC trust
+  (immutable `sub`), SCP, risk stop, catalogue; CrossGuard = Pulumi Policies, tier B.
+- Review độc lập vòng 1: 1 HIGH, 9 MEDIUM; vòng 2: 0 HIGH, 3 MEDIUM, 8 LOW; đã sửa hết. Các sửa vòng 2 chưa có vòng kiểm lại. Chờ owner trả lời Q1–Q7.
+- Owner trả lời Q1–Q7 của plan: "OK" cho cả 7 đề xuất. **Plan deliverable được duyệt.** Đổi status của `docs/problem-control-map.md`
+  thành approved (Q7). Dừng ở review vòng 2; các sửa vòng 2 chưa có vòng kiểm lại.
