@@ -1,0 +1,2 @@
+description: Mandatory guardrails for prod stacks (framework layer 5; compensates OD8)
+runtime: nodejs

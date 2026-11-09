@@ -429,3 +429,67 @@ Running log of the working sessions, not part of the reading order.
     - comment `StartMessageMoveTask` và chi phí redrive DLQ;
     - điều kiện cho `states:ListExecutions`.
   - `validate.sh` đạt, 80 test ✅. Theo đồng ý của owner: commit sau vòng 3, không chạy vòng 4; các sửa vòng 3 chưa có vòng kiểm lại.
+- Owner xác nhận cách hiểu OD19 ("Đúng"); ghi vào framework và README. Bắt đầu bước 3 (E8–E10).
+
+## 2026-11-09 — Bước 3: agent runtime, supply chain, policy pack (E8–E10)
+- Nguồn: template `settings-hipaa.json` của Anthropic ✅ (commit `9196319`); schema settings của schemastore (cộng đồng);
+  marketplace reference 📖, xác nhận `sha` cho nguồn plugin (R1.4.1b từ "link only" lên 📖).
+- E8: managed settings phase 1 (đúng tập con của layer 8) và phase 2 (baseline đầy đủ).
+  Lệch có chủ đích so với template: WebFetch `ask`, không tắt auto mode (D1), `autoAllowBashIfSandboxed: true` (OD12).
+- E9: marketplace mẫu (đường dẫn tương đối, `github` và `git-subdir` pin `sha`) + 2 bản ghi review. `claude plugin validate` đạt ✅.
+- E10: Pulumi policy pack với 3 policy mandatory.
+  - TypeScript 7 không tương thích `@pulumi/pulumi` (peer `< 7`) → pin 6.0.3.
+  - Test gọi trực tiếp hàm validate với đối số giả (`isType`), không cần Pulumi engine: 11/11 case đạt ✅.
+- `validate.sh` thêm `claude plugin validate` và test policy pack; sửa lỗi `fail` bị mất trong subshell (kiểm bằng mutation).
+  Kết quả: 102 test Python, plugin validate, 11 case policy, actionlint, zizmor, yamllint đều đạt ✅.
+- 11 mutation cho E8–E10 đều bị bắt. Review độc lập bước 3: đang chạy.
+- Review bước 3, vòng 1: 3 HIGH, 4 MEDIUM, 5 LOW. Agent tự tải lại docs (sandboxing, permissions, settings-reference,
+  tools-reference, README-hipaa) và tự chạy lại `git log --output` ✅ trước khi sửa; mọi điểm đều đúng.
+  - H1: `excludedCommands: ["aws"]` chỉ khớp lệnh `aws` không tham số (📖) → đổi thành `aws *`, `pulumi *`, `serverless *`.
+    Docs trả lời luôn ⚠️ "cách khớp lệnh" của framework (finding 22).
+  - H2: `Bash(git log|show|diff *)` khớp `--output=<path>` → ghi file tùy ý ✅. Bỏ hết rule git (đã có trong tập read-only
+    built-in, 📖); allowlist còn 2 script chính xác. Phase 2 thêm `autoMode.classifyAllShell: true`.
+  - H3: policy pack bỏ sót UserPolicy/GroupPolicy, attach AdministratorAccess, `managedPolicyArns`, `iam:Pass*` →
+    thêm policy `iam-no-admin-managed-policies` và luật wildcard cho iam/sts/organizations/sso; 27 case ✅.
+  - M1: giá trị unknown lúc preview → policy thành advisory ✅ (`server.js`) → ghi giới hạn (finding 23).
+  - M2: phase 2 dựng lại từ template, giữ mọi khóa trừ các điểm lệch có lý do; bảng lệch trong README.
+  - M3: finding 19 sai lý do (cat/grep chạy không hỏi trong mọi mode, 📖) → viết lại; cách đóng trong phase 1
+    (`blockReadsOutsideWorkingDirectories` hoặc deny `Read(~/.aws/**)`, và `classifyAllShell`) đổi OD4 → hỏi owner.
+  - M4: thêm `~/.config/gh` vào sandbox credentials, gcloud, Firebase (⚠️ đường dẫn), Docker, các đường dẫn của template.
+  - LOW: sửa câu sai về `claude plugin validate` (nó fail khi entry sai ✅); sửa mâu thuẫn trong review `pulumi-helpers`
+    và thêm dòng Authentication; ghi giới hạn MDM, `excludedCommands` ở user settings, pin `npx` chỉ top-level;
+    test MCP entry đúng một khóa.
+  - Còn lại cho bước 6: framework dòng 199/212 và ADR-0007 §3 còn mô tả `excludedCommands` theo cách cũ và gọi
+    allowlist là "read-only".
+  - 10 mutation mới đều bị bắt. `validate.sh` rc=0: 105 test Python, 27/27 case policy, plugin validate, linter ✅.
+- Review bước 3, vòng 2: 0 HIGH, 5 MEDIUM, 8 LOW. Agent tự kiểm lại trên docs (auto-mode-config, sandboxing,
+  settings-reference, iam, IAM Action element) trước khi sửa; tất cả đúng.
+  - M1: khôi phục 3 pin `"$defaults"` của `autoMode` (thiếu thì danh sách của dev thay thế luật built-in, kể cả luật
+    chống exfiltration) + test.
+  - M2: thêm `ask` cho `Bash(aws *)`, `Bash(pulumi *)`, `Bash(serverless *)` (auto mode cũng phải hỏi); ghi giới hạn:
+    CLI excluded chạy code của repo ngoài sandbox, mà code đó sandbox ghi được không cần hỏi.
+  - M3: bỏ `allowManagedReadPathsOnly` (không tác dụng, và làm `blockReadsOutsideWorkingDirectories` không tới sandbox);
+    ghi rõ đọc trong sandbox là denylist, egress qua domain được phép; thêm `~/.serverlessrc`,
+    `SERVERLESS_ACCESS_KEY`, `PULUMI_CONFIG_PASSPHRASE`; test cấm `*` trong `allowedDomains`.
+  - M4: liệt kê chi phí cho engineer (git/gh/npm private, Docker, localhost trên macOS, Windows native, `/goal`);
+    skill `prod-change` sửa: engineer push và mở PR.
+  - M5: luật wildcard bắt cả `?` (`s3:?*`, `*?`) theo 📖 IAM; 31 case ✅.
+  - LOW: E10 nêu rõ phạm vi (ssoadmin, RDS instance, Serverless không có); test thêm các khóa còn lại, MCP package,
+    npm `package`; bảng lệch dựng lại từ diff; sửa 2 câu nói quá về `forceLoginMethod` và `allowedHttpHookUrls`;
+    template review thêm agents/monitors/LSP/bin; floor 2.1.310 (monitor); đường ngoại lệ khi gỡ cluster.
+  - Test mới bắt thêm một lỗ thật: token Firebase chưa có trong `denyWrite` → đã thêm.
+  - 12 mutation mới đều bị bắt. `validate.sh` rc=0: 106 test Python, 31/31 case policy, plugin validate, linter ✅.
+  - Cho bước 6: framework nêu phase-2 floor 2.1.285 → nay 2.1.310; layer 2 cần thêm các giới hạn trên.
+- Review bước 3, vòng 3 (ngắn, chỉ phần vừa sửa): 0 HIGH, 2 MEDIUM (chỉ là câu chữ), 6 LOW. Reviewer xác nhận rule `ask`
+  hoạt động đúng ở mọi mode và bảng lệch khớp diff với template. Agent tự kiểm M1/L4 trên docs ✅.
+  - M1: "mọi lệnh shell qua classifier" nói quá: lệnh trong sandbox vẫn tự duyệt (OD12) → sửa câu E8, tách
+    "giữ từ template" / "lệch của Papaya", đổi tên test.
+  - M2: pin `"$defaults"` không phải ranh giới: `autoMode.allow` của dev vẫn nới classifier (📖 "additive") → finding 25.
+  - LOW: wildcard ở phần service (`*:*`) → chặn; test giữ đủ danh sách của template (env, deny, denyWrite,
+    rule thư mục đúng dạng `/**`); cấm `allowRead`; `sha256` cho phép chữ hoa; bổ sung bảng lệch; `dontAsk`.
+  - Mutation: 6 trường hợp reviewer báo lọt nay đều bị bắt (một trường hợp cần sửa test lần hai).
+  - `validate.sh` rc=0: 107 test Python, 35/35 case policy, plugin validate, linter ✅.
+- Owner: "Đồng ý" OD21 (thêm deny `Read(~/.aws/**)` và `autoMode.classifyAllShell: true` vào phase 1); commit luôn,
+  không chạy vòng 4 (các sửa vòng 3 chưa có vòng kiểm lại); làm tiếp các bước còn lại và báo khi xong hết.
+  - OD21 ghi vào bảng owner decisions của framework, layer 8 (phase 1), README E8 + finding 19; test mới.
+  - `validate.sh` rc=0: 108 test Python, 35/35 case policy ✅.

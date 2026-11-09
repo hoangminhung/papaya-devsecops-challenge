@@ -18,15 +18,15 @@ run() { "$@" || { echo "FAILED: $*"; fail=1; }; }
 section "tool versions"
 python3 --version
 python3 -c 'from importlib.metadata import version as v; print("jsonschema", v("jsonschema"), "| PyYAML", v("PyYAML"))'
-for t in jq yamllint shellcheck "$ACTIONLINT" "$ZIZMOR"; do
+for t in jq yamllint shellcheck "$ACTIONLINT" "$ZIZMOR" claude node npm; do
   if have "$t"; then printf '%s: %s\n' "$(basename "$t")" "$("$t" --version 2>&1 | head -1)"
   else printf '%s: not installed\n' "$(basename "$t")"; fi
 done
 
 section "JSON syntax (jq)"
 if have jq; then
-  while IFS= read -r f; do run jq empty "$f"; done < <(find . -name '*.json' -not -path './*/node_modules/*' | sort)
-  echo "checked $(find . -name '*.json' -not -path './*/node_modules/*' | wc -l) files"
+  while IFS= read -r f; do run jq empty "$f"; done < <(find . -name '*.json' -not -path '*/node_modules/*' -not -path '*/bin/*' | sort)
+  echo "checked $(find . -name '*.json' -not -path '*/node_modules/*' -not -path '*/bin/*' | wc -l) files"
 else skipped+=("jq"); echo "SKIPPED: jq not installed"; fi
 
 section "YAML style (yamllint)"
@@ -48,6 +48,18 @@ section "GitHub Actions security (zizmor, offline, auditor persona)"
 if have "$ZIZMOR"; then
   run "$ZIZMOR" --offline --no-progress --persona=auditor github/workflows/*.yml
 else skipped+=("zizmor"); echo "SKIPPED: zizmor not installed"; fi
+
+section "Claude Code plugin marketplace (claude plugin validate)"
+if have claude; then
+  run claude plugin validate claude/marketplace
+else skipped+=("claude"); echo "SKIPPED: claude not installed"; fi
+
+section "Pulumi policy pack (tsc + unit cases, no Pulumi engine, no cloud)"
+if have npm && [ -d pulumi-policy/node_modules ]; then
+  (cd pulumi-policy && npm test --silent) || { echo "FAILED: pulumi-policy npm test"; fail=1; }
+else
+  skipped+=("policy-pack"); echo "SKIPPED: run 'npm ci' in examples/pulumi-policy first (downloads packages)"
+fi
 
 section "unit tests (python3 -m unittest)"
 run python3 -W error::ResourceWarning -m unittest discover -s tests -v

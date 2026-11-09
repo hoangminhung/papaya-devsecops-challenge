@@ -1,0 +1,37 @@
+{
+  "name": "example-org-plugins",
+  "owner": {
+    "name": "DevSecOps (control owner)"
+  },
+  "metadata": {
+    "description": "Reviewed and pinned plugin catalogue (framework layer 4, ADR-0006). Every entry has a review record in reviews/."
+  },
+  "plugins": [
+    {
+      "name": "devsecops-guardrails",
+      "source": "./plugins/devsecops-guardrails",
+      "description": "Internal: how to ship a prod change at the company (PR path, risk stop, JIT)."
+    },
+    {
+      "name": "example-formatter",
+      "source": {
+        "source": "github",
+        "repo": "example-vendor/formatter-plugin",
+        "ref": "v2.0.0",
+        "sha": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
+      },
+      "description": "Third-party example, pinned to a reviewed commit."
+    },
+    {
+      "name": "pulumi-helpers",
+      "source": {
+        "source": "git-subdir",
+        "url": "example-vendor/agent-tools",
+        "path": "plugins/pulumi-helpers",
+        "ref": "v1.3.0",
+        "sha": "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c"
+      },
+      "description": "Third-party example from a monorepo subdirectory, pinned to a reviewed commit."
+    }
+  ]
+}

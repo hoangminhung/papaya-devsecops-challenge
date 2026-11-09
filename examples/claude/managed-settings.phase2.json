@@ -1,0 +1,359 @@
+{
+  "requiredMinimumVersion": "2.1.310",
+  "forceRemoteSettingsRefresh": true,
+  "permissions": {
+    "defaultMode": "default",
+    "disableBypassPermissionsMode": "disable",
+    "allow": [
+      "Bash(npm test)",
+      "Bash(npm run lint)"
+    ],
+    "deny": [
+      "Projects",
+      "SendUserFile",
+      "ShareOnboardingGuide",
+      "Artifact",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/gh/**)",
+      "Read(~/.config/gcloud/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.pulumi/**)",
+      "Read(~/.docker/config.json)",
+      "Read(~/.config/configstore/firebase-tools.json)",
+      "Read(~/.serverlessrc)",
+      "Read(~/.npmrc)",
+      "Read(~/.git-credentials)",
+      "Read(~/.config/git/credentials)",
+      "Read(~/.netrc)",
+      "Read(~/_netrc)",
+      "Read(~/.claude/.credentials.json)",
+      "Read(~/.claude.json)",
+      "Read(~/.claude.json.backup*)",
+      "Read(~/.claude/backups/**)",
+      "Edit(~/.ssh/**)",
+      "Edit(~/.aws/**)",
+      "Edit(~/.config/gh/**)",
+      "Edit(~/.config/gcloud/**)",
+      "Edit(~/.kube/**)",
+      "Edit(~/.pulumi/**)",
+      "Edit(~/.docker/config.json)",
+      "Edit(~/.config/configstore/firebase-tools.json)",
+      "Edit(~/.serverlessrc)",
+      "Edit(~/.npmrc)",
+      "Edit(~/.git-credentials)",
+      "Edit(~/.config/git/credentials)",
+      "Edit(~/.netrc)",
+      "Edit(~/_netrc)",
+      "Edit(~/.claude/.credentials.json)",
+      "Edit(~/.claude.json)",
+      "Edit(~/.claude.json.backup*)",
+      "Edit(~/.claude/backups/**)"
+    ],
+    "ask": [
+      "WebFetch",
+      "Bash(aws *)",
+      "Bash(pulumi *)",
+      "Bash(serverless *)"
+    ]
+  },
+  "autoMode": {
+    "environment": [
+      "$defaults"
+    ],
+    "soft_deny": [
+      "$defaults"
+    ],
+    "hard_deny": [
+      "$defaults"
+    ],
+    "classifyAllShell": true
+  },
+  "skillOverrides": {
+    "auto-mode-setup": "off"
+  },
+  "strictKnownMarketplaces": [
+    {
+      "source": "github",
+      "repo": "example-org/claude-plugins"
+    }
+  ],
+  "blockedMarketplaces": [],
+  "disableSideloadFlags": true,
+  "syncClaudeAiPlugins": false,
+  "syncClaudeAiSkills": false,
+  "allowManagedMcpServersOnly": true,
+  "allowedMcpServers": [
+    {
+      "serverUrl": "https://mcp.example-tracker.com/*"
+    },
+    {
+      "serverCommand": [
+        "npx",
+        "-y",
+        "@example-org/mcp-runbooks@1.4.2"
+      ]
+    }
+  ],
+  "deniedMcpServers": [
+    {
+      "serverName": "claude-in-chrome"
+    },
+    {
+      "serverName": "computer-use"
+    }
+  ],
+  "disableClaudeAiConnectors": true,
+  "disableRemoteControl": true,
+  "crossSessionInbound": "refuse",
+  "enableArtifact": false,
+  "cleanupPeriodDays": 30,
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "https://otel-collector.example.internal:4318",
+    "OTEL_LOG_USER_PROMPTS": "0",
+    "OTEL_LOG_ASSISTANT_RESPONSES": "0",
+    "OTEL_LOG_TOOL_DETAILS": "0",
+    "OTEL_LOG_TOOL_CONTENT": "0",
+    "OTEL_LOG_RAW_API_BODIES": "0",
+    "DISABLE_ERROR_REPORTING": "1",
+    "DISABLE_FEEDBACK_COMMAND": "1",
+    "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
+    "DISABLE_INSTALL_GITHUB_APP_COMMAND": "1"
+  },
+  "allowedProviders": [
+    "anthropic"
+  ],
+  "forceLoginMethod": "claudeai",
+  "forceLoginOrgUUID": "<PAPAYA_CLAUDE_ORG_UUID>",
+  "allowManagedPermissionRulesOnly": true,
+  "allowManagedHooksOnly": true,
+  "allowedHttpHookUrls": [],
+  "pluginConfigs": {
+    "cc-plugin-sec-default@builtin": {
+      "options": {
+        "allowManagedModsOnly": true
+      }
+    }
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": true,
+    "enableWeakerNestedSandbox": false,
+    "enableWeakerNetworkIsolation": false,
+    "excludedCommands": [
+      "aws *",
+      "pulumi *",
+      "serverless *"
+    ],
+    "filesystem": {
+      "denyRead": [
+        "~/.aws",
+        "~/.kube",
+        "~/.pulumi",
+        "~/.config/gh",
+        "~/.config/gcloud",
+        "~/.serverlessrc"
+      ],
+      "denyWrite": [
+        "~/.ssh",
+        "~/.aws",
+        "~/.config/gh",
+        "~/.config/gcloud",
+        "~/.kube",
+        "~/.pulumi",
+        "~/.docker/config.json",
+        "~/.config/configstore/firebase-tools.json",
+        "~/.npmrc",
+        "~/.git-credentials",
+        "~/.config/git/credentials",
+        "~/.netrc",
+        "~/_netrc",
+        "~/.claude/.credentials.json",
+        "~/.claude.json",
+        "~/.claude.json.backup*",
+        "~/.claude/backups",
+        "~/.serverlessrc"
+      ]
+    },
+    "credentials": {
+      "files": [
+        {
+          "path": "~/.ssh",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.aws",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/gh",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/gcloud",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.kube",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.pulumi",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.serverlessrc",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.docker/config.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/configstore/firebase-tools.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.npmrc",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.git-credentials",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/git/credentials",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.netrc",
+          "mode": "deny"
+        },
+        {
+          "path": "~/_netrc",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.claude/.credentials.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.claude.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.claude.json.backup*",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.claude/backups",
+          "mode": "deny"
+        }
+      ],
+      "envVars": [
+        {
+          "name": "AWS_ACCESS_KEY_ID",
+          "mode": "deny"
+        },
+        {
+          "name": "AWS_SECRET_ACCESS_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "AWS_SESSION_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "GITHUB_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "GH_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "GH_ENTERPRISE_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "GITHUB_ENTERPRISE_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "NPM_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "NODE_AUTH_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "YARN_NPM_AUTH_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "YARN_NPM_AUTH_IDENT",
+          "mode": "deny"
+        },
+        {
+          "name": "COREPACK_NPM_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "COREPACK_NPM_PASSWORD",
+          "mode": "deny"
+        },
+        {
+          "name": "COREPACK_NPM_USERNAME",
+          "mode": "deny"
+        },
+        {
+          "name": "BUN_CONFIG_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "PULUMI_ACCESS_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "FIREBASE_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "SERVERLESS_ACCESS_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "PULUMI_CONFIG_PASSPHRASE",
+          "mode": "deny"
+        },
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "ANTHROPIC_AUTH_TOKEN",
+          "mode": "deny"
+        }
+      ]
+    },
+    "network": {
+      "allowManagedDomainsOnly": true,
+      "allowedDomains": [
+        "github.com",
+        "api.github.com",
+        "registry.npmjs.org",
+        "pypi.org",
+        "files.pythonhosted.org"
+      ],
+      "allowAllUnixSockets": false,
+      "allowLocalBinding": false
+    }
+  }
+}
