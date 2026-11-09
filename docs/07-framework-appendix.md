@@ -145,7 +145,7 @@
   attribute mapped from the token: also ⚠️, since the page lists no GitHub `environment` claim).
   Vertex AI model and endpoint changes deploy this way, from the monorepo, like any other stack.
 - **GCP for humans and agents (OD36) [design unless marked]:** no standing role on prod projects for
-  people. Agents and engineers get a custom read-metadata role (no `storage.objects.get`, no Vertex
+  people. Agents and engineers get a custom read-metadata role (no `storage.objects.get`, 📖 R9.9.8; no Vertex
   prediction calls such as `generateContent`, which is a data read, 📖 R9.6.3); writes and data reads
   come from Privileged Access Manager entitlements with approval, time-bound (30 min to 7 days, 📖
   R9.6.1), approved by the on-call approver. Whether PAM stops a requester approving their own

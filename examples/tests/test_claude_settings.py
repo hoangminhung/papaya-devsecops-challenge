@@ -319,7 +319,7 @@ class Phase2Test(SettingsCommon, unittest.TestCase):
         envs = {e["name"] for e in sb["credentials"]["envVars"] if e["mode"] == "deny"}
         self.assertLessEqual({"AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "GH_TOKEN", "GITHUB_TOKEN",
                               "PULUMI_ACCESS_TOKEN", "PULUMI_CONFIG_PASSPHRASE", "FIREBASE_TOKEN",
-                              "SERVERLESS_ACCESS_KEY"}, envs)
+                              "SERVERLESS_ACCESS_KEY", "SERVERLESS_LICENSE_KEY"}, envs)
 
 
 class MarketplaceTest(unittest.TestCase):

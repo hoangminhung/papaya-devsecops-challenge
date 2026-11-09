@@ -32,3 +32,4 @@ Environment **variables** (prod-only, kept on the environment rather than the re
 `AWS_REGION`, `PROD_PULUMI_DEPLOY_ROLE_ARN`, `PROD_SERVERLESS_DEPLOY_ROLE_ARN` on `production`
 and `production-iam`; `PROD_DB_CHANGE_ROLE_ARN` on `production-db`; `PULUMI_BACKEND_URL`,
 `PULUMI_CLI_VERSION`, `NODE_VERSION`. They are read by `workflows/deploy-prod.yml` only.
+`PULUMI_BACKEND_URL` is a Pulumi CLI variable (📖 R9.9.6); the other names are [design].

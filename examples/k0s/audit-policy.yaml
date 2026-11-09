@@ -4,7 +4,8 @@
 # Levels (R9.3.3): Metadata = who, verb, resource, no bodies. Secrets, ConfigMaps and token
 # requests stay at Metadata so their contents never reach the audit log. Writes to workloads
 # and RBAC are kept at Request, so a change can be compared with the merged manifests.
-# ⚠️ Rule order: from memory, the first matching rule sets the level; check the audit page.
+# Rule order: "The first matching rule sets the audit level of the event"; `omitStages` as in
+# the example policy (📖 R9.9.4).
 apiVersion: audit.k8s.io/v1
 kind: Policy
 omitStages: ["RequestReceived"]

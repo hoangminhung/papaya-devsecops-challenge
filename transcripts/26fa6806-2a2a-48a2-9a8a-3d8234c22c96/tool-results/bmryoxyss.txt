@@ -1,0 +1,243 @@
+ M diagrams/03-incident-lane.svg
+ M docs/01-framework.md
+ M docs/03-rollout-plan.md
+ M docs/07-framework-appendix.md
+ M examples/README.md
+ M examples/github/environment-production/secrets.md
+ M examples/k0s/audit-policy.yaml
+ M examples/k0s/authentication-config.target.yaml
+ M examples/k0s/deploy-rbac.yaml
+ M examples/k0s/k0s-apiserver-audit.yaml
+ M work/09-fix-research.md
+RM work/08-verify.md -> work/10-verify.md
+ diagrams/03-incident-lane.svg                     |  2 +-
+ docs/01-framework.md                              |  4 +--
+ docs/03-rollout-plan.md                           |  2 +-
+ docs/07-framework-appendix.md                     |  2 +-
+ examples/README.md                                | 10 +++----
+ examples/github/environment-production/secrets.md |  1 +
+ examples/k0s/audit-policy.yaml                    |  3 +-
+ examples/k0s/authentication-config.target.yaml    |  3 +-
+ examples/k0s/deploy-rbac.yaml                     |  2 +-
+ examples/k0s/k0s-apiserver-audit.yaml             |  3 +-
+ work/09-fix-research.md                           | 36 +++++++++++++++++++++--
+ work/10-verify.md                                 | 21 +++++++++----
+ 12 files changed, 68 insertions(+), 21 deletions(-)
+diff --git a/docs/01-framework.md b/docs/01-framework.md
+index 2491ea8..d9302af 100644
+--- a/docs/01-framework.md
++++ b/docs/01-framework.md
+@@ -319,7 +319,7 @@ untrusted content holds as little power as possible (📖 R6.1.2).
+   | The agent cannot `git push`, `git fetch`, `gh` or open the PR | The sandbox hides git credentials and the `gh` token (examples E8) | The engineer runs `git push` and `gh pr create --body-file <file the agent wrote>` at the `!` prompt, outside the agent's tools: one step per PR (time ⚠️, measured). Under evaluation in the phase-2 pilot (OD50): a narrow credential readable in the sandbox that can push feature branches and open PRs; `main` is protected by the ruleset whatever the token. GitHub's permission for opening a PR (pull requests: write) also allows submitting a review (⚠️ recalled, to check), so the approval-gate check, which counts no bot or agent-session approval it can detect, stays the control (layer 3) |
+   | Every `aws`, `pulumi`, `serverless` call prompts, in auto mode too | They are excluded from the sandbox and run with full access (above), so a person confirms each one | Run `pulumi`/`serverless` against real accounts only in CI (PR previews, layer 3); on laptops keep them to non-prod. Prompts per session are counted from OTel (layer 8). A policy that drops these prompts for a non-prod-only environment needs per-group managed settings, which server-managed settings do not offer; the self-hosted Claude apps gateway does (📖 R1.1.6). Phase-3 option, with its own cost |
+   | Docker and Testcontainers fail; localhost servers fail on macOS | Unix sockets and local binding are blocked (examples E8) | Such tests run in CI on the PR, or at the `!` prompt |
+-  | `npm ci` from a private registry fails | `~/.npmrc` is hidden | A read-only, install-only registry token in a separate npm user config that is not on the denylist (`NPM_CONFIG_USERCONFIG`; ⚠️ not tested with the sandbox), and the registry domain allowed; `~/.npmrc` stays hidden and publish tokens never sit on laptops [design] |
++  | `npm ci` from a private registry fails | `~/.npmrc` is hidden | A read-only, install-only registry token in a separate npm user config that is not on the denylist (`NPM_CONFIG_USERCONFIG`, 📖 R9.9.10; ⚠️ not tested with the sandbox), and the registry domain allowed; `~/.npmrc` stays hidden and publish tokens never sit on laptops [design] |
+   | No raw prod logs of a service, and no prod configuration values, until the service is fixed | Logs and plain-text Serverless variables can carry PHI and secrets (layers 1, 6) | A deadline, not an open end: every claims service's log groups get masking and the SAST rule by the end of phase 2, the rest by day 100 (rollout 1.11; ⚠️ estimate). Once masked, the agent queries them through `ProdReadMetadata` with Logs Insights, and masking applies there too (📖 R9.2.7); nobody it uses holds `logs:Unmask`. Configuration comes from the IaC code until runtime secret resolution lands per service. Real data only through a data-read request (layer 6) |
+ 
+   The agent-safe prod debugging path is therefore: metrics and masked logs through
+@@ -893,7 +893,7 @@ is approved before use, time-boxed and reconciled after.
+   |---|---|
+   | When | Only during an incident, when the PR path cannot be used: operation not in IaC and no runbook; GitHub/Actions down; pipeline broken. The approver refuses JIT for anything expressible in IaC while the pipeline works, and records why. Outside incidents, an operation not in IaC waits for IaC or a runbook. |
+   | Request | Command list, scope, reason, incident link, in a channel that does not depend on GitHub. |
+-  | Approval | On-call approver ≠ requester, before the grant (OD2, OD7). The approver moves the Linear request to "Approved"; a receiver in the tooling account (next to the approval-gate app) gets the signed webhook (📖 [Linear webhooks](https://linear.app/developers/webhooks): HMAC-SHA256 `Linear-Signature`, `actor`, `updatedFrom`) and grants only if the signature is valid and fresh, a person made the change, the approver ≠ the requester as Identity Center users (people register, OD25), the approver is on shift, the incident is open and the permission set is an allowed `InfraOperator-*` (OD33; examples E16). One grant per request: a retried webhook or a second move to "Approved" grants nothing (Linear retries up to 3 times, 📖 same page). The receiver's role may assign only permission sets tagged `jit-grant`, in the prod accounts, and may never create, change or re-tag a permission set (examples E16; resource types ✅ AWS Service Reference). Linear accounts sign in through single sign-on and are in the people register (Linear plan for SSO ⚠️ not checked). The AWS TEAM sample is compared with the receiver before building it (rollout 1.13). If the receiver is down, an L3 owner team member grants by hand against the same checklist; the Identity Center alert (layer 1) fires on it and the monthly report reviews it. |
++  | Approval | On-call approver ≠ requester, before the grant (OD2, OD7). The approver moves the Linear request to "Approved"; a receiver in the tooling account (next to the approval-gate app) gets the signed webhook (📖 [Linear webhooks](https://linear.app/developers/webhooks): HMAC-SHA256 `Linear-Signature`, `actor`, `updatedFrom`) and grants only if the signature is valid and fresh, a person made the change, the approver ≠ the requester as Identity Center users (people register, OD25), the approver is on shift, the incident is open and the permission set is an allowed `InfraOperator-*` (OD33; examples E16). One grant per request: a retried webhook or a second move to "Approved" grants nothing (Linear retries up to 3 times, 📖 same page). The receiver's role may assign only permission sets tagged `jit-grant`, in the prod accounts, and may never create, change or re-tag a permission set (examples E16; resource types ✅ AWS Service Reference). ⚠️ The tag condition is not confirmed for `CreateAccountAssignment` (R9.9.11); it fails closed, so the risk is a JIT that grants nothing. Rollout 1.13 tests it before JIT is relied on; the fallback is an explicit list of permission-set ARNs. Linear accounts sign in through single sign-on and are in the people register (Linear plan for SSO ⚠️ not checked). The AWS TEAM sample is compared with the receiver before building it (rollout 1.13). If the receiver is down, an L3 owner team member grants by hand against the same checklist; the Identity Center alert (layer 1) fires on it and the monthly report reviews it. |
+   | Grant | `InfraOperator-<service>`; role session 1 h (📖 R2.1.4). Deleting the assignment likely stops only new sessions (⚠️ R2.4.2, R2.9 #3), so the real window can approach 2 h; ending the portal session does not end role sessions (📖 R2.4.3). An immediate stop needs the revocation SCP, which must keep the user blocked for at least 12 h (📖 R2.4.4). Applying it is a management-account change held by the L3 owner team only, and no night-time path for it is designed yet (⚠️ G20): until one exists, a misused grant may run to the end of its window. Candidate: a pre-approved revocation runbook for one named L3 owner reachable by phone, or an org-wide `aws:TokenIssueTime` Deny as kill switch (⚠️ R2.9 #3). |
+   | Execution | The grant goes to the requester (the incident responder), who types the commands; no agent in that terminal (D2). On-call approvers do not run commands; they only approve. |
+   | After | A job compares CloudTrail writes in the window with the list; a codify PR within a fixed deadline (as soon as GitHub is back); drift detection until it merges. |
+diff --git a/docs/03-rollout-plan.md b/docs/03-rollout-plan.md
+index 00f89c0..e0a8b26 100644
+--- a/docs/03-rollout-plan.md
++++ b/docs/03-rollout-plan.md
+@@ -43,7 +43,7 @@ One rule from layer 8 shapes the whole plan: **access is never removed before it
+ | 1.10 | `ProdReadMetadata` becomes the only standing prod role. Existing broad read roles go only once 1.9 works | DS | E6 assigned; broad read roles removed | 1 |
+ | 1.11 | Start moving secrets to runtime resolution and redacting logs at source, service by service. A log group opens to `ProdReadMetadata` only after its masking policy is set (E14) and the SAST rule against logging whole events passes for that service (OD28) | PL, service owners | First services done, each with masking and the SAST rule; list of the rest with dates: every claims service by the end of phase 2 (day 75), the rest by day 100 (OD34; ⚠️ estimate) | 1, 6 |
+ | 1.12 | On-call approver schedule and a minimal incident-responder schedule, named, 24/7. On-call approvers only approve (OD7). The approver schedule is the file `oncall/schedule.yaml` (an L3 path) that the approval-gate app reads; incidents are Linear issues (OD27) | EM | Both schedules published with primary and backup (S7); the app reads the file | 3, 7 |
+-| 1.13 | Minimal JIT fallback: the Linear request template (scope as a `jit-scope` label, the incident as an issue relation) and a receiver that grants only after its pre-grant check, once per request, with the scoped role of E16 (OD33, OD41); before building it, a real webhook payload is captured and the AWS TEAM sample is compared, **with** a CloudTrail comparison per grant and a drift check of the stacks it touched. By hand until automated: a temporary deviation from D2, which asks for a drift job. No immediate stop yet: deleting the assignment ends new sessions only, so a grant can run up to about 2 h (⚠️ R2.9 #3) | DS | One drill grant reconciled. The revocation Deny SCP follows in phase 2 (2.2) | 7 |
++| 1.13 | Minimal JIT fallback: the Linear request template (scope as a `jit-scope` label, the incident as an issue relation) and a receiver that grants only after its pre-grant check, once per request, with the scoped role of E16 (OD33, OD41); before building it, a real webhook payload is captured and the AWS TEAM sample is compared, **with** a CloudTrail comparison per grant and a drift check of the stacks it touched. By hand until automated: a temporary deviation from D2, which asks for a drift job. No immediate stop yet: deleting the assignment ends new sessions only, so a grant can run up to about 2 h (⚠️ R2.9 #3) | DS | One drill grant reconciled. The receiver role's `jit-grant` tag condition tested (IAM policy simulator or a sandbox account) before JIT is relied on: one grant on a tagged and one on an untagged permission set; if the condition is not evaluated, switch to explicit permission-set ARNs (⚠️ R9.9.11). The revocation Deny SCP follows in phase 2 (2.2) | 7 |
+ | 1.14 | Risk stop in the deploy job (E7). The policy-finding trigger works from phase 2 | PL, DS | Every prod deploy job runs it | 3 |
+ | 1.15 | k0s/Firebase deploy credentials moved to secrets of the `production-k0s` environment (OD24); the k0s credential becomes the namespaced, time-limited ServiceAccount token, and the Kubernetes API audit log is on (E11) | PL | No repository secret holds them (E3b); the old admin kubeconfig is revoked; an audit event of a test deploy is found | 1, 5, 7 |
+ | 1.16 | **Then** remove standing prod write, including Expo roles above Developer for people and the protection of the `production` EAS channel and credentials (OD40) | DS | S1 = 0 | 1 |
+diff --git a/docs/07-framework-appendix.md b/docs/07-framework-appendix.md
+index a1a179b..271f431 100644
+--- a/docs/07-framework-appendix.md
++++ b/docs/07-framework-appendix.md
+@@ -145,7 +145,7 @@
+   attribute mapped from the token: also ⚠️, since the page lists no GitHub `environment` claim).
+   Vertex AI model and endpoint changes deploy this way, from the monorepo, like any other stack.
+ - **GCP for humans and agents (OD36) [design unless marked]:** no standing role on prod projects for
+-  people. Agents and engineers get a custom read-metadata role (no `storage.objects.get`, no Vertex
++  people. Agents and engineers get a custom read-metadata role (no `storage.objects.get`, 📖 R9.9.8; no Vertex
+   prediction calls such as `generateContent`, which is a data read, 📖 R9.6.3); writes and data reads
+   come from Privileged Access Manager entitlements with approval, time-bound (30 min to 7 days, 📖
+   R9.6.1), approved by the on-call approver. Whether PAM stops a requester approving their own
+diff --git a/examples/README.md b/examples/README.md
+index 187e2dc..ed431e3 100644
+--- a/examples/README.md
++++ b/examples/README.md
+@@ -68,7 +68,7 @@ Tests use the standard `unittest`.
+ |---|---|---|---|---|
+ | E1 | [`github/ruleset-main.json`](github/ruleset-main.json) | The approval gate is the merge to `main` (layer 3, ADR-0003): PR required, 1 approval, code-owner review, stale approvals dismissed, approval by someone other than the last pusher, branch up to date (no merge queue), required checks pinned to a source app, no force push or deletion, empty bypass list | JSON Schema of the create-ruleset request body; key-by-path check; design tests | That GitHub enforces it. `approval-gate` comes from a dedicated app whose ID (`123456`) is a placeholder (gap G19); its decision logic is E12. The other checks are pinned to GitHub Actions (ID 15368 ✅ `GET https://api.github.com/apps/github-actions`), so any workflow in the repo can likely post a check with the same name (⚠️ layer 3, G19). The file is the target state: in phase 1 only the checks that already run are required, and each S10 check joins the list when it runs on every PR (rollout 1.5, OD53) |
+ | E2 | [`github/CODEOWNERS`](github/CODEOWNERS) | L3 process paths: owned by the L3 owner team only; deployable paths: co-owned by the domain team and the on-call group, so one approval from either satisfies code-owner review (OD9, OD13; 📖 R3.2.7); risk-stop approvals: co-owned by the stack's owners and on-call (OD8); the IAM stack and its approvals are process paths, L3 owner team only (OD32); production AI agents' prompts and models owned by the AI team only, their `tools.yaml` a process path (OD45). Fail-safe default so no file is unowned [design] | Effective owners resolved with GitHub's "last matching pattern takes the most precedence" (📖 [about code owners](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners)); every stack in `deploy-on-main.yml` checked for code and approvals owners | That the teams exist and have write access: GitHub drops such owners silently. [`codeowners-validate.yml`](github/workflows/codeowners-validate.yml) covers that in a real repo |
+-| E3 | [`github/workflows/`](github/workflows/) | "Merge approval = deploy approval" (layer 3): only the reusable [`deploy-prod.yml`](github/workflows/deploy-prod.yml) uses `production`; no ref/SHA input; no `workflow_dispatch`, `issue_comment`, `pull_request_target`, `workflow_run`; one concurrency group per stack, running deploys never cancelled; only the current tip of `main` is deployed (no re-run of an old run) [design]; preview → risk stop → apply, and the stop cannot be skipped, ignored or bypassed by an `if:`; apply commands use only allowed flags. Layer 5: OIDC, per-job permissions, SHA-pinned actions; `npm ci`, Pulumi plugins and the policy pack installed before the AWS credentials are in the job (the Serverless framework download: ⚠️ assumed to happen at `serverless --version`). OD22: the IAM stack deploys from its own environment `production-iam` (mapping fixed in `deploy-prod.yml`, ✅ actionlint accepts `inputs` there); `npm_config_ignore_scripts` set for the deploy and preview jobs, and only the packages in [`ci/allowed-install-scripts.txt`](ci/allowed-install-scripts.txt) (an L3 path) are rebuilt with their scripts. PRs preview non-prod only. OD29: a `sql` job (stack `claims-db`) with its own database change role lists pending SQL through `tools/db/pending.sh`, runs the risk stop with `--tool sql`, and applies exactly the classified files through `tools/db/apply.sh` | `actionlint`, `zizmor --persona=auditor`, `yamllint`; design tests (`test_workflow_policy.py`) | That the workflows run: the Pulumi/Serverless steps were never executed. The two `tools/db/` scripts are an interface only [design]: they wrap Papaya's migration tool, which is unknown. The tests see only these files, not a whole monorepo |
++| E3 | [`github/workflows/`](github/workflows/) | "Merge approval = deploy approval" (layer 3): only the reusable [`deploy-prod.yml`](github/workflows/deploy-prod.yml) uses `production`; no ref/SHA input; no `workflow_dispatch`, `issue_comment`, `pull_request_target`, `workflow_run`; one concurrency group per stack, running deploys never cancelled; only the current tip of `main` is deployed (no re-run of an old run) [design]; preview → risk stop → apply, and the stop cannot be skipped, ignored or bypassed by an `if:`; apply commands use only allowed flags (`pulumi … --stack`, `serverless deploy --stage`: 📖 R9.9.6, R9.9.7). Layer 5: OIDC, per-job permissions, SHA-pinned actions; `npm ci`, Pulumi plugins and the policy pack installed before the AWS credentials are in the job (the Serverless framework download: ⚠️ assumed to happen at `serverless --version`). OD22: the IAM stack deploys from its own environment `production-iam` (mapping fixed in `deploy-prod.yml`, ✅ actionlint accepts `inputs` there); `npm_config_ignore_scripts` set for the deploy and preview jobs, and only the packages in [`ci/allowed-install-scripts.txt`](ci/allowed-install-scripts.txt) (an L3 path) are rebuilt with their scripts. PRs preview non-prod only. OD29: a `sql` job (stack `claims-db`) with its own database change role lists pending SQL through `tools/db/pending.sh`, runs the risk stop with `--tool sql`, and applies exactly the classified files through `tools/db/apply.sh` | `actionlint`, `zizmor --persona=auditor`, `yamllint`; design tests (`test_workflow_policy.py`) | That the workflows run: the Pulumi/Serverless steps were never executed. The two `tools/db/` scripts are an interface only [design]: they wrap Papaya's migration tool, which is unknown. The tests see only these files, not a whole monorepo |
+ | E3b | [`github/environment-production/`](github/environment-production/) | `production` accepts deployments from `main` only and has no required reviewers (not available on GitHub Team for private repos, R3.1.2); the five prod environments and which holds which secret: none in `production`, `production-iam`, `production-db`; the k0s/Firebase exception in `production-k0s` (OD1, OD6, OD24); the Expo token and signing key in `production-mobile` (OD40) | JSON Schemas of the two request bodies (environment PUT, branch-policy POST); key-by-path check; design tests | That GitHub applies it; admins can still change or delete the environment (layer 7 compares live settings) |
+ | E4 | [`aws/oidc-trust-prod-deploy.json`](aws/oidc-trust-prod-deploy.json), [`aws/oidc-trust-nonprod-preview.json`](aws/oidc-trust-nonprod-preview.json) | Layer 1 "CI → AWS", ADR-0008: the prod deploy role trusts only the `production` environment of the monorepo; PRs get only a non-prod role in the non-prod account. Immutable subject format with owner and repository IDs (📖 R3.4.4; environment form ⚠️ R3.7 A2); `aud` = `sts.amazonaws.com` (📖 R3.4.1); `StringEquals` only. No `sts:TagSession`: the action does not tag sessions with OIDC (📖 `configure-aws-credentials` README at the pinned SHA). **Prerequisite:** repositories created before 2026-07-15 keep the old subject format unless the organization or repository opts in (📖 R3.4.4); Papaya's monorepo likely needs that opt-in first, or every deploy is refused. Optional narrowing with `job_workflow_ref` (⚠️ G10). The same trust applies to both prod deploy roles (Pulumi and Serverless) of domain stacks; [`aws/oidc-trust-prod-iam-deploy.json`](aws/oidc-trust-prod-iam-deploy.json) trusts only `environment:production-iam`, for the IAM stack's role (OD22) | Design tests | That AWS accepts the policy. `environment:production` alone does not say which branch: the environment's branch rule (E3b) does (⚠️ R3.4.3) |
+ | E4b | [`aws/deploy-role-domain-iam-limits.json`](aws/deploy-role-domain-iam-limits.json), [`aws/app-permissions-boundary.json`](aws/app-permissions-boundary.json) | Layer 1 and 5, OD22: a domain stack's deploy role (and a Serverless stack's CloudFormation `deploymentRole`) creates or changes only `svc-*` roles, and only with the fixed permissions boundary attached; it cannot remove a boundary, edit the boundary policy, or create IAM users or access keys. The boundary denies `iam:*` and `sts:AssumeRoot` and trail tampering (pattern 📖 R9.2.1) | Every action exists in the AWS catalogue; every permission change on roles is under the boundary condition; `svc-*` never overlaps an SCP-protected name; the SCP (E5) lets only the IAM stack's role change the boundary policy | That AWS accepts them. The exact list of role actions that support `iam:PermissionsBoundary` was not read (⚠️ R9.2.1). `iam:UpdateAssumeRolePolicy` and `iam:PassRole` on `svc-*` carry no boundary condition: a `svc-*` role could be re-trusted to another account, still within the boundary (Access Analyzer, phase 2) |
+@@ -84,7 +84,7 @@ Tests use the standard `unittest`.
+ | E13 | [`github/workflows/evidence-export.yml`](github/workflows/evidence-export.yml), [`aws/oidc-trust-evidence-export.json`](aws/oidc-trust-evidence-export.json), [`aws/evidence-export-role-policy.json`](aws/evidence-export-role-policy.json), [`aws/evidence-bucket-object-lock.json`](aws/evidence-bucket-object-lock.json) | Layer 7, OD30: a nightly job copies the last day's merged PRs, reviews, check runs, deploy logs and artifacts to an evidence bucket with Object Lock in compliance mode for 6 years (📖 R9.2.12); its role trusts only the `evidence` environment and may only `PutObject`; the workflow never deletes | `actionlint`, `zizmor`; design tests (trust, role, lock mode and years, no delete commands, read-only token) | That it runs: `gh api` pagination and the log download were never executed against a repository. The org audit log is not in it (API documented for Enterprise Cloud, 📖 R9.1.5): exported monthly by hand. The lock configuration body follows `PutObjectLockConfiguration` from memory (⚠️) |
+ | E14 | [`aws/logs-data-protection-policy.json`](aws/logs-data-protection-policy.json) | Layer 6, OD28: masking on log groups that `ProdReadMetadata` reads, with custom identifiers keyed on field names (national IDs of VN/TH, HKID, bank account, diagnosis, insured name), because AWS has no managed identifiers for these countries (📖 R9.2.8); audit and mask cover the same identifiers | ≤ 10 identifiers, regexes ≤ 200 characters (📖 R9.2.9); each regex compiled with Python and checked against a synthetic structured log line, and against an ARN and claim ID that must stay readable | That CloudWatch accepts the policy (shape from memory, ⚠️) and that its regex engine matches like Python's (⚠️). Free text without a field name is not caught |
+ | E15 | [`aws/oidc-trust-prod-db-change.json`](aws/oidc-trust-prod-db-change.json), [`aws/db-change-ci-role-policy.json`](aws/db-change-ci-role-policy.json), [`aws/db-change-task-role-policy.json`](aws/db-change-task-role-policy.json) | Layer 3, ADR-0011: the `sql` job runs in its own environment `production-db`, the only subject its role trusts, and never connects to Aurora (private to the prod VPC); its OIDC role may only start the `db-change-claims` task on the `db-change` cluster, pass only that task's two roles to ECS, hand over the classified bundle through one S3 prefix, and never `ecs:ExecuteCommand`. The task role alone may `rds-db:connect`, and only as the migration user | Tests: no `rds-db:connect` and no wildcard `iam:PassRole` for the CI role; `RunTask` limited to one task-definition family and one cluster; the task role connects as one database user only | That `iam:PassRole` is needed to start a task with a role (⚠️ recalled); the `ecs:cluster` condition key (⚠️ recalled); the task's bundle-hash check and the `tools/db/` scripts, which are not written here |
+-| E16 | [`jit-grant/check.py`](jit-grant/check.py) | Layer 7, ADR-0005, OD33: the JIT receiver grants `InfraOperator-<service>`, once per request, only for a Linear webhook with a valid HMAC-SHA256 `Linear-Signature` sent within 60 s (📖 Linear webhooks), recording a person moving the request to Approved, an approver who is not the requester (as Identity Center users), on shift, an open incident and an allowed permission set; the grant goes to the requester for 60 minutes | 9 unit tests (`test_jit_grant.py`): forged, tampered and old webhooks, integrations, self-approval, unknown people, off shift, closed incident, other sets, a second grant for the same request; unreadable input fails closed. The receiver's role ([`aws/jit-receiver-role-policy.json`](aws/jit-receiver-role-policy.json)): assignments only on permission sets tagged `jit-grant` and in the prod account, no permission-set change or re-tag (`JitReceiverRoleTest`, resource types ✅ AWS Service Reference) | The receiver, its secret storage, the Identity Center call and the deletion schedule; Linear's real issue payload (the fields are assumed, ⚠️) |
++| E16 | [`jit-grant/check.py`](jit-grant/check.py) | Layer 7, ADR-0005, OD33: the JIT receiver grants `InfraOperator-<service>`, once per request, only for a Linear webhook with a valid HMAC-SHA256 `Linear-Signature` sent within 60 s (📖 Linear webhooks), recording a person moving the request to Approved, an approver who is not the requester (as Identity Center users), on shift, an open incident and an allowed permission set; the grant goes to the requester for 60 minutes | 9 unit tests (`test_jit_grant.py`): forged, tampered and old webhooks, integrations, self-approval, unknown people, off shift, closed incident, other sets, a second grant for the same request; unreadable input fails closed. The receiver's role ([`aws/jit-receiver-role-policy.json`](aws/jit-receiver-role-policy.json)): assignments only on permission sets tagged `jit-grant` and in the prod account, no permission-set change or re-tag (`JitReceiverRoleTest`, resource types ✅ AWS Service Reference) | The receiver, its secret storage, the Identity Center call and the deletion schedule; Linear's real issue payload (the fields are assumed, ⚠️). ⚠️ That the `aws:ResourceTag/jit-grant` condition is evaluated for `CreateAccountAssignment`: the Service Reference lists the key on the `PermissionSet` resource type but not for this action (R9.9.11). If it is not evaluated the role grants nothing (fail closed), so JIT would not work in an incident. Rollout 1.13 tests it; fallback: list the allowed permission-set ARNs in `Resource` instead of the tag condition |
+ | E17 | [`claude/repo-templates/CLAUDE.md`](claude/repo-templates/CLAUDE.md), [`github/pull_request_template.md`](github/pull_request_template.md) | Framework §2: the shared `CLAUDE.md` for the monorepo (how production changes, conventions, the data rule, the skills) and a PR template that records which parts an agent wrote, the prod impact, the data touched and the rollback | Tests that each holds its key rules; skills checked for name, description and a review-record entry | That engineers fill the template, and that agents follow the `CLAUDE.md`: guidance, not a control (ADR-0007) |
+ | E18 | [`github/workflows/agent-security-review.yml`](github/workflows/agent-security-review.yml), [`claude/ci-managed-settings.json`](claude/ci-managed-settings.json) | Framework §2 and layer 5 (OD22): the CI agent reviews infrastructure PRs and only comments. `pull_request` only; the `ci-agent` environment holds just the App key, so no prod role is reachable; a GitHub App token with contents read and pull requests write; Anthropic workload identity federation instead of an API key (📖 R1.7.6; inputs read from the action's `action.yml` at the pinned commit); `--restricted --strict-mcp-config --tools "Read,Grep,Glob"`; managed settings installed from the base branch deny Bash, WebFetch, Edit, Write and every MCP server | `actionlint`, `zizmor`; tests for trigger, environment, token permissions, auth, flags and prompt; settings schema and content test. Actions pinned to commits read with `git ls-remote` on 2026-11-09 (✅): `claude-code-action` v1.0.269, `create-github-app-token` v3.3.0 | That `claude_args` passes the flags as written (⚠️, research 6.9.4 Q5); that the action honours the runner's managed-settings file with federation auth (⚠️ R1.7.10); review quality |
+ | E19 | [`db/check_data_fixes.py`](db/check_data_fixes.py) | Layer 3, ADR-0011, OD48: the required check `data-fix-scan` fails a PR whose data fix (`db/<service>/data-fixes/`) matches a masking identifier of E14 (a field name followed by a value) or holds a run of 9 or more digits; it prints file, line and rule, never the value | 5 unit tests (`test_data_fix_scan.py`) with synthetic values; opaque IDs and psql variables pass; unreadable input fails closed | Free text, short IDs and names written without a field name are not caught; the run-time values file and its bucket are not built here |
+@@ -127,7 +127,7 @@ Every key of the template is kept as written except these:
+ | Template key | Phase 2 | Reason |
+ |---|---|---|
+ | `permissions.deny` `WebFetch` | moved to `ask` | Engineers read vendor docs during work; each fetch is approved instead (layer 2) [design] |
+-| `permissions.deny`, `sandbox.credentials`, `filesystem.denyWrite` | extended | Papaya's stack adds `~/.aws` (whole folder, incl. the SSO cache), `~/.config/gcloud`, Firebase CLI token (⚠️ path `~/.config/configstore/firebase-tools.json` not checked), `~/.docker/config.json`, `~/.kube`, `~/.pulumi`; `~/.config/gh` also hidden from the sandbox (finding 20); `~/.serverlessrc` (⚠️ path not checked); env vars `PULUMI_ACCESS_TOKEN`, `PULUMI_CONFIG_PASSPHRASE`, `FIREBASE_TOKEN`, `SERVERLESS_ACCESS_KEY` (⚠️ names not checked) |
++| `permissions.deny`, `sandbox.credentials`, `filesystem.denyWrite` | extended | Papaya's stack adds `~/.aws` (whole folder, incl. the SSO cache), `~/.config/gcloud`, Firebase CLI token (⚠️ path `~/.config/configstore/firebase-tools.json` not checked), `~/.docker/config.json`, `~/.kube`, `~/.pulumi`; `~/.config/gh` also hidden from the sandbox (finding 20); `~/.serverlessrc` (⚠️ path not checked); env vars `PULUMI_ACCESS_TOKEN`, `PULUMI_CONFIG_PASSPHRASE` (📖 R9.9.6), `FIREBASE_TOKEN` (📖 R9.9.9, a legacy method), `SERVERLESS_ACCESS_KEY` (⚠️ not found in the Serverless docs, R9.9.7) |
+ | `strictKnownMarketplaces: []` | the private marketplace repository | The catalogue (layer 4, ADR-0006) |
+ | `allowedMcpServers: []` | catalogue entries | Same; placeholders (G9) |
+ | `deniedMcpServers` `ide` | not denied | The IDE bridge (VS Code, JetBrains) is local and is how most engineers use Claude Code; cost of denying it is losing editor integration. `claude-in-chrome` and `computer-use` stay denied: built-in servers are exempt from `allowedMcpServers`, only the denylist reaches them (📖 settings reference, `allowedMcpServers`) |
+@@ -210,7 +210,7 @@ against **malicious or prompt-injected code that was approved**:
+   approval: the author names the newer stopped commit and the owner approves again. In an
+   incident that is one more review round.
+ - `npm ci` runs before the credentials with lifecycle scripts off (OD22). The allowlisted
+-  packages' scripts still run, and could write to `$GITHUB_ENV` / `$GITHUB_PATH` and so influence
++  packages' scripts still run, and could write to `$GITHUB_ENV` / `$GITHUB_PATH` (📖 R9.9.1) and so influence
+   later steps that hold credentials; that is why the allowlist is an L3 path.
+ - If the newest merge to `main` carries `[skip ci]` (or similar) in its message, no push run
+   exists for the tip and the older runs refuse to deploy; prod stays behind until the next merge
+@@ -267,7 +267,7 @@ into phase 1.
+    `self-repository` audit). `actionlint` 1.7.12 (✅ latest release on 2026-11-09, published
+    2026-03-30) does not know the syntax; `validate.sh` ignores only that message.
+ 9. **`runner.temp` is not available in job-level `env`** (✅ caught by `actionlint`); paths use
+-   `$RUNNER_TEMP` inside steps.
++   `$RUNNER_TEMP` inside steps (📖 R9.9.1).
+ 
+ ### Step 2 (identity and access)
+ 
+diff --git a/examples/github/environment-production/secrets.md b/examples/github/environment-production/secrets.md
+index 72ff12f..ba20070 100644
+--- a/examples/github/environment-production/secrets.md
++++ b/examples/github/environment-production/secrets.md
+@@ -32,3 +32,4 @@ Environment **variables** (prod-only, kept on the environment rather than the re
+ `AWS_REGION`, `PROD_PULUMI_DEPLOY_ROLE_ARN`, `PROD_SERVERLESS_DEPLOY_ROLE_ARN` on `production`
+ and `production-iam`; `PROD_DB_CHANGE_ROLE_ARN` on `production-db`; `PULUMI_BACKEND_URL`,
+ `PULUMI_CLI_VERSION`, `NODE_VERSION`. They are read by `workflows/deploy-prod.yml` only.
++`PULUMI_BACKEND_URL` is a Pulumi CLI variable (📖 R9.9.6); the other names are [design].
+diff --git a/examples/k0s/audit-policy.yaml b/examples/k0s/audit-policy.yaml
+index daf0b47..3f2fcd9 100644
+--- a/examples/k0s/audit-policy.yaml
++++ b/examples/k0s/audit-policy.yaml
+@@ -4,7 +4,8 @@
+ # Levels (R9.3.3): Metadata = who, verb, resource, no bodies. Secrets, ConfigMaps and token
+ # requests stay at Metadata so their contents never reach the audit log. Writes to workloads
+ # and RBAC are kept at Request, so a change can be compared with the merged manifests.
+-# ⚠️ Rule order: from memory, the first matching rule sets the level; check the audit page.
++# Rule order: "The first matching rule sets the audit level of the event"; `omitStages` as in
++# the example policy (📖 R9.9.4).
+ apiVersion: audit.k8s.io/v1
+ kind: Policy
+ omitStages: ["RequestReceived"]
+diff --git a/examples/k0s/authentication-config.target.yaml b/examples/k0s/authentication-config.target.yaml
+index 1e56248..8c0d376 100644
+--- a/examples/k0s/authentication-config.target.yaml
++++ b/examples/k0s/authentication-config.target.yaml
+@@ -3,7 +3,8 @@
+ # 1.34 (beta 1.30) and is not documented by k0s; it would be passed through spec.api.extraArgs
+ # (`authentication-config: <path>`), outside k0s support (R9.3.4, R9.3.5). It needs an API
+ # server the runner can reach (R9.3.8). The `sub` must use the repository's real format: new
+-# repositories use the immutable form with IDs (R9.3.9). Untested [design].
++# repositories use the immutable form with IDs (R9.3.9). Untested [design]. apiVersion, kind and
++# field names (issuer.audiences, claimValidationRules[].expression, claimMappings): 📖 R9.9.3.
+ apiVersion: apiserver.config.k8s.io/v1
+ kind: AuthenticationConfiguration
+ jwt:
+diff --git a/examples/k0s/deploy-rbac.yaml b/examples/k0s/deploy-rbac.yaml
+index 67bb42b..ecd7958 100644
+--- a/examples/k0s/deploy-rbac.yaml
++++ b/examples/k0s/deploy-rbac.yaml
+@@ -8,7 +8,7 @@
+ # nodes/proxy (bypasses audit logging), deletes. Workload deletes and RBAC changes go through the
+ # L3 owner team with a separate credential. Caveat (R9.3.7): creating a workload grants it the
+ # API access of any ServiceAccount in the namespace, so deploy namespaces hold no privileged
+-# ServiceAccount.
++# ServiceAccount. Field names (roleRef, apiGroups, automountServiceAccountToken): 📖 R9.9.5.
+ apiVersion: v1
+ kind: ServiceAccount
+ metadata:
+diff --git a/examples/k0s/k0s-apiserver-audit.yaml b/examples/k0s/k0s-apiserver-audit.yaml
+index 64f88e4..82d3be2 100644
+--- a/examples/k0s/k0s-apiserver-audit.yaml
++++ b/examples/k0s/k0s-apiserver-audit.yaml
+@@ -1,7 +1,8 @@
+ # Fragment of k0s.yaml on every controller (OD24) [design]. spec.api.extraArgs passes flags to
+ # kube-apiserver; "Any behavior triggered by these parameters is outside k0s support" (R9.3.1).
+ # The policy file must be placed on each controller by Papaya (no k0s mechanism found, R9.3.2);
+-# shipping the log to the log-archive account is part of gap G1.
++# shipping the log to the log-archive account is part of gap G1. Audit flags, including
++# --audit-log-maxage (days to keep old log files): 📖 R9.9.4.
+ apiVersion: k0s.k0sproject.io/v1beta1
+ kind: ClusterConfig
+ spec:
+diff --git a/work/09-fix-research.md b/work/09-fix-research.md
+index 1b0abff..c4d31cc 100644
+--- a/work/09-fix-research.md
++++ b/work/09-fix-research.md
+@@ -6,14 +6,15 @@
+   the agreed process). Four read-only research subagents checked AWS, GitHub/npm/Linear, Claude
+   Code and Kubernetes/k0s facts against official documentation on 2026-11-09. Later rounds added
+   CI checks on GitHub Team, GCP/Firebase/alerting (R9.5–R9.6), Thailand and Hong Kong law (R9.7)
+-  and Expo/EAS mobile releases (R9.8) for the follow-up fixes F11–F17.
++  and Expo/EAS mobile releases (R9.8) for the follow-up fixes F11–F17. R9.9 adds the sources
++  found in the verify step (`work/10-verify.md`, V7 and V11).
+ - Rows are cited in the deliverable as **R9.x** (this file), next to the existing R*x.y* rows of
+   `work/02-research.md`. Verdicts: confirmed / partly / contradicted / not found.
+ - Quotes marked "per fetcher" come from a summarising web fetcher, not a verbatim copy; treat them as
+   📖 with that caveat.
+ - Findings that change a proposal are listed under "Impact on the fixes" for each part.
+ 
+-> Working note. Updated: 2026-11-09 · Status: complete (R9.1–R9.8; the Identity Center resource types used for E16 were read from the AWS Service Reference file `sso.json`, see `work/08-fix-proposals.md`)
++> Working note. Updated: 2026-11-09 · Status: complete (R9.1–R9.9; the Identity Center resource types used for E16 were read from the AWS Service Reference file `sso.json`, see `work/08-fix-proposals.md`)
+ 
+ ---
+ 
+@@ -260,3 +261,34 @@ Impact on F17:
+ - Rollback is a protected action: in the incident lane it runs as a reviewed PR/re-run of the
+   previous update via `republish`, or by a Release Manager under JIT.
+ - Store side (App Store / Play review, phased rollout) is a separate gate; roles not verified.
++
++---
++
++## R9.9 Sources added in the verify step (read 2026-11-09; for V7 and V11 of `work/10-verify.md`)
++
++Each page was fetched in this session (HTTP 200) and the quoted terms counted in the page text
++(`grep -oF`). Pages without a version are the current docs on that date.
++
++| ID | Topic | Finding | Status | Source |
++|---|---|---|---|---|
++| R9.9.1 | GitHub default variables | `GITHUB_ENV`, `GITHUB_PATH`, `RUNNER_TEMP` are default variables of every job | confirmed | [variables reference](https://docs.github.com/en/actions/reference/workflows-and-actions/variables) |
++| R9.9.2 | Same-repository reusable workflow | "`$/.github/workflows/{filename}` for a reusable workflow in the same repository. This is the recommended syntax"; not available on GHE Server; no `@{ref}` | confirmed | [workflow syntax, `jobs.<job_id>.uses`](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax) |
++| R9.9.3 | Structured authentication file | `apiVersion: apiserver.config.k8s.io/v1`, `kind: AuthenticationConfiguration`; JWT issuers with `issuer.audiences`, `claimValidationRules[].expression` (CEL), `claimMappings` | confirmed | [Kubernetes authentication](https://kubernetes.io/docs/reference/access-authn-authz/authentication/) |
++| R9.9.4 | Audit policy and log flags | "The first matching rule sets the audit level of the event"; `omitStages: ["RequestReceived"]` in the example policy; `--audit-log-maxage` "the maximum number of days to retain old audit log files" | confirmed | [Kubernetes auditing](https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/) |
++| R9.9.5 | RBAC and token mounting | `RoleBinding` with `roleRef` and rules with `apiGroups`; `automountServiceAccountToken: false` on a ServiceAccount or Pod | confirmed | [RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), [service accounts](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/) |
++| R9.9.6 | Pulumi CLI | `pulumi preview` and `pulumi up` take `--stack`; environment variables `PULUMI_BACKEND_URL`, `PULUMI_CONFIG_PASSPHRASE`, `PULUMI_ACCESS_TOKEN` | confirmed | [pulumi preview](https://www.pulumi.com/docs/iac/cli/commands/pulumi_preview/), [pulumi up](https://www.pulumi.com/docs/iac/cli/commands/pulumi_up/), [environment variables](https://www.pulumi.com/docs/iac/cli/environment-variables/) |
++| R9.9.7 | Serverless Framework CLI | `serverless deploy --stage` documented. `SERVERLESS_ACCESS_KEY` not found on the deploy, license-keys or getting-started pages (two guessed guide URLs return 404) | partly | [deploy](https://www.serverless.com/framework/docs/providers/aws/cli-reference/deploy), [license keys](https://www.serverless.com/framework/docs/guides/license-keys) |
++| R9.9.8 | Cloud Storage permission | `storage.objects.get` is the object read permission | confirmed | [Cloud Storage IAM permissions](https://cloud.google.com/storage/docs/access-control/iam-permissions) |
++| R9.9.9 | Firebase CLI in CI | Application Default Credentials preferred; "(Legacy) Use `FIREBASE_TOKEN` … This is less secure" | confirmed | [Firebase CLI reference](https://firebase.google.com/docs/cli) |
++| R9.9.10 | npm configuration | Environment variables starting with `npm_config_` set configuration; per-user config file "configurable via CLI option `--userconfig` or environment variable `$NPM_CONFIG_USERCONFIG`" | confirmed | [npm v11 config](https://docs.npmjs.com/cli/v11/using-npm/config) |
++| R9.9.11 | Identity Center `CreateAccountAssignment` | Resources `Account` (`arn:${Partition}:sso:::account/${AccountId}`), `Instance` (`…:instance/${InstanceId}`), `PermissionSet` (`…:permissionSet/${InstanceId}/${PermissionSetId}`). For this action the `PermissionSet` resource lists only `sso:PrimaryRegion`; the `PermissionSet` resource type itself lists `aws:ResourceTag/${TagKey}`. Whether a tag condition is evaluated for this action is not stated (user-guide pages on tagging and ABAC do not say either) | partly | [Service Authorization Reference, `sso.json`](https://servicereference.us-east-1.amazonaws.com/v1/sso/sso.json) |
++| R9.9.12 | IAM condition keys used in examples | `ecs:cluster` is an action condition key of `ecs:RunTask`; `iam:PassedToService` of `iam:PassRole`; `iam:PermissionsBoundary` has type `ARN` | confirmed | [`ecs.json`](https://servicereference.us-east-1.amazonaws.com/v1/ecs/ecs.json), [`iam.json`](https://servicereference.us-east-1.amazonaws.com/v1/iam/iam.json) |
++
++Impact on the deliverable (applied 2026-11-09):
++
++- V11: markers added where these terms are used (`examples/README.md`, `docs/01-framework.md`,
++  `docs/07-framework-appendix.md`, `examples/k0s/*.yaml`,
++  `examples/github/environment-production/secrets.md`). `SERVERLESS_ACCESS_KEY` stays ⚠️ (R9.9.7).
++- V7: the JIT receiver's tag condition rests on R9.9.11, which is only partly documented. It fails
++  closed (no grant), so the risk is a break-glass path that does not work. Marked ⚠️ in E16 and
++  layer 7, with a rollout test and a fallback (explicit permission-set ARNs).

@@ -356,6 +356,10 @@
           "mode": "deny"
         },
         {
+          "name": "SERVERLESS_LICENSE_KEY",
+          "mode": "deny"
+        },
+        {
           "name": "PULUMI_CONFIG_PASSPHRASE",
           "mode": "deny"
         },

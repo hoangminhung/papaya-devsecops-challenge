@@ -1,18 +1,20 @@
-# 08 — Verify: kiểm tra máy móc examples/, diagrams/, docs/ và toàn repo
+# 10 — Verify: kiểm tra máy móc examples/, diagrams/, docs/ và toàn repo
 
 ## English summary
 
 Machine checks of 2026-11-09 (session 26fa6806); commands and trimmed output below. Nothing in
-`docs/`, `examples/`, `diagrams/` was changed. Results: (1) syntax of all JSON/YAML/workflows/Python
+`docs/`, `examples/`, `diagrams/` was changed by the checks themselves (fixes: §10). Results: (1) syntax of all JSON/YAML/workflows/Python
 passes; (2) checkov (k8s 13/0, Actions 196/0, IAM via a CloudFormation wrapper 68/13, OIDC trust via
 a Terraform wrapper: CKV_AWS_393 fails 5/5 as a false positive on the immutable `sub` format) and
 parliament find no defect beyond by-design items, plus one unstated evidence-bucket setting (V4);
 (3) all 3 Mermaid sources render, but `diagrams/03-incident-lane.svg` is stale (V1); (4) 167 internal
 links and 12 URLs, none broken; (5) gitleaks: 3,511 hits, all false positives in `transcripts/`;
-16 email addresses in transcripts await the owner's look (V13); (6) of 349 identifiers, 181 match
+the owner checked the email addresses in transcripts and had the two work addresses redacted (V13);
+(6) of 349 identifiers, 181 match
 `02-research.md` (an upper bound); about 15 tool capabilities lack a marker (§6.4, 📖 sources now
-proposed for most); the JIT role's tag condition is unverified (V7). An independent review (§9)
-was applied. Fix list in §7.
+proposed for most); the JIT role's tag condition was first flagged as unverified (V7), later found
+documented (R9.9.11). Independent reviews: §9, §10. Fix list in §7; V1, V7, V11 and the action-SHA
+check were done the same day (§10).
 
 ## 0. Môi trường và công cụ
 
@@ -163,7 +165,7 @@ Kết quả sau khi thay placeholder (bỏ các finding chỉ do placeholder):
 | `db-change-ci-role-policy.json` | MEDIUM permissions management: `iam:PassRole` | Đã giới hạn bằng `iam:PassedToService = ecs-tasks.amazonaws.com` và hai role ARN cụ thể; chấp nhận được |
 | `db-change-task-role-policy.json` | MEDIUM credentials/permissions: `rds-db:connect` | Đúng mục đích (IAM auth vào một DB user) |
 | `deploy-role-domain-iam-limits.json` | MEDIUM permissions management (`iam:DetachRolePolicy`, `iam:UpdateAssumeRolePolicy`…); LOW `StringEquals` so với ARN ở dòng 17 (`iam:PermissionsBoundary`) | Đúng phạm vi `svc-*`; `iam:UpdateAssumeRolePolicy` không có điều kiện boundary là giới hạn đã ghi ở E4b. Kiểu của key `iam:PermissionsBoundary` là `ARN` (📖 service reference `iam.json`: `{"Types":["ARN"]}`), nên cảnh báo của parliament đúng về kỹ thuật. Việc ví dụ của AWS cũng dùng `StringEquals` thì vẫn là ⚠️ theo trí nhớ |
-| `jit-receiver-role-policy.json` | MEDIUM "No resources match" cho `sso:Create/DeleteAccountAssignment` | parliament xét **từng statement riêng**, còn policy cố ý tách permission set (có điều kiện tag) khỏi instance + account. Format ARN của cả ba resource đúng (📖 Service Authorization Reference `sso.json`, đọc 2026-11-09). Nhưng xem V7 |
+| `jit-receiver-role-policy.json` | MEDIUM "No resources match" cho `sso:Create/DeleteAccountAssignment` | parliament xét **từng statement riêng**, còn policy cố ý tách permission set (có điều kiện tag) khỏi instance + account. Format ARN của cả ba resource đúng (📖 Service Authorization Reference `sso.json`, đọc 2026-11-09). Về điều kiện tag, xem V7 và §10 |
 | 5 file `oidc-trust-*.json` | HIGH "neither Resource nor NotResource", MEDIUM "Unknown federation source" | False positive: trust policy không có `Resource`; parliament không biết provider OIDC của GitHub |
 | inline policy của permission set | LOW "Unnecessary use of Resource *" (vd. `ecs:DescribeServices`, `cloudwatch:DescribeAlarms`, `lambda:GetFunctionConcurrency`) | Allowlist metadata đã review (E6); nếu muốn có thể thu hẹp theo resource. Không bắt buộc |
 
@@ -397,7 +399,8 @@ protection) đều có trong `09-fix-research.md` (R9.5.x, R9.8.x, R9.2.7–R9.2
 | `securityGroup`, `vpcConfig`: tên property thật của provider mà regex của risk stop khớp (§9 R4 chuyển từ nhóm (a) sang đây) | ✅ `vpcConfig` có trong `@pulumi/aws` 7.51.1 `lambda/function.d.ts` |
 | 51 tiền tố type Pulumi (`"aws:…/…"`) trong `risk-stop/classify.py` và `pulumi-policy/policies.ts` | ✅ cả 51 khớp với 2,467 type token có trong `@pulumi/aws` 7.51.1 (`node_modules`), `missing=0` |
 
-**(d) Đã đánh dấu ⚠️ trong docs, trung thực nhưng vẫn mở:**
+**(d) Đã đánh dấu ⚠️ trong docs, trung thực nhưng vẫn mở** (cập nhật §10: `FIREBASE_TOKEN`,
+`PULUMI_CONFIG_PASSPHRASE`, `NPM_CONFIG_USERCONFIG` nay là 📖 R9.9.6/R9.9.9/R9.9.10):
 
 - body `PutObjectLockConfiguration`: `ObjectLockEnabled`, `Rule.DefaultRetention.Mode/Years` (E13)
 - field `PermissionSet` (`Description`, `SessionDuration`…) (E6)
@@ -408,7 +411,8 @@ protection) đều có trong `09-fix-research.md` (R9.5.x, R9.8.x, R9.2.7–R9.2
 ### 6.4 Không có nguồn và không có marker: báo owner
 
 Các nguồn 📖 đề xuất bên dưới đều đã được tải lại ngày 2026-11-09 (HTTP 200), và term có mặt trên
-trang (đếm bằng `grep -oF`). Chưa có cái nào được ghi vào research hay docs.
+trang (đếm bằng `grep -oF`). Cập nhật §10: dòng 1–6 và 8 nay ghi thành R9.9.1–R9.9.8 và R9.9.2 trong
+`work/09-fix-research.md`, và docs/examples đã có marker; dòng 7 giữ nguyên ([design]); dòng 9 đã kiểm.
 
 | # | Term | Dùng ở | Đề xuất |
 |---|---|---|---|
@@ -420,7 +424,7 @@ trang (đếm bằng `grep -oF`). Chưa có cái nào được ghi vào research
 | 6 | GCP permission `storage.objects.get` | `docs/07-framework-appendix.md:148` | 📖 đề xuất: [Cloud Storage IAM permissions](https://cloud.google.com/storage/docs/access-control/iam-permissions) (×3) |
 | 7 | Permission rule `Read(~/.kube/**)`, `Bash(git diff *)`, `Bash(git show *)` | `examples/README.md:120, 342-343` | Cú pháp rule đã có nguồn qua template (`Read(~/.aws/**)`); đây là ví dụ [design]. Có thể bỏ qua |
 | 8 | Cú pháp `$/` của reusable workflow | `examples/github/workflows/deploy-on-main.yml`, `validate.sh` | 📖 chỉ có trong `07-review.md`; nên chép vào research (V2) |
-| 9 | 7 action pin bằng SHA kèm comment version (vd. `actions/checkout@3d3c… # v7.0.1`) | `examples/github/workflows/*.yml` | Chưa check nào kiểm SHA có khớp tag không. zizmor chạy `--offline`, mà (⚠️ theo trí nhớ của reviewer) phần audit đối chiếu ref cần chế độ online. Trước đây chỉ có `08-fix-proposals.md:579` (`git ls-remote`). Đề xuất: chạy `git ls-remote --tags` khi owner đồng ý (§8) |
+| 9 | 7 action pin bằng SHA kèm comment version (vd. `actions/checkout@3d3c… # v7.0.1`) | `examples/github/workflows/*.yml` | Đã kiểm (§10): 7/7 SHA khớp commit của tag |
 
 Giới hạn của check 6:
 
@@ -443,7 +447,7 @@ Giới hạn của check 6:
 | ID | Mức | File | Vấn đề | Đề xuất |
 |---|---|---|---|---|
 | V1 | MEDIUM | `diagrams/03-incident-lane.svg` | SVG cũ hơn `.mmd:33`; người đọc guide thấy chữ cũ "accepted by the owner, Options §9" | `mmdc -i 03-incident-lane.mmd -o 03-incident-lane.svg -b white` |
-| V7 | MEDIUM | `examples/aws/jit-receiver-role-policy.json` (E16) | Service reference `sso.json` liệt kê `aws:ResourceTag/${TagKey}` cho resource type `PermissionSet`, nhưng mục resource `PermissionSet` của action `CreateAccountAssignment` chỉ ghi `sso:PrimaryRegion`. Nếu điều kiện tag không được đánh giá như mong đợi thì nó fail-closed: JIT sẽ **không cấp được quyền** khi có sự cố (không cấp thừa). Đây là đường break-glass | Đánh dấu ⚠️ trong E16 và layer 7; thêm một bước rollout: thử bằng IAM policy simulator hoặc trong sandbox account trước khi dựa vào nó. Phương án dự phòng: liệt kê ARN permission set cụ thể thay cho điều kiện tag |
+| V7 | MEDIUM → đóng (§10) | `examples/aws/jit-receiver-role-policy.json` (E16) | (Kết luận ban đầu, nay đã sai: nguồn đầy đủ là trang HTML, và simulator đã bị bỏ; xem §10.) Service reference `sso.json` liệt kê `aws:ResourceTag/${TagKey}` cho resource type `PermissionSet`, nhưng mục resource `PermissionSet` của action `CreateAccountAssignment` chỉ ghi `sso:PrimaryRegion`. Nếu điều kiện tag không được đánh giá như mong đợi thì nó fail-closed: JIT sẽ **không cấp được quyền** khi có sự cố (không cấp thừa). Đây là đường break-glass | Đánh dấu ⚠️ trong E16 và layer 7; thêm một bước rollout: thử bằng IAM policy simulator hoặc trong sandbox account trước khi dựa vào nó. Phương án dự phòng: liệt kê ARN permission set cụ thể thay cho điều kiện tag |
 | V4 | LOW | `docs/07-framework-appendix.md:454`, E13 | Evidence bucket chỉ mô tả Object Lock; không nói tới Block Public Access, access logging hoặc CloudTrail data events, bucket policy | Thêm một dòng [design] cho các thiết lập này |
 | V10 | LOW | repo root | gitleaks: 3,511 false positive trong `transcripts/`, chưa có allowlist | `.gitleaks.toml` (allowlist `betas`, `turnAttributionKey` trong `transcripts/`) hoặc giải thích trong `README.md` |
 | V2 | LOW | `work/02-research.md` | Nguồn `$/` chỉ ở `07-review.md` | Chép dòng 📖 vào research |
@@ -461,10 +465,9 @@ Giới hạn của check 6:
   phần checkov parse.
 - Các URL trong `work/` và mã nguồn `R…` không được kiểm link.
 - Transcript của session này chưa nằm trong `transcripts/` nên chưa được gitleaks quét.
-- SHA của 7 action được pin chưa được đối chiếu với tag ghi trong comment: cần gọi GitHub
-  (`git ls-remote`). Phải hỏi owner trước khi chạy.
-- Identity Center có thật sự đánh giá `aws:ResourceTag` của permission set khi gọi
-  `CreateAccountAssignment` hay không (V7): docs không nói rõ. Cần policy simulator hoặc sandbox account.
+- Identity Center có thật sự áp dụng `aws:ResourceTag` của permission set khi gọi
+  `CreateAccountAssignment` hay không (V7): trang HTML của Service Authorization Reference có liệt kê
+  (R9.9.11, §10); hành vi thật chỉ kiểm được bằng drill grant trong sandbox account (rollout 1.13).
 
 ## 9. Review độc lập
 
@@ -493,3 +496,31 @@ Còn 3 LOW, đã sửa:
   đây là lỗi do escape `\n`, không phải một địa chỉ khác (§5);
 - N2: mức của V13 là "?", nay là MEDIUM tạm thời;
 - N3: sai tên resource ở §2.2.
+
+## 10. Sau verify: các việc đã sửa (2026-11-09, owner yêu cầu)
+
+File này được đổi tên từ `08-verify.md` thành `10-verify.md`, để không trùng tiền tố với
+`08-fix-proposals.md`.
+
+| Mục | Đã làm | Kiểm |
+|---|---|---|
+| V1 | `mmdc -i 03-incident-lane.mmd -o 03-incident-lane.svg -b white` (trong `diagrams/`) | exit 0; SVG có chữ mới, không còn chữ cũ, không có "Syntax error" |
+| V11 | Nguồn ghi thành R9.9.1–R9.9.12 trong `work/09-fix-research.md`. Marker gắn ở `examples/README.md` (E3, bảng E8 deviations, finding 9, mục npm), `docs/01-framework.md` (`NPM_CONFIG_USERCONFIG`), `docs/07-framework-appendix.md` (`storage.objects.get`), `examples/github/environment-production/secrets.md` (`PULUMI_BACKEND_URL`), comment trong 4 file `examples/k0s/*.yaml`. Câu ⚠️ về thứ tự rule audit nay là 📖 (R9.9.4). `SERVERLESS_ACCESS_KEY` giữ ⚠️ (R9.9.7: không thấy trong docs) | Mỗi trang tải về, HTTP 200, đếm term (§6.4 và R9.9) |
+| V7 | Lần đầu ghi ⚠️ vì chỉ đọc `sso.json`. Review vòng 3 (bên dưới) chỉ ra trang HTML của Service Authorization Reference có liệt kê `aws:ResourceTag/${TagKey}` cho `PermissionSet*` trong `CreateAccountAssignment`/`DeleteAccountAssignment`; tác giả đã đọc lại bảng actions trên trang và xác nhận. E16, layer 7 và rollout 1.13 nay cite 📖 R9.9.11. Drill grant trong sandbox account là bước nghiệm thu (một permission set có tag thì grant được, một không có tag thì bị từ chối); IAM policy simulator bị bỏ, vì nó không trả lời được câu hỏi này | `curl` trang `list_iam-identity-center.html` (200), đọc dòng của action; `sso.json` có 0 mục action-resource chứa `aws:ResourceTag`, trong khi `ecs.json` có 59 mục, nên JSON không phải nguồn đầy đủ |
+| Action SHA | `git ls-remote --tags https://github.com/<repo>.git refs/tags/<tag> refs/tags/<tag>^{}`, lấy commit của tag | 7/7 MATCH: `actions/checkout` v7.0.1, `actions/create-github-app-token` v3.3.0, `actions/setup-node` v7.1.0, `actions/upload-artifact` v7.0.2, `anthropics/claude-code-action` v1.0.269, `aws-actions/configure-aws-credentials` v6.3.0, `pulumi/actions` v7.0.0. Lệnh `uses:` không pin duy nhất là lời gọi `$/` tới reusable workflow nội bộ |
+| V2 | `$/` nay có nguồn R9.9.2 (trang workflow-syntax), được trích ở examples finding 8 | — |
+| V4, V12 | Chưa sửa (LOW/INFO), vẫn mở | — |
+| Backup | Owner yêu cầu bỏ các backup của lần rewrite email. Đã xoá branch `backup/pre-redact-2026-11-09`, `refs/original/refs/heads/master`, tag `backup/pre-email-rewrite`, file bundle; `git reflog expire --expire=now --all`; `git gc --prune=now` | Chỉ còn `master` = `origin/master`; 0 object trong `.git` (kể cả unreachable) chứa địa chỉ công việc; `git fsck --unreachable` = 0 |
+| Link | Lượt chạy lại `linkcheck.py` trên README, docs, `examples/README.md`, `diagrams/README.md`, 2 work note: 221 link nội bộ, 0 lỗi; 141 URL ngoài, 3 URL `legco.gov.hk` (R9.7) trả `000` từ máy này: chưa kiểm được, không có nghĩa là link hỏng | — |
+
+Review độc lập vòng 3 (agent mới, cho phần sửa ở trên): 1 HIGH, 2 MEDIUM, 5 LOW. Tất cả đã xử lý:
+
+- **F1 (HIGH):** V7 sai nguồn. Đã sửa như dòng V7 ở trên.
+- **F2 (MEDIUM):** bỏ IAM policy simulator.
+- **F3 (MEDIUM):** `SERVERLESS_LICENSE_KEY` ghi vào R9.9.7 và README; owner quyết định thêm vào env denylist
+  của phase 2 (`managed-settings.phase2.json`, test), giữ cả `SERVERLESS_ACCESS_KEY`.
+- **F4:** `ecs:cluster` ở E15 nay là 📖 R9.9.12.
+- **F5:** finding 8 nay cite R9.9.2.
+- **F6:** không cần sửa nữa sau F1.
+- **F7:** note này đã cập nhật.
+- **F8:** đã thêm link tagging guide vào R9.9.11.

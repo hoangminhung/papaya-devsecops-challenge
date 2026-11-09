@@ -1,7 +1,8 @@
 # Fragment of k0s.yaml on every controller (OD24) [design]. spec.api.extraArgs passes flags to
 # kube-apiserver; "Any behavior triggered by these parameters is outside k0s support" (R9.3.1).
 # The policy file must be placed on each controller by Papaya (no k0s mechanism found, R9.3.2);
-# shipping the log to the log-archive account is part of gap G1.
+# shipping the log to the log-archive account is part of gap G1. Audit flags, including
+# --audit-log-maxage (days to keep old log files): 📖 R9.9.4.
 apiVersion: k0s.k0sproject.io/v1beta1
 kind: ClusterConfig
 spec:

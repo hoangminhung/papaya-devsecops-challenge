@@ -6,14 +6,15 @@
   the agreed process). Four read-only research subagents checked AWS, GitHub/npm/Linear, Claude
   Code and Kubernetes/k0s facts against official documentation on 2026-11-09. Later rounds added
   CI checks on GitHub Team, GCP/Firebase/alerting (R9.5–R9.6), Thailand and Hong Kong law (R9.7)
-  and Expo/EAS mobile releases (R9.8) for the follow-up fixes F11–F17.
+  and Expo/EAS mobile releases (R9.8) for the follow-up fixes F11–F17. R9.9 adds the sources
+  found in the verify step (`work/10-verify.md`, V7 and V11).
 - Rows are cited in the deliverable as **R9.x** (this file), next to the existing R*x.y* rows of
   `work/02-research.md`. Verdicts: confirmed / partly / contradicted / not found.
 - Quotes marked "per fetcher" come from a summarising web fetcher, not a verbatim copy; treat them as
   📖 with that caveat.
 - Findings that change a proposal are listed under "Impact on the fixes" for each part.
 
-> Working note. Updated: 2026-11-09 · Status: complete (R9.1–R9.8; the Identity Center resource types used for E16 were read from the AWS Service Reference file `sso.json`, see `work/08-fix-proposals.md`)
+> Working note. Updated: 2026-11-09 · Status: complete (R9.1–R9.9; the Identity Center resource types used for E16 were read from the AWS Service Reference file `sso.json`, see `work/08-fix-proposals.md`)
 
 ---
 
@@ -260,3 +261,40 @@ Impact on F17:
 - Rollback is a protected action: in the incident lane it runs as a reviewed PR/re-run of the
   previous update via `republish`, or by a Release Manager under JIT.
 - Store side (App Store / Play review, phased rollout) is a separate gate; roles not verified.
+
+---
+
+## R9.9 Sources added in the verify step (read 2026-11-09; for V7 and V11 of `work/10-verify.md`)
+
+Each page was fetched in this session (HTTP 200) and the quoted terms counted in the page text
+(`grep -oF`). Pages without a version are the current docs on that date.
+
+| ID | Topic | Finding | Status | Source |
+|---|---|---|---|---|
+| R9.9.1 | GitHub default variables | `GITHUB_ENV`, `GITHUB_PATH`, `RUNNER_TEMP` are default variables of every job | confirmed | [variables reference](https://docs.github.com/en/actions/reference/workflows-and-actions/variables) |
+| R9.9.2 | Same-repository reusable workflow | "`$/.github/workflows/{filename}` for a reusable workflow in the same repository. This is the recommended syntax"; not available on GHE Server; no `@{ref}` | confirmed | [workflow syntax, `jobs.<job_id>.uses`](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax) |
+| R9.9.3 | Structured authentication file | `apiVersion: apiserver.config.k8s.io/v1`, `kind: AuthenticationConfiguration`; JWT issuers with `issuer.audiences`, `claimValidationRules[].expression` (CEL), `claimMappings` | confirmed | [Kubernetes authentication](https://kubernetes.io/docs/reference/access-authn-authz/authentication/) |
+| R9.9.4 | Audit policy and log flags | "The first matching rule sets the audit level of the event"; `omitStages: ["RequestReceived"]` in the example policy; `--audit-log-maxage` "the maximum number of days to retain old audit log files" | confirmed | [Kubernetes auditing](https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/) |
+| R9.9.5 | RBAC and token mounting | `RoleBinding` with `roleRef` and rules with `apiGroups`; `automountServiceAccountToken: false` on a ServiceAccount or Pod | confirmed | [RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/), [service accounts](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/) |
+| R9.9.6 | Pulumi CLI | `pulumi preview` and `pulumi up` take `--stack`; environment variables `PULUMI_BACKEND_URL`, `PULUMI_CONFIG_PASSPHRASE`, `PULUMI_ACCESS_TOKEN` | confirmed | [pulumi preview](https://www.pulumi.com/docs/iac/cli/commands/pulumi_preview/), [pulumi up](https://www.pulumi.com/docs/iac/cli/commands/pulumi_up/), [environment variables](https://www.pulumi.com/docs/iac/cli/environment-variables/) |
+| R9.9.7 | Serverless Framework CLI | `serverless deploy --stage` documented. The CI credential is `SERVERLESS_LICENSE_KEY` ("Set the `SERVERLESS_LICENSE_KEY` environment variable in your environment or CI/CD pipeline"). `SERVERLESS_ACCESS_KEY` not found on the deploy, license-keys or getting-started pages | partly | [deploy](https://www.serverless.com/framework/docs/providers/aws/cli-reference/deploy), [license keys](https://www.serverless.com/framework/docs/guides/license-keys) |
+| R9.9.8 | Cloud Storage permission | `storage.objects.get` is the object read permission | confirmed | [Cloud Storage IAM permissions](https://cloud.google.com/storage/docs/access-control/iam-permissions) |
+| R9.9.9 | Firebase CLI in CI | Application Default Credentials preferred; "(Legacy) Use `FIREBASE_TOKEN` … This is less secure" | confirmed | [Firebase CLI reference](https://firebase.google.com/docs/cli) |
+| R9.9.10 | npm configuration | Environment variables starting with `npm_config_` set configuration; per-user config file "configurable via CLI option `--userconfig` or environment variable `$NPM_CONFIG_USERCONFIG`" | confirmed | [npm v11 config](https://docs.npmjs.com/cli/v11/using-npm/config) |
+| R9.9.11 | Identity Center `CreateAccountAssignment` | The actions table lists, for `CreateAccountAssignment` and `DeleteAccountAssignment`: `Account*`; `Instance*` with `aws:ResourceTag/${TagKey}`, `sso:PrimaryRegion`; `PermissionSet*` with `aws:ResourceTag/${TagKey}`, `sso:PrimaryRegion`. ARN formats: `arn:${Partition}:sso:::account/${AccountId}`, `…:instance/${InstanceId}`, `…:permissionSet/${InstanceId}/${PermissionSetId}`. The machine-readable `sso.json` omits the per-action tag key (it lists only `sso:PrimaryRegion` there, and no `aws:ResourceTag` on any action-resource entry; `ecs.json` does list them), so the HTML page is the source. The tagging guide says tags in IAM policies can control access to permission sets | confirmed | [Service Authorization Reference, IAM Identity Center](https://docs.aws.amazon.com/service-authorization/latest/reference/list_iam-identity-center.html#list_iam-identity-center-action-CreateAccountAssignment), [tagging](https://docs.aws.amazon.com/singlesignon/latest/userguide/tagging.html); `sso.json` as above |
+| R9.9.12 | IAM condition keys used in examples | `ecs:cluster` is an action condition key of `ecs:RunTask`; `iam:PassedToService` of `iam:PassRole`; `iam:PermissionsBoundary` has type `ARN` | confirmed | [`ecs.json`](https://servicereference.us-east-1.amazonaws.com/v1/ecs/ecs.json), [`iam.json`](https://servicereference.us-east-1.amazonaws.com/v1/iam/iam.json) |
+
+Impact on the deliverable (applied 2026-11-09):
+
+- V11: markers added where these terms are used (`examples/README.md`, `docs/01-framework.md`,
+  `docs/07-framework-appendix.md`, `examples/k0s/*.yaml`,
+  `examples/github/environment-production/secrets.md`). `SERVERLESS_ACCESS_KEY` stays ⚠️ and
+  `SERVERLESS_LICENSE_KEY` (R9.9.7) was added to the phase-2 env denylist, its test and README (owner decision). `ecs:cluster` in E15
+  (R9.9.12) and the `$/` syntax in examples finding 8 (R9.9.2) now cite these rows.
+- V7: the verify step first read only `sso.json` and marked the tag condition as unconfirmed; the
+  HTML reference lists `aws:ResourceTag` for the `PermissionSet` resource of
+  `CreateAccountAssignment` (R9.9.11), so it is 📖. E16, layer 7 and rollout 1.13 cite it; a
+  drill grant in a sandbox account remains the acceptance test (documentation is not behaviour).
+  The IAM policy simulator cannot answer this question: the user supplies the values of other
+  condition keys, and it "does not determine which services support a given global condition
+  key" ([testing policies](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_testing-policies.html)).
