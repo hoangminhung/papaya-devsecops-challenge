@@ -49,7 +49,7 @@ legal question.
 | [examples/](examples/README.md) | Ruleset, CODEOWNERS, workflows, a runnable risk stop, IAM/OIDC/SCP, managed settings, plugin marketplace, policy pack; each with a local check and what it does **not** prove |
 | [diagrams/](diagrams/README.md) | Change workflow, trust boundaries, incident lane |
 | [work/](work/) | Working notes and decision log (Vietnamese, with English summaries) |
-| [transcripts/](transcripts/) | Complete, raw, unedited Claude Code session files |
+| [transcripts/](transcripts/) | Complete Claude Code session files, raw except the redaction of two work email addresses (see below) |
 | [CLAUDE.md](CLAUDE.md) | The rules the agent followed in this repository |
 
 ## Evidence markers
@@ -83,13 +83,18 @@ All Claude Code sessions for this challenge were run in this repository. The ses
 [work/setup-clean-config.sh](work/setup-clean-config.sh)). Each session is one
 `<session-id>.jsonl` file plus an optional `<session-id>/` directory holding subagent
 transcripts and large tool results (📖 [Claude directory reference](https://code.claude.com/docs/en/claude-directory#cleaned-up-automatically)).
-They are copied, unedited, into [transcripts/](transcripts/) before each commit that ends a session:
+They are copied into [transcripts/](transcripts/) before each commit that ends a session. One
+mechanical redaction is applied: the author's two work email addresses are replaced with
+`<redacted-work-email>` by [work/redact-emails.py](work/redact-emails.py) (matched by SHA-256;
+nothing else changes). Git history was rewritten on 2026-11-09 to apply it to every commit.
 
 ```bash
 for CFG in ~/.claude ~/.claude-papaya; do
   SRC="$CFG/projects/-home-do-hoang-minh-hung-papaya-devsecops-challenge"
   [ -d "$SRC" ] && rsync -a --exclude='memory/' --include='*.jsonl' --include='*/' --include='*/**' "$SRC"/ transcripts/
 done
+python3 work/redact-emails.py transcripts
+python3 work/redact-emails.py --check transcripts   # must print "total: 0"
 ```
 
 Claude Code deletes local transcripts after `cleanupPeriodDays` (⚠️ from the settings reference as read

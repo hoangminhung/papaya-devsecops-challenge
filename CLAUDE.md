@@ -77,16 +77,18 @@ Rules of use:
 - No personal data about real people: no names of Papaya staff, no email addresses other than
   what git already records as commit author, no customer or partner data. The challenge's
   example data categories (medical documents, national IDs) are referenced only as categories.
-- Transcripts are committed unedited, as the challenge requires, so **do not paste secrets
-  or personal data into the chat in the first place**. Do not print environment variables,
+- Transcripts are committed unedited except for one mechanical redaction (see the last bullet),
+  so **do not paste secrets or personal data into the chat in the first place**. Do not print environment variables,
   settings files, or shell history without redacting values. If this rule is accidentally
   broken, stop and tell the user immediately before continuing.
 - The git author identity is set repo-locally (personal address) before the first push; all
   commits were rewritten to it while still unpushed. Do not change it further.
-- Accepted exception (decided session 2, 2026-11-08): the committed transcripts contain the
-  author's own work email addresses (from tool output and from the context Claude Code
-  injects). They are kept unedited because the challenge requires raw transcripts; no other
-  person's data is involved.
+- Redaction (decided 2026-11-09, supersedes the session-2 exception that kept them): the
+  author's two work email addresses are replaced with `<redacted-work-email>` in every
+  transcript by `work/redact-emails.py`, which matches them by SHA-256; the personal address
+  (git author) and all other text stay unedited. History was rewritten and force-pushed on
+  2026-11-09 so that no commit contains them. After every transcript copy, run the script and
+  its `--check` before committing.
 
 ## Rule 3 — Language
 
