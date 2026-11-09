@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "defaultMode": "default",
+    "disableBypassPermissionsMode": "disable",
+    "deny": [
+      "Bash",
+      "WebFetch",
+      "Edit",
+      "Write"
+    ]
+  },
+  "allowManagedPermissionRulesOnly": true,
+  "allowManagedHooksOnly": true,
+  "allowManagedMcpServersOnly": true,
+  "allowedMcpServers": [],
+  "disableClaudeAiConnectors": true,
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_LOG_USER_PROMPTS": "0",
+    "OTEL_LOG_TOOL_DETAILS": "0"
+  }
+}

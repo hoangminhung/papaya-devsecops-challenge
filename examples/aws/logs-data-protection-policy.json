@@ -1,0 +1,27 @@
+{
+  "Name": "claims-log-masking",
+  "Description": "OD28 [design]: masks customer identifiers in log groups that ProdReadMetadata may read. Custom identifiers only: AWS has no managed identifier for Vietnam, Thailand or Hong Kong (R9.2.8). Policy shape from memory, unverified; limits from R9.2.9.",
+  "Version": "2021-06-01",
+  "Configuration": {
+    "CustomDataIdentifier": [
+      { "Name": "VnCitizenIdField", "Regex": "(?i)(cccd|cmnd|citizen_?id|national_?id)[\"':= ]{1,4}[0-9]{9,12}" },
+      { "Name": "ThNationalIdField", "Regex": "(?i)(thai_?id|id_?card|national_?id)[\"':= ]{1,4}[0-9]{13}" },
+      { "Name": "HkIdField", "Regex": "(?i)(hkid|hk_?id)[\"':= ]{1,4}[A-Z]{1,2}[0-9]{6}\\(?[0-9A]\\)?" },
+      { "Name": "BankAccountField", "Regex": "(?i)(bank_?account|account_?no|account_?number|iban)[\"':= ]{1,4}[0-9A-Z-]{6,34}" },
+      { "Name": "MedicalField", "Regex": "(?i)(diagnosis|icd_?10|medical_?record|treatment)[\"':= ]{1,4}[^\",}]{1,120}" },
+      { "Name": "PolicyHolderNameField", "Regex": "(?i)(insured_?name|patient_?name|full_?name)[\"':= ]{1,4}[^\",}]{1,80}" }
+    ]
+  },
+  "Statement": [
+    {
+      "Sid": "audit",
+      "DataIdentifier": ["VnCitizenIdField", "ThNationalIdField", "HkIdField", "BankAccountField", "MedicalField", "PolicyHolderNameField"],
+      "Operation": { "Audit": { "FindingsDestination": {} } }
+    },
+    {
+      "Sid": "mask",
+      "DataIdentifier": ["VnCitizenIdField", "ThNationalIdField", "HkIdField", "BankAccountField", "MedicalField", "PolicyHolderNameField"],
+      "Operation": { "Deidentify": { "MaskConfig": {} } }
+    }
+  ]
+}

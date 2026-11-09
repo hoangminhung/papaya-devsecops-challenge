@@ -1,0 +1,50 @@
+# Interim k0s deploy credential (framework layer 5, exception OD1/OD6; owner decision OD24)
+# [design]. One ServiceAccount per deploy namespace, bound to a namespaced Role. Its token is
+# time-limited (`kubectl create token ci-deploy -n claims --duration=720h`; the server may
+# shorten it, R9.3.6) and stored only in the `production-k0s` environment of GitHub.
+#
+# Not granted on purpose (R9.3.7): Secrets (get/list/watch all reveal contents), pods/exec,
+# pods/log, serviceaccounts/token, roles/rolebindings (escalate, bind), impersonate,
+# nodes/proxy (bypasses audit logging), deletes. Workload deletes and RBAC changes go through the
+# L3 owner team with a separate credential. Caveat (R9.3.7): creating a workload grants it the
+# API access of any ServiceAccount in the namespace, so deploy namespaces hold no privileged
+# ServiceAccount.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ci-deploy
+  namespace: claims
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ci-deploy
+  namespace: claims
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["services", "configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]  # rollout status only
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ci-deploy
+  namespace: claims
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ci-deploy
+subjects:
+  - kind: ServiceAccount
+    name: ci-deploy
+    namespace: claims

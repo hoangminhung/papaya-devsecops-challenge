@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "db/migrations/20261109120000_add_claim_status_index.sql",
+      "kind": "migration",
+      "sql": "-- adds a column; DROP TABLE in a comment must not count\nALTER TABLE claims ADD COLUMN review_state text;\nCREATE INDEX CONCURRENTLY claims_review_state_idx ON claims (review_state);\n"
+    },
+    {
+      "path": "data-fixes/tenant-a/LIN-1234.sql",
+      "kind": "data-fix",
+      "sql": "UPDATE payouts SET status = 'retry' WHERE payout_id = 'PLACEHOLDER-PAYOUT-ID';\nDELETE FROM payout_locks;\n"
+    }
+  ]
+}

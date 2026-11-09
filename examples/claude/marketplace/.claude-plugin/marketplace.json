@@ -4,13 +4,19 @@
     "name": "DevSecOps (control owner)"
   },
   "metadata": {
-    "description": "Reviewed and pinned plugin catalogue (framework layer 4, ADR-0006). Every entry has a review record in reviews/."
+    "description": "Reviewed and pinned plugin catalogue (framework layer 4, ADR-0006). Every entry, internal ones included, is pinned to a commit and has a review record in reviews/ (OD26)."
   },
   "plugins": [
     {
       "name": "devsecops-guardrails",
-      "source": "./plugins/devsecops-guardrails",
-      "description": "Internal: how to ship a prod change at the company (PR path, risk stop, JIT)."
+      "source": {
+        "source": "git-subdir",
+        "url": "example-org/claude-plugins",
+        "path": "plugins/devsecops-guardrails",
+        "ref": "v2026.11.1",
+        "sha": "3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d"
+      },
+      "description": "Internal: how to ship a prod change (PR path, risk stop, JIT) and three DevSecOps task skills (incident triage, risk-summary explainer, dependency fix). Pinned like every other entry (OD26)."
     },
     {
       "name": "example-formatter",

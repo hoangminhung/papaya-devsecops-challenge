@@ -1,0 +1,72 @@
+# Nightly evidence export (framework layer 7, OD30; compliance register C-19, C-21) [design].
+# Copies the last day's merged PRs (with reviews and check runs) and the logs and artifacts of
+# deploy runs to the evidence bucket in the log-archive account. That bucket has S3 Object Lock in
+# compliance mode, 6 years (examples/aws/evidence-bucket-object-lock.json): no one, root included,
+# can delete or shorten it (R9.2.12). GitHub keeps Actions logs and artifacts 90 days by default,
+# 400 at most for private repositories (R9.1.8), and the audit log 180 days (R3.5.6).
+# The organization audit log is NOT exported here: its REST API is documented for Enterprise
+# Cloud, not Team (R9.1.5), so an org owner exports it monthly from the UI (layer 7).
+# Runs from `main` only (environment `evidence`, branch policy like E3b); writes, never deletes.
+name: evidence-export
+
+on:
+  schedule:
+    - cron: "17 1 * * *"
+
+permissions: {}
+
+jobs:
+  export:
+    name: export evidence of the last day
+    runs-on: ubuntu-24.04
+    environment: evidence
+    concurrency:
+      group: evidence-export
+      cancel-in-progress: false  # an export is never cut short
+    permissions:
+      contents: read       # repository metadata
+      pull-requests: read  # PRs and their reviews
+      checks: read         # check runs of the merge commits
+      actions: read        # run logs and artifacts
+      id-token: write      # OIDC to the evidence-export role (PutObject only)
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Collect merged PRs, their reviews and the checks of their merge commits
+        run: |
+          since=$(date -u -d '1 day ago' +%Y-%m-%dT%H:%M:%SZ)
+          out="$RUNNER_TEMP/evidence/prs"
+          mkdir -p "$out"
+          gh api --paginate "repos/$REPO/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=100" \
+            --jq ".[] | select(.merged_at != null and .merged_at >= \"$since\") | .number" > "$RUNNER_TEMP/prs.txt"
+          while read -r n; do
+            gh api "repos/$REPO/pulls/$n" > "$out/$n.json"
+            gh api --paginate "repos/$REPO/pulls/$n/reviews" > "$out/$n-reviews.json"
+            sha=$(jq -r .merge_commit_sha "$out/$n.json")
+            gh api --paginate "repos/$REPO/commits/$sha/check-runs" > "$out/$n-checks.json"
+          done < "$RUNNER_TEMP/prs.txt"
+
+      - name: Collect logs and artifacts (risk-summary) of the last day's deploy runs
+        run: |
+          since=$(date -u -d '1 day ago' +%Y-%m-%d)
+          out="$RUNNER_TEMP/evidence/runs"
+          mkdir -p "$out"
+          gh api "repos/$REPO/actions/workflows/deploy-on-main.yml/runs?created=>=$since&per_page=100" \
+            --jq '.workflow_runs[].id' > "$RUNNER_TEMP/runs.txt"
+          while read -r id; do
+            gh api "repos/$REPO/actions/runs/$id/logs" > "$out/$id-logs.zip"
+            gh run download "$id" --repo "$REPO" --dir "$out/$id-artifacts" || echo "run $id: no artifacts"
+          done < "$RUNNER_TEMP/runs.txt"
+
+      - name: AWS credentials through GitHub OIDC (evidence-export role)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.EVIDENCE_EXPORT_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: evidence-${{ github.run_id }}
+
+      - name: Write to the evidence bucket (new objects only; Object Lock keeps them 6 years)
+        env:
+          BUCKET: ${{ vars.EVIDENCE_BUCKET }}
+        run: aws s3 cp --recursive "$RUNNER_TEMP/evidence" "s3://$BUCKET/github/$(date -u +%F)/"

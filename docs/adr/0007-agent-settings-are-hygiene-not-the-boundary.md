@@ -1,6 +1,6 @@
 # ADR-0007: Claude Code managed settings are hygiene, not the security boundary
 
-- **Status:** Accepted
+- **Status:** Accepted; refined after the independent review (see [ADR index](README.md), "refinements": `gh` deny rules OD25, cloud CLI `ask` rules from phase 1 OD43)
 - **Date:** 2026-11-09
 - **Decided by:** owner of this submission (GĐ-6, Options §0.4; D1, D3; OD4, OD7b, OD12)
 - **Scope:** Claude Code on laptops (server-managed settings, Team plan) and in CI

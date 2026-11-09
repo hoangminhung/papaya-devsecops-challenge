@@ -326,5 +326,92 @@ class ApprovalTest(unittest.TestCase):
         self.assertEqual(self.result()[0], 3)
 
 
+class SqlTest(unittest.TestCase):
+    """Database changes (framework layer 3; ADR-0011): pending migration and data-fix files.
+
+    Proves the heuristic sorts statements as designed and fails closed on what it cannot read.
+    Does NOT prove it understands every PostgreSQL statement: it is not a parser (⚠️)."""
+
+    def kinds(self, text):
+        return adapters.sql_kinds(text)
+
+    def risky_sql(self, text, kind="migration"):
+        change = adapters.sql({"files": [{"path": "f.sql", "kind": kind, "sql": text}]})["changes"][0]
+        return risky(change)
+
+    def test_destructive_and_access_statements_stop(self):
+        for text in [
+            "DROP TABLE claims;",
+            "drop index if exists claims_idx;",
+            "ALTER TABLE claims DROP COLUMN national_id;",
+            "ALTER TABLE claims DROP CONSTRAINT claims_tenant_fk;",
+            "TRUNCATE payouts;",
+            "ALTER TABLE claims ALTER COLUMN amount TYPE numeric(12,2);",
+            "ALTER TABLE claims ALTER amount SET DATA TYPE bigint;",
+            "DELETE FROM payout_locks;",
+            "UPDATE payouts SET status = 'x';",
+            "UPDATE payouts SET status = (SELECT s FROM t WHERE t.id = 1);",  # WHERE only in a subquery
+            "WITH d AS (SELECT 1) DELETE FROM payouts;",
+            "GRANT SELECT ON claims TO reporting;",
+            "CREATE ROLE tmp_reader LOGIN;",
+            "ALTER TABLE claims DISABLE ROW LEVEL SECURITY;",
+            "DROP POLICY tenant_isolation ON claims;",
+            "COPY claims TO STDOUT;",
+            "DO $$ BEGIN EXECUTE 'DROP TABLE claims'; END $$;",
+            "CREATE FUNCTION f() RETURNS void AS $fn$ DELETE FROM claims $fn$ LANGUAGE sql;",
+        ]:
+            with self.subTest(sql=text):
+                self.assertTrue(self.risky_sql(text))
+
+    def test_routine_statements_continue(self):
+        for text in [
+            "ALTER TABLE claims ADD COLUMN review_state text;",
+            "CREATE TABLE audit_notes (id bigint PRIMARY KEY, note text);",
+            "CREATE INDEX CONCURRENTLY claims_state_idx ON claims (review_state);",
+            "-- DROP TABLE claims;\nALTER TABLE claims ADD COLUMN x int;",
+            "/* TRUNCATE payouts; */ SELECT 1;",
+        ]:
+            with self.subTest(sql=text):
+                self.assertFalse(self.risky_sql(text))
+        for text in [  # scoped data changes continue only in a data fix (data owner approves, R4)
+            "INSERT INTO lookup (code) VALUES ('a');",
+            "UPDATE payouts SET status = 'retry' WHERE payout_id = 'x';",
+            "DELETE FROM payout_locks WHERE created_at < now() - interval '1 day';",
+            "INSERT INTO notes (body) VALUES ('please DROP TABLE claims; GRANT ALL');",
+        ]:
+            with self.subTest(sql=text):
+                self.assertFalse(self.risky_sql(text, kind="data-fix"))
+                self.assertTrue(self.risky_sql(text, kind="migration"))  # skips the data owner
+
+    def test_risky_data_fix_stops_and_summary_has_no_sql_values(self):
+        code, out = run("sql", fixture("sql-pending.json"), "/nonexistent")
+        self.assertEqual(code, 3)  # DELETE without WHERE in the data fix
+        self.assertIn("data-fixes/tenant-a/LIN-1234.sql", out)
+        self.assertIn("DELETE without WHERE", out)
+        self.assertNotIn("PLACEHOLDER-PAYOUT-ID", out)
+        self.assertNotIn("payout_locks", out)  # statement text never reaches the summary
+
+    def test_graphql_metadata_always_stops(self):
+        # Hasura-style metadata holds row permissions per role: an access change (ADR-0011).
+        change = adapters.sql({"files": [{"path": "db/claims/metadata/tables.yaml", "kind": "metadata",
+                                          "sql": "- table: claims"}]})["changes"][0]
+        self.assertTrue(risky(change))
+
+    def test_hash_covers_the_exact_sql(self):
+        a = adapters.sql({"files": [{"path": "f.sql", "kind": "data-fix", "sql": "DELETE FROM t;"}]})
+        b = adapters.sql({"files": [{"path": "f.sql", "kind": "data-fix", "sql": "DELETE FROM u;"}]})
+        self.assertNotEqual(classify.preview_hash(a["changes"]), classify.preview_hash(b["changes"]))
+
+    def test_unknown_file_kind_fails_closed(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            p = os.path.join(tmp, "bad.json")
+            with open(p, "w") as f:
+                json.dump({"files": [{"path": "x.sql", "kind": "seed", "sql": "SELECT 1;"}]}, f)
+            self.assertEqual(run("sql", p, "/nonexistent")[0], 2)
+        finally:
+            shutil.rmtree(tmp)
+
+
 if __name__ == "__main__":
     unittest.main()

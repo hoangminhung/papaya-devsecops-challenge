@@ -1,0 +1,22 @@
+# Kubernetes API audit policy for prod k0s (framework layer 7; OD24) [design].
+# k0s ships with no audit policy (R9.3.2); it is enabled through spec.api.extraArgs
+# (k0s-apiserver-audit.yaml), which is outside k0s support (R9.3.1).
+# Levels (R9.3.3): Metadata = who, verb, resource, no bodies. Secrets, ConfigMaps and token
+# requests stay at Metadata so their contents never reach the audit log. Writes to workloads
+# and RBAC are kept at Request, so a change can be compared with the merged manifests.
+# ⚠️ Rule order: from memory, the first matching rule sets the level; check the audit page.
+apiVersion: audit.k8s.io/v1
+kind: Policy
+omitStages: ["RequestReceived"]
+rules:
+  - level: Metadata
+    resources:
+      - group: ""
+        resources: ["secrets", "configmaps", "serviceaccounts/token"]
+  - level: Request
+    verbs: ["create", "update", "patch", "delete", "deletecollection"]
+    resources:
+      - group: "apps"
+      - group: "batch"
+      - group: "rbac.authorization.k8s.io"
+  - level: Metadata

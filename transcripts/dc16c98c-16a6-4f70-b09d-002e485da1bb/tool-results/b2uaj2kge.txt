@@ -1,0 +1,413 @@
+     1	# Examples
+     2	
+     3	> Status: steps 1 (change workflow, layer 3) and 2 (identity and access, layer 1) reviewed in
+     4	> three rounds each; step 3 (agent runtime, supply chain, policy pack: E8–E10) reviewed in
+     5	> three rounds. · Updated: 2026-11-09
+     6	
+     7	Concrete files behind [`../docs/01-framework.md`](../docs/01-framework.md). Each one exists to
+     8	prove one claim of the framework, and each has a local check. **Nothing here was run against
+     9	GitHub, AWS or any live system.** A passing check shows that the file says what the framework
+    10	says; it does not show that the platform enforces it. Every row lists what the check does
+    11	**not** prove.
+    12	
+    13	Markers: ✅ checked in this repository's sessions (command output in the transcript) ·
+    14	📖 official documentation, linked · ⚠️ assumption, not verified · [design] proposal of this
+    15	submission, untested.
+    16	
+    17	Placeholders: `example-org`, `<owner team>`, `123456` (app ID), `<AWS_ACCOUNT_ID>`,
+    18	`<NONPROD_AWS_ACCOUNT_ID>`, `<ORG_ID>`, `<REPO_ID>`, `<REVOKED_USER_ID_PLACEHOLDER>`. The monorepo
+    19	layout (`services/`, `infra/pulumi/`, `k8s/`, `web/`, `tools/`) is invented; Papaya's is unknown.
+    20	
+    21	Where each file would live in the monorepo:
+    22	
+    23	| Here | In the monorepo |
+    24	|---|---|
+    25	| `github/workflows/*.yml` | `.github/workflows/` |
+    26	| `github/CODEOWNERS` | `.github/CODEOWNERS` |
+    27	| `github/ruleset-main.json`, `github/environment-production/` | repository settings (REST API bodies), with an expected copy in git (layer 8) |
+    28	| `risk-stop/classify.py`, `risk-stop/adapters.py` | `tools/risk-stop/` |
+    29	| `risk-stop/deploy-approvals/<stack>/` | `deploy-approvals/<stack>/` at the root |
+    30	| `aws/oidc-trust-*.json` | trust policies of the deploy and preview roles, in the IAM stack (`infra/pulumi/iam/`) |
+    31	| `aws/scp-prod-ou.json` | the SCP stack (`infra/pulumi/org-scp/`, an L3 path), deployed from the management account |
+    32	| `aws/permission-set-prod-read-metadata.json` | the Identity Center stack (`infra/pulumi/identity-center/`), owned by the L3 owner team only and deployed from the management or delegated administrator account (OD23) |
+    33	| `aws/deploy-role-domain-iam-limits.json`, `aws/app-permissions-boundary.json` | the IAM stack (`infra/pulumi/iam/`), deployed from the `production-iam` environment (OD22) |
+    34	| `ci/allowed-install-scripts.txt` | `tools/ci/` (an L3 path, OD22) |
+    35	| `k0s/deploy-rbac.yaml` | `k8s/rbac/` (an L3 path, applied with a separate credential, OD24) |
+    36	| `k0s/audit-policy.yaml`, `k0s/k0s-apiserver-audit.yaml`, `k0s/authentication-config.target.yaml` | the k0s controller configuration (`infra/k0s/`, an L3 path, OD24) |
+    37	| `claude/managed-settings.phase*.json` | expected copy in git of the server-managed settings, which live in the Claude admin console (layer 2, layer 8) |
+    38	| `claude/marketplace/` | its own repository `example-org/claude-plugins`, with its own ruleset and CODEOWNERS (layer 5) |
+    39	| `claude/marketplace-repo/` | rulesets of that repository (REST API bodies), with an expected copy in git (OD26) |
+    40	| `approval-gate/gate.py` | the approval-gate GitHub App's own repository (G19) |
+    41	| `github/workflows/evidence-export.yml` | `.github/workflows/`, with an `evidence` environment limited to `main` (OD30) |
+    42	| `aws/oidc-trust-evidence-export.json`, `aws/evidence-*.json` | the log-archive account's stack (an L3 path) |
+    43	| `aws/logs-data-protection-policy.json` | each service's stack, applied to its log groups before `ProdReadMetadata` may read them (OD28) |
+    44	| `tools/db/pending.sh`, `tools/db/apply.sh` (interface only, not here) | `tools/db/` (an L3 path, OD29) |
+    45	| `pulumi-policy/` | `policy-packs/aws/` (an L3 path) |
+    46	| `risk-stop/fixtures/`, `tests/`, `schemas/`, `tools/`, `validate.sh` | only here, to check the examples |
+    47	
+    48	## How to run
+    49	
+    50	```bash
+    51	examples/validate.sh            # tools that are not installed are SKIPPED, and reported as such
+    52	ACTIONLINT=/path/actionlint ZIZMOR=/path/zizmor examples/validate.sh
+    53	```
+    54	
+    55	Needs Python 3 with `jsonschema`, `PyYAML` and `git`; optional `jq`, `yamllint`, `shellcheck`,
+    56	`actionlint`, `zizmor`, `claude` (for `claude plugin validate`), and Node.js with
+    57	`npm ci` run once in `pulumi-policy/` (downloads packages; `node_modules/` is not committed).
+    58	Tests use the standard `unittest`.
+    59	
+    60	## What each file proves
+    61	
+    62	| # | Files | Proves (framework) | Checked by | Does not prove |
+    63	|---|---|---|---|---|
+    64	| E1 | [`github/ruleset-main.json`](github/ruleset-main.json) | The approval gate is the merge to `main` (layer 3, ADR-0003): PR required, 1 approval, code-owner review, stale approvals dismissed, approval by someone other than the last pusher, branch up to date (no merge queue), required checks pinned to a source app, no force push or deletion, empty bypass list | JSON Schema of the create-ruleset request body; key-by-path check; design tests | That GitHub enforces it. `approval-gate` comes from a dedicated app whose ID (`123456`) is a placeholder (gap G19); its decision logic is E12. The other checks are pinned to GitHub Actions (ID 15368 ✅ `GET https://api.github.com/apps/github-actions`), so any workflow in the repo can likely post a check with the same name (⚠️ layer 3, G19) |
+    65	| E2 | [`github/CODEOWNERS`](github/CODEOWNERS) | L3 process paths: owned by the L3 owner team only; deployable paths: co-owned by the domain team and the on-call group, so one approval from either satisfies code-owner review (OD9, OD13; 📖 R3.2.7); risk-stop approvals: co-owned by the stack's owners and on-call (OD8). Fail-safe default so no file is unowned [design] | Effective owners resolved with GitHub's "last matching pattern takes the most precedence" (📖 [about code owners](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners)); every stack in `deploy-on-main.yml` checked for code and approvals owners | That the teams exist and have write access: GitHub drops such owners silently. [`codeowners-validate.yml`](github/workflows/codeowners-validate.yml) covers that in a real repo |
+    66	| E3 | [`github/workflows/`](github/workflows/) | "Merge approval = deploy approval" (layer 3): only the reusable [`deploy-prod.yml`](github/workflows/deploy-prod.yml) uses `production`; no ref/SHA input; no `workflow_dispatch`, `issue_comment`, `pull_request_target`, `workflow_run`; one concurrency group per stack, running deploys never cancelled; only the current tip of `main` is deployed (no re-run of an old run) [design]; preview → risk stop → apply, and the stop cannot be skipped, ignored or bypassed by an `if:`; apply commands use only allowed flags. Layer 5: OIDC, per-job permissions, SHA-pinned actions; `npm ci`, Pulumi plugins and the policy pack installed before the AWS credentials are in the job (the Serverless framework download: ⚠️ assumed to happen at `serverless --version`). OD22: the IAM stack deploys from its own environment `production-iam` (mapping fixed in `deploy-prod.yml`, ✅ actionlint accepts `inputs` there); `npm_config_ignore_scripts` set for the deploy and preview jobs, and only the packages in [`ci/allowed-install-scripts.txt`](ci/allowed-install-scripts.txt) (an L3 path) are rebuilt with their scripts. PRs preview non-prod only. OD29: a 
+    67	| E3b | [`github/environment-production/`](github/environment-production/) | `production` accepts deployments from `main` only and has no required reviewers (not available on GitHub Team for private repos, R3.1.2); names of the k0s/Firebase exception secrets (OD1, OD6; environment `production-k0s`, OD24) and of the prod variables, set per environment (`production`, `production-iam`) | JSON Schemas of the two request bodies (environment PUT, branch-policy POST); key-by-path check; design tests | That GitHub applies it; admins can still change or delete the environment (layer 7 compares live settings) |
+    68	| E4 | [`aws/oidc-trust-prod-deploy.json`](aws/oidc-trust-prod-deploy.json), [`aws/oidc-trust-nonprod-preview.json`](aws/oidc-trust-nonprod-preview.json) | Layer 1 "CI → AWS", ADR-0008: the prod deploy role trusts only the `production` environment of the monorepo; PRs get only a non-prod role in the non-prod account. Immutable subject format with owner and repository IDs (📖 R3.4.4; environment form ⚠️ R3.7 A2); `aud` = `sts.amazonaws.com` (📖 R3.4.1); `StringEquals` only. No `sts:TagSession`: the action does not tag sessions with OIDC (📖 `configure-aws-credentials` README at the pinned SHA). **Prerequisite:** repositories created before 2026-07-15 keep the old subject format unless the organization or repository opts in (📖 R3.4.4); Papaya's monorepo likely needs that opt-in first, or every deploy is refused. Optional narrowing with `job_workflow_ref` (⚠️ G10). The same trust applies to both prod deploy roles (Pulumi and Serverless) of domain stacks; [`aws/oidc-trust-prod-iam-deploy.json`](aws/oidc-trust-prod-iam-deploy.json) trusts only `environment:production-iam`, for the IAM stack's role (OD22) | Design tests | That AWS accepts the policy. `environmen
+    69	| E4b | [`aws/deploy-role-domain-iam-limits.json`](aws/deploy-role-domain-iam-limits.json), [`aws/app-permissions-boundary.json`](aws/app-permissions-boundary.json) | Layer 1 and 5, OD22: a domain stack's deploy role (and a Serverless stack's CloudFormation `deploymentRole`) creates or changes only `svc-*` roles, and only with the fixed permissions boundary attached; it cannot remove a boundary, edit the boundary policy, or create IAM users or access keys. The boundary denies `iam:*` and `sts:AssumeRoot` and trail tampering (pattern 📖 R9.2.1) | Every action exists in the AWS catalogue; every permission change on roles is under the boundary condition; `svc-*` never overlaps an SCP-protected name; the SCP (E5) lets only the IAM stack's role change the boundary policy | That AWS accepts them. The exact list of role actions that support `iam:PermissionsBoundary` was not read (⚠️ R9.2.1). `iam:UpdateAssumeRolePolicy` and `iam:PassRole` on `svc-*` carry no boundary condition: a `svc-*` role could be re-trusted to another account, still within the boundary (Access Analyzer, phase 2) |
+    70	| E5 | [`aws/scp-prod-ou.json`](aws/scp-prod-ou.json) (phase 2) | Layer 1 SCPs: Lambda code/config changes only by CloudFormation deployment roles, the **Pulumi** prod deploy role and JIT roles (the Serverless deploy role is not exempt: it only passes the CloudFormation role); claim-data reads only by application and approved data-read roles; the names of exempt roles, and the service-role permissions boundary, can be created or changed only by the IAM stack's own deploy role `github-prod-deploy-iam` (OD22); `OrganizationAccountAccessRole` can do nothing in the prod OU (OD23, 📖 R9.2.4); pre-deployed revocation Deny on `identitystore:UserId` (📖 R2.4.4); no tampering with trails in prod accounts. Deny-only; condition keys from R2.3.8. The outside-org write deny (all OUs) is not in this file | Every action exists in the AWS catalogue; size ≤ 10,240 characters minified and as written (📖 R2.3.4); exempt principals, protected role names and trail actions pinned exactly by the tests; claim-data reads checked to include a shared list | How it evaluates with other SCPs. Role names `cfn-deployment-*`, `github-prod-deploy-pulumi`, `github-prod-deploy-iam`, `app-claims-*` and
+    71	| E6 | [`aws/permission-set-prod-read-metadata.json`](aws/permission-set-prod-read-metadata.json) | Layer 1, ADR-0002: `ProdReadMetadata` reads metrics and metadata; 1-hour session (📖 R2.1.4); raw logs and function configuration only for named services that are redacted or use runtime secrets. Reads that expose configuration, data or secrets are left out (finding 11) | Wildcards expanded with the AWS catalogue; no action AWS marks as a write or permission-management action; no known data read; `Resource: "*"` only for an explicit, reviewed allowlist of metadata actions in the test (no wildcards; AWS's `IsList` is not trusted, finding 12); log and config reads only on one named log group or function each. An action missing from the catalogue fails the test (add its service to `tools/fetch_aws_actions.py`) | Only the **listed** data reads are known to be absent (G13). The file follows the shapes of `CreatePermissionSet` and `PutInlinePolicyToPermissionSet` (⚠️ field names from memory) |
+    72	| E7 | [`risk-stop/`](risk-stop/) | The risk stop (layer 3, ADR-0004) can be built: risky prod diffs stop the deploy (per category, for Pulumi and CloudFormation types alike, plus property names on any type); an approval counts only for the exact preview, only if it was merged to `main` on its own after the stopped commit, never edited, and the stack's code is unchanged since the stopped commit; approvals expire 7 days after they were merged; the summary shows which resources and properties change, never values; unreadable input stops. OD29: pending SQL migrations and data fixes (`--tool sql`) stop on DROP, TRUNCATE, column type changes, DELETE/UPDATE without a top-level WHERE, grants, roles, row-level security, COPY, function bodies and EXECUTE, and every GraphQL-engine metadata change; comments and string literals are ignored; the hash covers the exact SQL | 31 unit tests (7 for SQL); approval tests run against throwaway git repositories, including the bypasses found in review (edited approval, merge-commit PR, approval on a side branch, approval merged before a change inside the stack, runtime edit of the file) and one test that documents a gap that stays open (see Limits
+    73	| E8 | [`claude/managed-settings.phase1.json`](claude/managed-settings.phase1.json), [`claude/managed-settings.phase2.json`](claude/managed-settings.phase2.json) | Layer 2, ADR-0007, phases of layer 8 and OD4: phase 1 holds exactly the layer-8 subset (Manual default with auto mode kept, D1; bypass off; an allowlist of two exact repo scripts, `npm test` and `npm run lint`, OD7b, finding 19; `Read(~/.aws/**)` denied and `autoMode.classifyAllShell: true` (owner decision OD21); plugin and MCP catalogue locks, with the marketplace pinned to a release tag and auto-update off (OD26, 📖 R9.4.4, R9.4.6); deny rules for the `gh` token file, `gh pr review` and `gh api …reviews…` (OD25, 📖 R9.4.1, hygiene); claude.ai connectors off; telemetry on with every content flag `0`; version floor 2.1.248). Phase 2 is Anthropic's `settings-hipaa.json` (✅ fetched at commit `9196319`). **Kept from the template:** provider and login lock, managed-only rules/hooks, shell allow rules that do not skip the auto-mode classifier (`classifyAllShell`), the auto-mode `"$defaults"` pins, the template's credential denies. **Papaya's deviations**, each listed in [E8: deviations from the HIPAA template
+    74	| E9 | [`claude/marketplace/`](claude/marketplace/) | Layer 4, ADR-0006: the plugin catalogue is a private marketplace; every source pinned to a commit (`sha`, 📖 [marketplace reference](https://code.claude.com/docs/en/plugins/marketplace-reference.md)), internal plugins too, since a relative `./plugins/…` source follows the marketplace's files (OD26); one review record per entry, with the layer-4 checklist ([`reviews/`](claude/marketplace/reviews/)) | `claude plugin validate` (✅ Claude Code 2.1.319: it fails on an invalid entry, e.g. a missing `repo` or a malformed `sha`); tests that every source is pinned (`sha`; for npm a bare package name with an exact `version` and no own `registry`; or `sha256`), no relative or `command` source, and every entry has a review record | `claude plugin validate` accepts an unpinned `github` source and a `command` source (✅ mutation), hence the separate pin test. Plugin contents were not reviewed: the vendors and SHAs are placeholders |
+    75	| E9b | [`claude/marketplace-repo/`](claude/marketplace-repo/) | Layer 4, OD26: the marketplace repository needs two code-owner approvals for every change, and its release tags `v*` can be created only by the L3 owner team and never moved or deleted (two tag rulesets, because a bypass actor bypasses every rule of its ruleset) | JSON Schema of the create-ruleset request body; key-by-path check; design tests | That GitHub enforces them; the team ID `234567` is a placeholder. A SHA as the marketplace `ref` is ⚠️ untested, so the pin is a protected tag |
+    76	| E10 | [`pulumi-policy/`](pulumi-policy/) (phase 2) | Layer 5, OD8: mandatory Pulumi Policies (formerly CrossGuard, 📖 R4.2.1) that stop a deploy on an IAM `Allow` with `*`, `<service>:*` (also spelled with `?`, 📖 [IAM Action element](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_action.html)), `NotAction` or any wildcard in an `iam`/`sts`/`organizations`/`sso`/`identitystore` action, in a managed, role, user or group policy or a role's inline policy; on attaching `AdministratorAccess`, `PowerUserAccess` or any AWS managed `*FullAccess` policy by these routes (the three attachment types, `PolicyAttachment`, the three `*PolicyAttachmentsExclusive` types, `Role.managedPolicyArns`); on an RDS/Aurora cluster without deletion protection; on an S3 public access block with any flag off | `tsc` on the pack, then 35 cases that call each check with hand-made properties and a minimal stand-in for the CLI's arguments (`isType`), with no Pulumi engine and no cloud; type tokens ✅ against `@pulumi/aws` 7.51.1 | Not covered: Identity Center permission sets (`aws:ssoadmin/*`), admin-equivalent names outside the list (e.g. `AdministratorAccess-Amplify`),
+    77	| E11 | [`k0s/`](k0s/) | Layer 1, 5 and 7, OD24: the interim k0s deploy credential is a ServiceAccount with a namespaced Role, no Secret, exec, log, token, RBAC, impersonation or delete rights (📖 R9.3.7), token not mounted; an API audit policy that logs Secrets, ConfigMaps and token requests at `Metadata` only and workload/RBAC writes at `Request` (📖 R9.3.3); the k0s `extraArgs` fragment that enables it (📖 R9.3.1, outside k0s support); the **target** structured-authentication config that trusts only the `production-k0s` environment's GitHub OIDC tokens (📖 R9.3.4) | Parsed with PyYAML; design tests (`test_k0s.py`) | That k0s accepts them; where the policy file is placed on controllers and where the log goes (G1); the target config is untested and needs Kubernetes ≥ 1.30 (GA 1.34) and an API server the runner can reach (📖 R9.3.4, R9.3.8). The token lifetime is capped by the server (📖 R9.3.6) |
+    78	| E12 | [`approval-gate/gate.py`](approval-gate/gate.py) | Layer 3, ADR-0012: the decision logic of the `approval-gate` required check. Counts only human approvals of the head commit by someone other than the author, the last pusher or the person who triggered an app-opened PR; every changed file needs an owner's approval; an on-call approval counts for another team's file only with the `incident` label, a linked incident that is open, and the approver on shift (OD27); process paths need two L3 owner team members (OD26); flags approvals within two minutes of the last push or at night (in the approver's time zone) without an incident; a data fix needs a code owner plus a different person from the tenant's data owners, with the on-call approver standing in during an incident (R4, OD29) | 9 unit tests (`test_approval_gate.py`); unreadable input fails closed | The GitHub App around it: hosting, key, triggers, how it reads reviews, team members, CODEOWNERS owners per file, Linear incidents and the schedule (G19). Whether GitHub's review data is enough to tell a stolen login apart (📖 R9.1.10: no web/API field) |
+    79	| E13 | [`github/workflows/evidence-export.yml`](github/workflows/evidence-export.yml), [`aws/oidc-trust-evidence-export.json`](aws/oidc-trust-evidence-export.json), [`aws/evidence-export-role-policy.json`](aws/evidence-export-role-policy.json), [`aws/evidence-bucket-object-lock.json`](aws/evidence-bucket-object-lock.json) | Layer 7, OD30: a nightly job copies the last day's merged PRs, reviews, check runs, deploy logs and artifacts to an evidence bucket with Object Lock in compliance mode for 6 years (📖 R9.2.12); its role trusts only the `evidence` environment and may only `PutObject`; the workflow never deletes | `actionlint`, `zizmor`; design tests (trust, role, lock mode and years, no delete commands, read-only token) | That it runs: `gh api` pagination and the log download were never executed against a repository. The org audit log is not in it (API documented for Enterprise Cloud, 📖 R9.1.5): exported monthly by hand. The lock configuration body follows `PutObjectLockConfiguration` from memory (⚠️) |
+    80	| E14 | [`aws/logs-data-protection-policy.json`](aws/logs-data-protection-policy.json) | Layer 6, OD28: masking on log groups that `ProdReadMetadata` reads, with custom identifiers keyed on field names (national IDs of VN/TH, HKID, bank account, diagnosis, insured name), because AWS has no managed identifiers for these countries (📖 R9.2.8); audit and mask cover the same identifiers | ≤ 10 identifiers, regexes ≤ 200 characters (📖 R9.2.9); each regex compiled with Python and checked against a synthetic structured log line, and against an ARN and claim ID that must stay readable | That CloudWatch accepts the policy (shape from memory, ⚠️) and that its regex engine matches like Python's (⚠️). Free text without a field name is not caught |
+    81	
+    82	
+    83	The AWS action catalogue in [`schemas/aws-actions.json`](schemas/aws-actions.json) is taken from AWS's
+    84	machine-readable Service Authorization Reference (✅ `https://servicereference.us-east-1.amazonaws.com/`,
+    85	fetched 2026-11-09, 22 services) by [`tools/fetch_aws_actions.py`](tools/fetch_aws_actions.py).
+    86	Mutation runs ✅ for E4–E6 (all made the tests fail): `logs:Get*` or `s3:Get*` on `*`; a misspelled
+    87	action; a write action; `StringLike` on the subject; the old subject format; an 8-hour session;
+    88	an `Allow` in the SCP.
+    89	
+    90	Schemas in [`schemas/`](schemas/) are extracted from GitHub's REST OpenAPI description
+    91	(`github/rest-api-description` at commit `2f8f80e47ea4d3292cf4e37ba9d9b25475e06140`, OpenAPI 3.0.3 ✅)
+    92	by [`tools/extract_github_schemas.py`](tools/extract_github_schemas.py), which resolves `$ref` and
+    93	`nullable`. They do not forbid unknown keys, so a misspelled key passes schema validation; the
+    94	key-by-path check ([`tests/schema_keys.py`](tests/schema_keys.py)) catches it (✅ mutation run:
+    95	`require_last_pusher_approval` passes the schema and is reported by the key check).
+    96	
+    97	Mutation runs ✅ (each must make the tests fail, and did): `continue-on-error: true` on the risk
+    98	stop; `|| true` after the classifier; `if: always() && …` on an apply step; `pulumi up -f`;
+    99	a non-"Apply" step running `pulumi up` with `if: failure()`; `exit 1` replaced by `true` in the
+   100	tip-of-`main` guard; the guard reading `commits/main` instead of `git/ref/heads/main`; removing
+   101	the "approval merged on main's first-parent history" check;
+   102	removing the CODEOWNERS line for `deploy-approvals/claims-api/`; a broad CODEOWNERS line after
+   103	the L3 section.
+   104	
+   105	Mutation runs ✅ for E8–E10 (each made the tests fail): an `excludedCommands` entry without ` *`;
+   106	`Bash(git log *)` in the phase-1 allowlist; `~/.config/gh` removed from the sandbox credentials;
+   107	`autoMode.classifyAllShell` off; an MCP allowlist entry with two keys; `computer-use` removed from
+   108	`deniedMcpServers`; a phase-2 key added to phase 1; an unpinned plugin source; a policy set to
+   109	`advisory`; the `UserPolicy` check, the `Role.managedPolicyArns` check, the `iam`/`sts` wildcard
+   110	rule or the `*FullAccess` match removed from the policy pack. Round 2 of the review found mutations the tests missed (an emptied `hard_deny`, a `*` domain, emptied `denyWrite`, an extra package in an MCP command, an npm `package` with its own version), and round 3 more (a template env var or deny rule removed, `Read(~/.kube/**)` narrowed to one file, `autoMode.allow` without `"$defaults"`, an `allowRead` entry, `*:*` in a policy); each now fails a test.
+   111	
+   112	### E8: deviations from the HIPAA template
+   113	
+   114	Phase 2 starts from Anthropic's `settings-hipaa.json` (📖 [README-hipaa](https://github.com/anthropics/claude-code/blob/main/examples/settings/README-hipaa.md)).
+   115	Every key of the template is kept as written except these:
+   116	
+   117	| Template key | Phase 2 | Reason |
+   118	|---|---|---|
+   119	| `permissions.deny` `WebFetch` | moved to `ask` | Engineers read vendor docs during work; each fetch is approved instead (layer 2) [design] |
+   120	| `permissions.deny`, `sandbox.credentials`, `filesystem.denyWrite` | extended | Papaya's stack adds `~/.aws` (whole folder, incl. the SSO cache), `~/.config/gcloud`, Firebase CLI token (⚠️ path `~/.config/configstore/firebase-tools.json` not checked), `~/.docker/config.json`, `~/.kube`, `~/.pulumi`; `~/.config/gh` also hidden from the sandbox (finding 20); `~/.serverlessrc` (⚠️ path not checked); env vars `PULUMI_ACCESS_TOKEN`, `PULUMI_CONFIG_PASSPHRASE`, `FIREBASE_TOKEN`, `SERVERLESS_ACCESS_KEY` (⚠️ names not checked) |
+   121	| `strictKnownMarketplaces: []` | the private marketplace repository | The catalogue (layer 4, ADR-0006) |
+   122	| `allowedMcpServers: []` | catalogue entries | Same; placeholders (G9) |
+   123	| `deniedMcpServers` `ide` | not denied | The IDE bridge (VS Code, JetBrains) is local and is how most engineers use Claude Code; cost of denying it is losing editor integration. `claude-in-chrome` and `computer-use` stay denied: built-in servers are exempt from `allowedMcpServers`, only the denylist reaches them (📖 settings reference, `allowedMcpServers`) |
+   124	| `strictPluginOnlyCustomization: true` | not set | Project skills and agents live under `.claude/`, an L3 path reviewed through CODEOWNERS (layer 5); hooks and MCP are already managed-only (`allowManagedHooksOnly`, `allowManagedMcpServersOnly`). Setting it would force every team skill through the marketplace [design]. Left open: an engineer's own `~/.claude/skills` and `~/.claude/agents` load. README-hipaa says to keep the key when `disableAutoMode` is set, which is D1's fallback: set it then |
+   125	| `sandbox.filesystem.allowManagedReadPathsOnly: true` | not set | It only filters `allowRead`, which managed settings do not use here, and while set, `permissions.blockReadsOutsideWorkingDirectories` does not reach sandboxed commands (📖 settings reference). The docs' pattern `denyRead: ["~/"]` + `allowRead` for the work folders would close the denylist gap but needs a fixed repository location on every laptop (open item for layer 2). Accepted limit, like user `excludedCommands`: a developer's own `allowRead` entry merges and can re-open part of a denied path (📖 sandboxing, "Keep developers from widening the policy"; whether a `credentials.files` deny still holds then: ⚠️) |
+   126	| `env` proxy variables | not set | No egress proxy at Papaya is known; sandboxed commands go through the sandbox's own network allowlist |
+   127	| `network.allowedDomains` | GitHub, npm, PyPI (placeholders) | Papaya's registries (G9) |
+   128	| — | added (diff against the template): `requiredMinimumVersion`, `permissions.defaultMode`, `permissions.allow`, `permissions.ask` (WebFetch and the three excluded CLIs), `blockedMarketplaces`, `disableClaudeAiConnectors`, `pluginConfigs` (managed-only mods), `sandbox.autoAllowBashIfSandboxed: true` (OD12), `sandbox.excludedCommands`, `sandbox.filesystem.denyRead`. Everything else in phase 2 is the template's | Framework layers 2, 4 and 8 (each 📖 at the row cited there) |
+   129	
+   130	Costs engineers will notice, and the workaround (most from README-hipaa, "What developers lose"):
+   131	
+   132	- Inside the sandbox, `git fetch`/`pull`/`push` to the private monorepo, `gh`, and `npm ci` from a
+   133	  private registry fail: SSH keys, git credentials, `~/.npmrc`, the GitHub token variables and the
+   134	  `gh` configuration are hidden. The engineer runs these at the `!` prompt, outside Claude's tools;
+   135	  the agent cannot push or open the pull request itself.
+   136	- Docker and Testcontainers fail (`allowAllUnixSockets: false`); on macOS, servers on localhost
+   137	  cannot be started or reached (`allowLocalBinding: false`), git over SSH and Go-based CLIs fail TLS
+   138	  (📖 sandboxing, troubleshooting). Such tests run at the `!` prompt or in CI.
+   139	- `forceRemoteSettingsRefresh`: Claude Code does not start when the settings cannot be fetched
+   140	  (`claude auth` still works). `failIfUnavailable`: Claude Code does not start on native Windows
+   141	  (no sandbox there; WSL2 works) (📖 sandboxing).
+   142	- `/goal` is gone under `allowManagedHooksOnly` (README-hipaa); `cleanupPeriodDays: 30` deletes
+   143	  local transcripts after 30 days; every `aws`, `pulumi`, `serverless` call prompts, in auto mode too (`ask` rules; the managed-only rule lock hides "always allow").
+   144	- `strictKnownMarketplaces` without a `skills-dir` entry stops skills-directory plugins under
+   145	  `.claude/skills/*/.claude-plugin/` from loading; plain `SKILL.md` skills still load (📖 [plugins for
+   146	  organizations](https://code.claude.com/docs/en/plugins/org.md)).
+   147	- `forceLoginMethod: claudeai` pre-selects but does not enforce the method on the interactive login
+   148	  screen, so a Console login is still possible there (📖 iam); `allowedHttpHookUrls` merges entries
+   149	  from a developer's own settings, and `allowManagedHooksOnly` is what decides which hooks run
+   150	  (README-hipaa).
+   151	
+   152	## Limits of the risk stop
+   153	
+   154	The risk stop answers one framework problem: on GitHub Team nobody sees the prod diff before
+   155	apply (framework §1). It catches **risky prod diffs that nobody looked at**. It is not a boundary
+   156	against **malicious or prompt-injected code that was approved**:
+   157	
+   158	- The stack's own code runs with the stack's prod deploy role: `npm` packages are installed before the
+   159	  credentials, with install scripts off (OD22), but the Pulumi program runs during `preview` and
+   160	  `up`, and Serverless plugins during `package`/`diff`/`deploy`. That code could call AWS
+   161	  directly, or tamper with files the classifier reads, in the same job. The defence against it
+   162	  is the PR review itself, and from phase 2 IAM Access Analyzer and policy packs (layer 5).
+   163	- A stronger variant [design, not in the framework]: preview with a separate prod **preview**
+   164	  role (read and state access, no write), run the classifier in its own job on a fresh
+   165	  checkout without credentials, and assume the deploy role only in a later job after the stop.
+   166	  It adds a role and a job split; it is an open question for the owner.
+   167	- `pulumi up` previews again before applying. A change made outside the pipeline between the
+   168	  two previews (JIT, drift) is not re-checked. `pulumi preview --save-plan` + `pulumi up --plan`
+   169	  would bind the two, but update plans are experimental (📖 R4.1.3).
+   170	- Concurrency: a running deploy is never cancelled, but GitHub cancels a run that is still
+   171	  pending when a newer one arrives for the same group (📖 GitHub docs source,
+   172	  `data/reusables/actions/actions-group-concurrency.md`). Some merged commits therefore have no
+   173	  deploy run of their own; the newer run deploys them too, and the change record must link both
+   174	  commits to that run. `queue: max` would give every commit its own run, but the same page says
+   175	  the order "is not guaranteed": an older commit could then deploy after a newer one and undo it
+   176	  in prod. So the default is kept on purpose [design].
+   177	- The type lists are examples. For types that are missing, the rule on property names
+   178	  (`policy`, `role`, `securityGroup`, `vpcConfig`, `public`, `authorization`, `logging`, …;
+   179	  a narrower set on creates) catches some changes, not all.
+   180	- **Code in the deploy job can act as either deploy role of its environment.** `id-token: write`
+   181	  is job-wide, so the Pulumi program, Serverless plugins and any allowlisted install script can
+   182	  request the job's OIDC token (⚠️ from memory of GitHub's OIDC docs) and assume either role that
+   183	  trusts that environment. Since OD22 (phase 1) that is a domain stack's bounded roles, never the
+   184	  IAM stack's role (`production-iam`, E4), and no other install script runs
+   185	  (`npm_config_ignore_scripts`). Still on the phase-2 roadmap with OD15: a separate preview role
+   186	  and a build job without `id-token`.
+   187	- **Open gap:** nothing proves that a deploy really stopped at `stopped_commit` with the
+   188	  approved hash. An approval merged early (naming a commit whose deploy did not stop, with a
+   189	  hash computed in advance, which needs knowledge of prod inputs) is accepted if a later change
+   190	  **outside** the stack's directory, such as a shared library, produces exactly that diff. Changes
+   191	  inside the stack's directory are rejected. Watching the whole repository instead would cancel
+   192	  every approval at each unrelated merge in a monorepo. The fix is for the approval-gate app to
+   193	  check, on the approval PR, that the stopped run's summary carries the same hash (G19) [design].
+   194	  `test_known_gap_early_approval_and_change_outside_the_stack` documents the current behaviour.
+   195	- The approver of the approval PR sees **which** prod resources and properties change, not the
+   196	  new values (the summary never prints values, to keep secrets out of logs). The values are
+   197	  reviewed in the code of the stopped PR. Framework layer 3 and ADR-0004 say the approver "sees
+   198	  the prod diff"; that wording is too strong and is corrected in the framework's final pass.
+   199	- Any commit to the stack's directory between the stop and the approval merge cancels the
+   200	  approval: the author names the newer stopped commit and the owner approves again. In an
+   201	  incident that is one more review round.
+   202	- `npm ci` runs before the credentials with lifecycle scripts off (OD22). The allowlisted
+   203	  packages' scripts still run, and could write to `$GITHUB_ENV` / `$GITHUB_PATH` and so influence
+   204	  later steps that hold credentials; that is why the allowlist is an L3 path.
+   205	- If the newest merge to `main` carries `[skip ci]` (or similar) in its message, no push run
+   206	  exists for the tip and the older runs refuse to deploy; prod stays behind until the next merge
+   207	  (📖 GitHub docs source, `content/actions/how-tos/manage-workflow-runs/skip-workflow-runs.md`,
+   208	  via review). Operator action: merge an empty change.
+   209	- Within 7 days, an approved change that is reverted and then merged again with identical code
+   210	  passes without a new approval. This is intended: it is the same code and the same prod diff
+   211	  that an owner approved.
+   212	- The binding relies on squash-only merges (`ruleset-main.json`); with merge commits, a PR's
+   213	  inner commits would be invisible to the first-parent check.
+   214	
+   215	## Findings from writing these files
+   216	
+   217	Points the framework text does not yet say; carried into the framework in the final pass.
+   218	Owner decisions 2026-11-09 (framework OD14–OD18): findings 1, 3 and 4 accepted; the risk stop keeps
+   219	its current scope (OD15); the early-approval gap is an accepted limit for G19 to close (OD18).
+   220	Step 2: finding 16 accepted (OD19); the job-wide OIDC token limit goes to the phase-2 roadmap
+   221	with OD15 (OD20). After the independent review (2026-11-09), OD22 moves the per-environment roles
+   222	into phase 1.
+   223	
+   224	1. **The risk-stop classifier must be an L3 path** [design]. The deploy runs it from the merged
+   225	   commit, so a PR that edits it together with an IAM change, approved by the domain team, could
+   226	   switch the stop off. `CODEOWNERS` adds `/tools/risk-stop/` to the L3 owner team. Confirmed by
+   227	   the owner (OD14): it extends the canonical L3 list of framework layer 5.
+   228	2. **An approval must be bound to git history, not only to a hash** [design]. Two review rounds
+   229	   found ways for one PR to carry its own risky change and approval, or for an approval to be
+   230	   reused. Rules now: read from git objects only; file named `<stopped_commit>.yaml`, never
+   231	   edited; stopped commit and approval commit both on `main`'s first-parent history, in that
+   232	   order; the approval commit touches only `deploy-approvals/<stack>/`; the stack's directory
+   233	   and the classifier unchanged since the stopped commit; at most 7 days old.
+   234	3. **Squash-only merges** [design]: `ruleset-main.json` allows only squash, so each PR is one
+   235	   commit on `main`. Cost: PR-internal history is not kept on `main`.
+   236	4. **Deploy only the tip of `main`** [design]: people with write access can re-run a workflow run
+   237	   for up to 30 days, with the same `GITHUB_SHA` (📖 GitHub docs source,
+   238	   `content/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs.md`, via review). An
+   239	   old deploy run re-run would roll prod back without any approval. `deploy-prod.yml` stops unless
+   240	   the run's commit is the current tip of `main`, read with `GET /repos/{owner}/{repo}/git/ref/heads/main`
+   241	   (✅ branch-only form; `commits/main` could resolve to a tag named `main`). This is a new
+   242	   condition for framework layer 3's "merge approval = deploy approval" list.
+   243	5. **Classification beyond the framework's categories** [design]: the property-name rule, the
+   244	   audit/detection category and "an unknown operation stops" go beyond layer 3's list
+   245	   (stateful replace/delete, IAM, network, policy finding).
+   246	6. **The approval hash must cover changed values**, not only resource names, or an approval for
+   247	   one IAM policy would let a different change to the same policy through; and it must leave out
+   248	   values that change on every build, or an approval never matches. ⚠️ From memory, not checked:
+   249	   Serverless puts a timestamped path in the Lambda `Code.S3Key` and a code hash in
+   250	   `AWS::Lambda::Version` logical IDs; both are left out of the hash.
+   251	7. **Fail-safe CODEOWNERS default** [design]: without it, root `package.json`, a new stack or a new
+   252	   `deploy-approvals/<stack>/` folder would be unowned, and GitHub then accepts an approval from
+   253	   any writer (📖 about code owners).
+   254	8. **Same-repository reusable workflows can use `uses: $/.github/workflows/<file>`**, which GitHub
+   255	   now recommends: it resolves to the running commit, not to the runner's workspace (📖 GitHub docs
+   256	   source, `data/reusables/actions/reusable-workflow-calling-syntax.md`; flagged by zizmor's
+   257	   `self-repository` audit). `actionlint` 1.7.12 (✅ latest release on 2026-11-09, published
+   258	   2026-03-30) does not know the syntax; `validate.sh` ignores only that message.
+   259	9. **`runner.temp` is not available in job-level `env`** (✅ caught by `actionlint`); paths use
+   260	   `$RUNNER_TEMP` inside steps.
+   261	
+   262	### Step 2 (identity and access)
+   263	
+   264	10. **SCP "protect the org trail" is mostly redundant** for member accounts: they cannot delete
+   265	    an organization trail or turn its logging off anyway (📖 R2.6.2). E5 instead denies changes
+   266	    to any trail inside prod accounts. The framework's layer-1 bullet is reworded in the final pass.
+   267	11. **"Metadata" reads can leak configuration, data or secrets** (⚠️ response contents from
+   268	    memory of the API references): `lambda:ListFunctions` and `ecs:DescribeTaskDefinition` return
+   269	    environment variables and cannot be limited to one resource (✅ catalogue: not resource-scoped);
+   270	    `lambda:GetFunction` also returns a code download URL; `ecs:DescribeTasks` returns container
+   271	    environment overrides; `cloudformation:DescribeStacks` returns stack outputs (it could be scoped
+   272	    per stack); `cloudformation:DescribeStackEvents` returns `ResourceProperties`, "the properties
+   273	    used to create the resource" (📖 [StackEvent](https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_StackEvent.html)),
+   274	    which for a function includes its environment variables (⚠️ inferred); `logs:DescribeQueries`
+   275	    returns other users' query strings. E6 leaves all of them out [design];
+   276	    `lambda:GetFunctionConfiguration` is granted per function instead.
+   277	12. **AWS's annotations are signals, not a classification of customer data**: `IsDataPlane` marks
+   278	    `cloudwatch:GetMetricData` too; `sqs:ListQueues` is not marked `IsList`; and many `IsList`
+   279	    actions return data or configuration (`s3:ListBucket` object keys, `ec2:Describe*` launch
+   280	    templates, `ssm:ListCommandInvocations` output; ✅ annotations in the catalogue, ⚠️ response
+   281	    contents from memory). The tests use an explicit allowlist for `Resource: "*"`. One entry has a
+   282	    condition: `states:ListExecutions` returns execution names, so names must not be built from
+   283	    claim data [design].
+   284	13. **Two prod deploy roles** (framework layer 1 already implies it): the SCP exempts the Pulumi
+   285	    role from the Lambda-update deny, but not the Serverless role, so `serverless deploy function`
+   286	    cannot change a function outside CloudFormation (drift). It does not stop malicious code in
+   287	    the job (Limits). `deploy-prod.yml` has one credentials step per tool, so an unset role
+   288	    variable fails instead of falling back to the other role.
+   289	14. **The claim-data deny assumes a naming convention** [design]: every legitimate reader must
+   290	    match `app-claims-*` or a `DataRead-*` permission set. Lambda execution roles behind SQS event
+   291	    sources, Step Functions execution roles and an AWS Backup role that reads the bucket would be
+   292	    denied otherwise (only service-linked roles are outside SCPs, 📖 R2.3.2). Phase-2 prerequisite:
+   293	    inventory the real callers of these actions (CloudTrail, IAM last-accessed data) and add them
+   294	    before the SCP is attached.
+   295	15. **The trail deny blocks every principal in prod accounts**, including deploy roles and
+   296	    `OrganizationAccountAccessRole`: a member-account trail can only be changed after a temporary
+   297	    change to the SCP (an L3 path), or an exempt audit role would have to be added [design].
+   298	16. **Exempt role names must be protected** (OD19): the exemptions are name patterns, so anyone in
+   299	    a prod account who could create or re-trust a role named `app-claims-*` or `cfn-deployment-*`
+   300	    would bypass both denies. E5 lets only `github-prod-deploy-pulumi` change those roles.
+   301	    - **Today that role deploys every Pulumi stack**, not only the IAM stack, and any job in the
+   302	      deploy workflow can obtain it (OD20). So "only the IAM stack" holds only after OD20 (since
+   303	      OD22: phase 1, E4, E4b) gives the
+   304	      IAM stack its own role and OIDC subject; until then the protection is "only an approved prod
+   305	      Pulumi deploy" (agent's reading of OD19, confirmed by the owner 2026-11-09).
+   306	    - **Residual risks:** a principal that may pass an `app-claims-*` role could create a new
+   307	      function with it (`lambda:CreateFunction` is not denied), and one that may pass
+   308	      `cfn-deployment-*` to CloudFormation could change any function through a template;
+   309	      `iam:PassRole` is left out on purpose because the Serverless role must pass
+   310	      `cfn-deployment-*`. An `InfraOperator-*` grant may change an `app-claims` function's code
+   311	      and so read claim data indirectly (accepted with break-glass, ADR-0005; JIT reconciliation
+   312	      in layer 7 is the control).
+   313	    - **Constraints and prerequisites (phase 2):** Serverless services cannot create their own
+   314	      `app-claims-*` execution roles (CloudFormation runs as `cfn-deployment-*`, not exempt); those
+   315	      roles live in the Pulumi IAM stack and are referenced by ARN. The protected roles must exist
+   316	      before the SCP is attached, and if `github-prod-deploy-pulumi`'s own trust breaks (e.g. the
+   317	      subject-format opt-in of E4), only an SCP change from the management account (an L3 path)
+   318	      can repair it.
+   319	17. **Gaps in the claim-data deny, under G13** (⚠️ not verified): S3 requests through access
+   320	    points may be authorised on the access-point ARN, not the bucket ARN; KMS `Decrypt` on the
+   321	    claim keys would be a second layer.
+   322	    The deny also covers `sqs:StartMessageMoveTask` (a write, ✅ catalogue), which could move claim
+   323	    messages to another queue; cost: a JIT grant cannot redrive a claims dead-letter queue.
+   324	
+   325	### Step 3 (agent runtime, supply chain, policy pack)
+   326	
+   327	18. **The settings schema on schemastore.org is community-maintained and lags behind**: it accepts
+   328	    unknown keys and lacks `allowedProviders` and `managedSourcesBehavior` (✅ checked). The tests
+   329	    therefore check keys by path and require a documentation source for every key it lacks.
+   330	19. **The phase-1 allowlist gives no protection for `~/.aws`, and a "read-only" wildcard rule
+   331	    can write files** (review step 3): Claude Code runs a built-in set of read-only commands
+   332	    (`cat`, `grep`, `head`, read-only `git` …) without a prompt in every mode, and the set is not
+   333	    configurable (📖 [permissions](https://code.claude.com/docs/en/permissions.md#read-only-commands)).
+   334	    Leaving `cat` out of the allowlist protected nothing. Worse, `Bash(git log *)`, `Bash(git show *)`
+   335	    and `Bash(git diff *)` also match `--output=<path>`, which writes chosen content to any path
+   336	    (✅ git 2.34.1; the docs use `git log --output=<file>` as an example match). The allowlist is now
+   337	    two exact repo scripts, and those run whatever `package.json` says [limit]. Owner decision OD21
+   338	    adds two keys to phase 1: a `Read(~/.aws/**)` deny rule, which also applies to recognized
+   339	    `cat`/`head`/`tail` (📖 permissions), and `autoMode.classifyAllShell` (📖, ≥ 2.1.193), so the two
+   340	    allow rules do not skip the auto-mode classifier. Left open until the phase-2 sandbox: a command
+   341	    that reads files without naming them (`grep -r` from `~`) or a script that opens `~/.aws` itself
+   342	    is not covered by a deny rule (📖 permissions). Not chosen: `blockReadsOutsideWorkingDirectories`
+   343	    (📖, ≥ 2.1.257), which would also block every read outside the repository.
+   344	20. **Credential paths beyond the HIPAA template** [design]: `~/.aws` as a whole (the SSO token
+   345	    cache opens every role of the engineer, layer 2), `~/.kube`, `~/.pulumi`, `~/.config/gcloud`,
+   346	    the Firebase CLI token, `~/.docker/config.json`. `~/.config/gh` must be hidden from the sandbox
+   347	    too, not only from Claude's Read tool: sandboxed commands run without a prompt (OD12) and
+   348	    `api.github.com` is allowed, so a readable token lets the agent approve PRs as the engineer (OD5).
+   349	    This closes only the sandboxed route: an excluded CLI (`pulumi`, `serverless`) runs repository
+   350	    code outside the sandbox with full access (finding 22), so hiding credentials from the sandbox
+   351	    is hygiene, not a boundary (ADR-0007).
+   352	21. **TypeScript 7 is not yet supported by `@pulumi/pulumi`** (✅ npm peer-dependency error:
+   353	    `typescript >= 3.8.3 < 7`); the pack pins TypeScript 6.0.3.
+   354	22. **`sandbox.excludedCommands` entries match like `Bash(...)` rules** (📖
+   355	    [sandboxing](https://code.claude.com/docs/en/sandboxing.md#run-commands-outside-the-sandbox-with-excludedcommands)):
+   356	    `aws` alone matches only `aws` with no arguments, so the first draft kept every `aws` call in the
+   357	    sandbox, where it fails (no `~/.aws`, no AWS endpoints). Entries are now `aws *`, `pulumi *`,
+   358	    `serverless *`. The docs also answer the framework's ⚠️ on matching: every command in the call
+   359	    must match; a call with `cd`, a redirect, `$(...)` or a subshell stays sandboxed; the match is on
+   360	    the text, so `/usr/local/bin/aws`, a script that calls `aws`, and `npx serverless` do not match.
+   361	    Excluded commands go through the permission flow: they prompt in Manual mode, but in auto mode
+   362	    the classifier decides (📖 sandboxing), so phase 2 also lists them as `ask` rules, which prompt
+   363	    in every mode (📖 auto-mode-config). The prompt shows the command (`pulumi preview`), not the
+   364	    repository code it runs, which a sandboxed command may have changed without a prompt.
+   365	23. **A mandatory Pulumi policy is only advisory while a value is unknown** (✅ `@pulumi/policy`
+   366	    1.21.0 `server.js` catches `UnknownValueError` and reports `advisory`). A PR-time or prod
+   367	    preview of a policy built from a resource of the same update passes; the stop comes during the
+   368	    update. Access Analyzer is the preview-time check (layer 5).
+   369	24. **The first policy pack missed the usual ways to grant admin** (review step 3): user and
+   370	    group policies, `AdministratorAccess` attached by ARN, `Role.managedPolicyArns`, and wildcards
+   371	    such as `iam:Pass*`. All are now covered and tested. Round 2: IAM also accepts `?`, so `s3:?*` and
+   372	    `*?` are full wildcards (📖 IAM Action element); covered too. Round 3: a wildcard in the service
+   373	    prefix (`*:*`, `s?:Get*`) is refused as a full wildcard (⚠️ whether IAM accepts it is unverified).
+   374	25. **The template's auto-mode `"$defaults"` pins keep the built-in rules in place** (📖
+   375	    auto-mode-config: a list without `"$defaults"` replaces the built-in rules; entries from managed
+   376	    settings cannot be removed). The first phase-2 draft dropped them, which would let a developer's
+   377	    own `hard_deny: []` discard the built-in data-exfiltration rule. Restored and tested. They are not
+   378	    a policy boundary: a developer's own `autoMode.allow` or `environment` entries still widen what the
+   379	    classifier approves ("the combination is additive, not a hard policy boundary", same page), and
+   380	    `allowManagedPermissionRulesOnly` does not cover `autoMode` [limit]. For prod CLIs the boundary is
+   381	    the managed `ask` rules plus layers 1 and 3.
+   382	
+   383	## Latest run
+   384	
+   385	`validate.sh` on 2026-11-09 (✅, output shortened; yamllint and actionlint printed nothing):
+   386	
+   387	```text
+   388	=== tool versions ===
+   389	Python 3.10.12
+   390	jsonschema 4.26.0 | PyYAML 6.0.3
+   391	jq: jq-1.6
+   392	yamllint: yamllint 1.38.0
+   393	shellcheck: ShellCheck - shell script analysis tool
+   394	actionlint: 1.7.12
+   395	zizmor: zizmor 1.30.1
+   396	claude: 2.1.319 (Claude Code)
+   397	node: v20.15.0
+   398	npm: 10.7.0
+   399	=== JSON syntax (jq) ===
+   400	checked 24 files
+   401	actionlint done
+   402	=== GitHub Actions security (zizmor, offline, auditor persona) ===
+   403	No findings to report. Good job!
+   404	=== Claude Code plugin marketplace (claude plugin validate) ===
+   405	✔ Validation passed
+   406	=== Pulumi policy pack (tsc + unit cases, no Pulumi engine, no cloud) ===
+   407	35/35 cases passed; all policies mandatory
+   408	=== unit tests (python3 -m unittest) ===
+   409	Ran 108 tests in 1.016s
+   410	OK
+   411	=== result ===
+   412	RESULT: all executed checks passed
+   413	```

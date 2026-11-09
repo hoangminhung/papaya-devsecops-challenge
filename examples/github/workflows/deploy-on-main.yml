@@ -21,6 +21,28 @@ jobs:
       tool: pulumi
       workdir: infra/pulumi/claims-data
 
+  # The IAM stack: deploy-prod.yml maps stack `iam` to the `production-iam` environment (OD22).
+  iam:
+    uses: $/.github/workflows/deploy-prod.yml
+    permissions:
+      contents: read   # passed to deploy-prod.yml: check out
+      id-token: write  # passed to deploy-prod.yml: OIDC to the IAM stack's deploy role
+    with:
+      stack: iam
+      tool: pulumi
+      workdir: infra/pulumi/iam
+
+  # Database changes of the claims service: migrations and data fixes (ADR-0011, OD29).
+  claims-db:
+    uses: $/.github/workflows/deploy-prod.yml
+    permissions:
+      contents: read   # passed to deploy-prod.yml: check out
+      id-token: write  # passed to deploy-prod.yml: OIDC to the database change role
+    with:
+      stack: claims-db
+      tool: sql
+      workdir: db/claims
+
   claims-api:
     uses: $/.github/workflows/deploy-prod.yml
     permissions:

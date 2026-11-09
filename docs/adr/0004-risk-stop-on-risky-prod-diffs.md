@@ -1,6 +1,6 @@
 # ADR-0004: Risky prod diffs stop the deploy until a stack owner approves the prod preview
 
-- **Status:** Accepted
+- **Status:** Accepted; refined after the independent review (see [ADR index](README.md), "refinements": deploy-job isolation OD22, SQL stops ADR-0011, IAM-stack approvals OD32)
 - **Date:** 2026-11-09
 - **Decided by:** owner of this submission (OD8, OD11, OD13)
 - **Scope:** deploy workflows for Pulumi and Serverless stacks; k0s and Firebase not covered yet

@@ -7,19 +7,41 @@
       "Bash(npm test)",
       "Bash(npm run lint)"
     ],
+    "ask": [
+      "Bash(aws *)",
+      "Bash(pulumi *)",
+      "Bash(serverless *)"
+    ],
     "deny": [
-      "Read(~/.aws/**)"
+      "Read(~/.aws/**)",
+      "Read(~/.config/gh/**)",
+      "Bash(gh pr review *)",
+      "Bash(gh api *reviews*)"
     ]
   },
   "autoMode": {
     "classifyAllShell": true
   },
+  "enabledPlugins": {
+    "devsecops-guardrails@example-org-plugins": true
+  },
   "strictKnownMarketplaces": [
     {
       "source": "github",
-      "repo": "example-org/claude-plugins"
+      "repo": "example-org/claude-plugins",
+      "ref": "v2026.11.0"
     }
   ],
+  "extraKnownMarketplaces": {
+    "example-org-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "example-org/claude-plugins",
+        "ref": "v2026.11.0"
+      },
+      "autoUpdate": false
+    }
+  },
   "blockedMarketplaces": [],
   "disableSideloadFlags": true,
   "allowManagedMcpServersOnly": true,
@@ -29,9 +51,11 @@
     },
     {
       "serverCommand": [
-        "npx",
-        "-y",
-        "@example-org/mcp-runbooks@1.4.2"
+        "docker",
+        "run",
+        "--rm",
+        "-i",
+        "ghcr.io/example-org/mcp-runbooks@sha256:0000000000000000000000000000000000000000000000000000000000000001"
       ]
     }
   ],

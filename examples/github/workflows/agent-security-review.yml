@@ -1,0 +1,86 @@
+# CI agent: independent security review of infrastructure PRs (framework §2 and layer 5,
+# "Agent review", "Agents in CI"; OD22) [design, not run].
+#
+# - Comments only. It never approves: the approval-gate check ignores bot reviews (E12, R1),
+#   and the prompt says so; the GitHub App could technically submit an approving review.
+# - Its own GitHub App token (contents read, pull requests write), not GITHUB_TOKEN with write.
+# - Anthropic workload identity federation from the job's GitHub OIDC token, no stored API key
+#   (R1.7.6; inputs read from action.yml at the pinned commit, 2026-11-09).
+# - Read-only tools, no Bash: `--restricted --strict-mcp-config --tools "Read,Grep,Glob"`
+#   (✅ flags in claude --help 2.1.319; passing them through `claude_args` ⚠️ untested). Without
+#   Bash, the managed-settings file on the runner cannot be undone by the agent (layer 5).
+# - pull_request only (never pull_request_target): the PR's code is read, never run with secrets.
+#   Environment `ci-agent`: holds only the CI-agent App's private key; no prod role trusts it.
+name: agent-security-review
+
+on:
+  pull_request:
+    paths:
+      - "infra/**"
+      - "policy-packs/**"
+      - "**/serverless.yml"
+      - "db/**"
+      - "k8s/**"
+      - "ai-agents/**"
+
+permissions: {}
+
+concurrency:
+  group: agent-security-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: independent security review (comments only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: ci-agent  # the App's private key only; not a prod environment
+    permissions:
+      contents: read   # check out the PR
+      id-token: write  # Anthropic workload identity federation (no API key)
+    steps:
+      - name: Check out the PR
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The CI agent's managed settings come from the base branch's agent-config/ (an L3 path),
+      # because server-managed settings do not reach a federated CI job (R1.7.10).
+      - name: Check out the agent configuration of the base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          sparse-checkout: agent-config
+          persist-credentials: false
+
+      - name: Install the CI agent's managed settings
+        run: >-
+          sudo install -D -m 0644 base/agent-config/ci-managed-settings.json
+          /etc/claude-code/managed-settings.json
+
+      # The App's private key is a secret of the `ci-agent` environment, not a repository secret;
+      # its token can only read code and comment on PRs. On the secrets inventory (S2, G19).
+      - name: Token of the CI-agent GitHub App (comments only)
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.CI_AGENT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_AGENT_APP_PRIVATE_KEY }}
+          permission-contents: read
+          permission-pull-requests: write
+
+      - name: Security review
+        uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
+        with:
+          github_token: ${{ steps.app-token.outputs.token }}
+          anthropic_federation_rule_id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
+          anthropic_organization_id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
+          claude_args: --restricted --strict-mcp-config --tools "Read,Grep,Glob"
+          prompt: |
+            Review this pull request for security as an independent reviewer. You did not write it.
+            Look for: IAM changes broader than the stated purpose; new network exposure; secrets or
+            customer data in code, logs or fixtures; code in a Pulumi program or Serverless plugin
+            that calls cloud APIs while it runs; changes to who may approve or deploy; data changes
+            outside db/<service>/data-fixes/<tenant>/. Report findings as review comments with file
+            and line. Never approve and never request changes: the human approver decides.

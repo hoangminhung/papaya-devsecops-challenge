@@ -27,7 +27,10 @@ Option C [design], used only during an incident when the PR path cannot be used.
 - **Approval:** the on-call approver ≠ requester, before the grant; the on-call approver counts as
   owner of the service (OD13).
 - **Grant:** `InfraOperator-<service>` [design name], assigned via `CreateAccountAssignment` and removed
-  via `DeleteAccountAssignment` (📖 R2.4.2); role session 1 h (📖 R2.1.4).
+  via `DeleteAccountAssignment` (📖 R2.4.2); role session 1 h (📖 R2.1.4). *Refined by OD33:* a
+  receiver of the Linear webhook makes the grant only after checking approver ≠ requester, on
+  shift, open incident and the allowed set (examples E16), so the approval rule is enforced
+  before the grant, not only reviewed after it.
 - **Execution:** the incident responder types the commands in a terminal without an agent (D2, OD7).
 - **Example request** (illustrative command ⚠️): "INC-123, ECS service `claims-api`, Actions outage.
   Run `aws ecs update-service --cluster <prod-cluster> --service <svc> --force-new-deployment`. Scope
@@ -39,7 +42,7 @@ Option C [design], used only during an incident when the PR path cannot be used.
 
 - **Positive:** no standing prod write even for emergencies; every use has an approval, a window and
   a reconciliation.
-- **Negative / trade-offs:** meets the approval rule only partly (owner accepted). "No agent in the
+- **Negative / trade-offs:** meets the approval rule only partly (accepted by the author; Papaya's Compliance signs off, framework §1). "No agent in the
   JIT terminal" is a process rule: the grant is reachable from the same laptop.
 - **Risks & how we watch them:** deleting the assignment likely stops only new sessions, so a grant
   can run up to about 2 h (⚠️ R2.4.2, R2.9 #3). An immediate stop needs the revocation SCP, which keeps

@@ -73,7 +73,14 @@ PHASE1_KEYS = {
     "disableSideloadFlags", "allowManagedMcpServersOnly", "allowedMcpServers",
     "disableClaudeAiConnectors", "env",
     "autoMode",  # OD21
+    "extraKnownMarketplaces",  # OD26: marketplace pinned to a release tag, auto-update off
+    "enabledPlugins",  # framework §2: the internal skills load in every session, --restricted too
 }
+# OD26: the marketplace is pinned to one release tag (📖 R9.4.4: `ref`, no `sha` field).
+MARKETPLACE = {"source": "github", "repo": "example-org/claude-plugins", "ref": "v2026.11.0"}
+# OD25: hygiene against an agent approving through its engineer's login (📖 R9.4.1: valid
+# patterns, not a boundary; `bash -c` or `curl` to the API are not matched).
+REVIEW_DENIES = ["Bash(gh pr review *)", "Bash(gh api *reviews*)"]
 # Entries use Bash rule syntax; without a trailing " *" an entry matches only the bare command
 # with no arguments (📖 sandboxing#run-commands-outside-the-sandbox-with-excludedcommands).
 EXCLUDED_FROM_SANDBOX = ["aws *", "pulumi *", "serverless *"]
@@ -121,8 +128,9 @@ class SettingsCommon:
                 self.assertNotIn(body.split()[0], [e.split()[0] for e in EXCLUDED_FROM_SANDBOX])
 
     def test_catalogue_enforced(self):
-        self.assertEqual(self.s["strictKnownMarketplaces"],
-                         [{"source": "github", "repo": "example-org/claude-plugins"}])
+        self.assertEqual(self.s["strictKnownMarketplaces"], [MARKETPLACE])
+        [(name, entry)] = self.s["extraKnownMarketplaces"].items()
+        self.assertEqual(entry, {"source": MARKETPLACE, "autoUpdate": False})  # 📖 R9.4.6
         self.assertIs(self.s["disableSideloadFlags"], True)
         self.assertIs(self.s["allowManagedMcpServersOnly"], True)
         self.assertIs(self.s["disableClaudeAiConnectors"], True)
@@ -133,14 +141,19 @@ class SettingsCommon:
                 self.assertEqual(len(e), 1, "each entry has exactly one key (settings reference)")
                 self.assertNotIn("serverName", e)  # "not a security control" (R1.3.3)
                 if "serverCommand" in e:
+                    # OD26: a local server is an immutable artifact: a container image by digest,
+                    # not `npx -y pkg@x`, whose dependencies float. Exact argv (📖 R9.4.2).
                     cmd = e["serverCommand"]
-                    # the package npx runs is the first argument that is not a flag
-                    pkg = next(a for a in cmd[1:] if not a.startswith("-"))
-                    self.assertEqual(cmd[0], "npx")
-                    self.assertRegex(pkg, r"^(@[a-z0-9-]+/)?[a-z0-9.-]+@\d+\.\d+\.\d+$")
-                    self.assertEqual(cmd[-1], pkg, "no further packages or arguments")
+                    self.assertEqual(cmd[:4], ["docker", "run", "--rm", "-i"])
+                    self.assertRegex(cmd[-1], r"^[a-z0-9.-]+/[a-z0-9./-]+@sha256:[0-9a-f]{64}$")
+                    self.assertEqual(len(cmd), 5, "no further arguments, mounts or env")
                 else:
                     self.assertRegex(e["serverUrl"], r"^https://[a-z0-9.-]+\.[a-z]+/", "exact host")
+
+    def test_agent_cannot_approve_through_gh(self):
+        deny = self.s["permissions"]["deny"]
+        for rule in REVIEW_DENIES + ["Read(~/.config/gh/**)"]:
+            self.assertIn(rule, deny)
 
     def test_telemetry_on_without_content(self):
         env = self.s["env"]
@@ -162,8 +175,15 @@ class Phase1Test(SettingsCommon, unittest.TestCase):
         # Built-in read-only commands (cat, head, ...) run without a prompt in every mode; a Read
         # deny rule also applies to recognized cat/head/tail (📖 permissions). classifyAllShell
         # (📖, >= 2.1.193) keeps the two allow rules from skipping the auto-mode classifier.
-        self.assertEqual(self.s["permissions"]["deny"], ["Read(~/.aws/**)"])
+        # OD25 adds the GitHub CLI token and the review commands from phase 1.
+        self.assertEqual(self.s["permissions"]["deny"], ["Read(~/.aws/**)", "Read(~/.config/gh/**)"] + REVIEW_DENIES)
         self.assertEqual(self.s["autoMode"], {"classifyAllShell": True})
+
+    def test_cloud_cli_prompts_until_standing_write_is_gone(self):
+        # OD43: until 1.16 removes standing prod write, an engineer's SSO session can still write
+        # to prod, and auto mode is allowed (D1). A content-scoped ask rule prompts in auto mode
+        # too (📖 auto-mode-config, permissions.ask). WebFetch's ask waits for phase 2.
+        self.assertEqual(self.s["permissions"]["ask"], ["Bash(aws *)", "Bash(pulumi *)", "Bash(serverless *)"])
 
 
 class Phase2Test(SettingsCommon, unittest.TestCase):
@@ -183,6 +203,7 @@ class Phase2Test(SettingsCommon, unittest.TestCase):
             self.assertEqual(self.s[k], v, k)
         self.assertEqual(self.s["permissions"]["allow"], p1["permissions"]["allow"])
         self.assertLessEqual(set(p1["permissions"]["deny"]), set(self.s["permissions"]["deny"]))
+        self.assertLessEqual(set(p1["permissions"]["ask"]), set(self.s["permissions"]["ask"]))
         self.assertEqual(self.s["permissions"]["defaultMode"], p1["permissions"]["defaultMode"])
         self.assertEqual(self.s["permissions"]["disableBypassPermissionsMode"],
                          p1["permissions"]["disableBypassPermissionsMode"])
@@ -307,12 +328,9 @@ class MarketplaceTest(unittest.TestCase):
         for p in self.m["plugins"]:
             src = p["source"]
             with self.subTest(plugin=p["name"]):
-                if isinstance(src, str):
-                    # A directory of the marketplace repository itself, covered by that repository's
-                    # ruleset and CODEOWNERS (framework layer 5).
-                    self.assertTrue(src.startswith("./"))
-                    self.assertNotIn("..", src)
-                    continue
+                # OD26: internal plugins too. A relative "./plugins/x" source follows whatever the
+                # marketplace's files are, so it is not allowed (📖 R9.4.5: `sha` pins a plugin).
+                self.assertIsInstance(src, dict, "relative sources are not pinned")
                 kind = src["source"]
                 self.assertIn(kind, ("github", "url", "git-subdir", "npm", "archive"),
                               "command sources run code on the laptop to find the plugin")
@@ -329,10 +347,71 @@ class MarketplaceTest(unittest.TestCase):
 
     def test_every_entry_has_a_review_record(self):
         reviews = os.listdir(os.path.join(ROOT, "claude", "marketplace", "reviews"))
-        for p in self.m["plugins"]:
-            if isinstance(p["source"], dict):  # third-party entries
-                with self.subTest(plugin=p["name"]):
-                    self.assertIn(f"{p['name']}.md", reviews)
+        for p in self.m["plugins"]:  # internal entries included (OD26)
+            with self.subTest(plugin=p["name"]):
+                self.assertIn(f"{p['name']}.md", reviews)
+
+    def test_internal_skills_and_review_record_agree(self):
+        # Framework §2: every skill has a name matching its folder and a description; the review
+        # record lists every skill, so a new skill cannot reach laptops unreviewed (OD26).
+        base = os.path.join(ROOT, "claude", "marketplace", "plugins", "devsecops-guardrails", "skills")
+        with open(os.path.join(ROOT, "claude", "marketplace", "reviews", "devsecops-guardrails.md")) as f:
+            record = f.read()
+        skills = sorted(os.listdir(base))
+        self.assertGreaterEqual(len(skills), 4)
+        for name in skills:
+            with self.subTest(skill=name):
+                with open(os.path.join(base, name, "SKILL.md")) as f:
+                    text = f.read()
+                front = text.split("---")[1]
+                self.assertIn(f"name: {name}\n", front)
+                self.assertRegex(front, r"description: \S")
+                self.assertIn(f"`{name}`", record)
+                self.assertRegex(text, r"(?i)never (approve|change production|run)|do not approve|approved by")
+
+
+class ForceEnabledPluginTest(unittest.TestCase):
+    """Framework §2: `--restricted` ignores user, project and local settings (✅ claude --help
+    2.1.319), so the internal skills reach the incident-analysis session only if managed settings
+    force-enable the plugin (📖 R1.4.2, R9.4.7: managed `enabledPlugins: true`)."""
+
+    def test_internal_plugin_force_enabled_in_both_phases(self):
+        m = load("claude", "marketplace", ".claude-plugin", "marketplace.json")
+        for f in ("managed-settings.phase1.json", "managed-settings.phase2.json"):
+            s = load("claude", f)
+            with self.subTest(file=f):
+                self.assertEqual(s["enabledPlugins"], {f"devsecops-guardrails@{m['name']}": True})
+
+
+class CiAgentSettingsTest(unittest.TestCase):
+    """Layer 5: the managed settings the CI review agent runs under (installed from the base
+    branch, E18): no Bash, no web, no edits, no MCP server, telemetry without content."""
+
+    def test_ci_agent_settings(self):
+        s = load("claude", "ci-managed-settings.json")
+        import jsonschema
+        jsonschema.validate(s, load("schemas", "claude-code-settings.schemastore.json"))
+        self.assertEqual(set(s["permissions"]["deny"]), {"Bash", "WebFetch", "Edit", "Write"})
+        self.assertEqual(s["allowedMcpServers"], [])
+        self.assertTrue(s["allowManagedMcpServersOnly"] and s["allowManagedHooksOnly"])
+        for flag in ("OTEL_LOG_USER_PROMPTS", "OTEL_LOG_TOOL_DETAILS"):
+            self.assertEqual(s["env"][flag], "0")
+
+
+class RepoTemplatesTest(unittest.TestCase):
+    """Framework §2: the shared CLAUDE.md and the PR template carry the rules the agents need."""
+
+    def test_claude_md_template(self):
+        with open(os.path.join(ROOT, "claude", "repo-templates", "CLAUDE.md")) as f:
+            t = f.read()
+        for needle in ("Never approve a pull request", "data-fixes/<tenant>/", "prod-change", "synthetic"):
+            self.assertIn(needle, t)
+
+    def test_pr_template_asks_about_agents_data_and_rollback(self):
+        with open(os.path.join(ROOT, "github", "pull_request_template.md")) as f:
+            t = f.read()
+        for needle in ("Written with an agent", "Data:", "Rollback", "incident"):
+            self.assertIn(needle, t)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 # ADR-0003: The merge to `main` is the approval gate: two people, code owners, on-call co-ownership
 
-- **Status:** Accepted
+- **Status:** Accepted; superseded in part by [ADR-0012](0012-approval-integrity-checked-by-the-gate-app.md)
+  (which approvals count, two approvers on process paths, on-call approvals only in an incident)
 - **Date:** 2026-11-09
 - **Decided by:** owner of this submission (GĐ-5, GĐ-8, GĐ-11; OD2, OD5, OD7, OD9, OD10, OD13)
 - **Scope:** GitHub monorepo rulesets, CODEOWNERS, `production` environment, on-call schedule
@@ -36,10 +37,12 @@ push, empty bypass list (📖 R3.2.2, R3.2.3, R3.2.5); branch up to date, since 
 - **Night coverage:** an on-call approver group co-owns every deployable path in CODEOWNERS; one
   primary, one backup (OD9). It does not co-own process-defining paths (`.github/**`, CODEOWNERS,
   agent config, catalogue) or the SCP stack, which only the L3 owner team approves (OD13); IAM-only
-  stacks are deployable, so it co-owns them with the L3 owner team.
+  stacks are deployable, so it co-owns them with the L3 owner team. *Superseded by OD32: the IAM
+  stack is a process path, L3 owner team only.*
 - **Agent review:** an independent agent may post an automated review; it never counts as an
   approval (GĐ-11).
-- **Cross-team PRs:** one approval is enough (OD10).
+- **Cross-team PRs:** one approval is enough (OD10). *Superseded by ADR-0012: each team's files need
+  their own owner's approval; the on-call approval covers another team's files only in an incident (OD27).*
 
 ## 4. Consequences
 

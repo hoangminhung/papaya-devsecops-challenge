@@ -1,0 +1,44 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AssignOnlyPermissionSetsTaggedForJit",
+      "Effect": "Allow",
+      "Action": ["sso:CreateAccountAssignment", "sso:DeleteAccountAssignment"],
+      "Resource": "arn:aws:sso:::permissionSet/<SSO_INSTANCE_ID>/*",
+      "Condition": {
+        "StringEquals": {"aws:ResourceTag/jit-grant": "infra-operator"}
+      }
+    },
+    {
+      "Sid": "OnlyThisInstanceAndTheProdAccounts",
+      "Effect": "Allow",
+      "Action": ["sso:CreateAccountAssignment", "sso:DeleteAccountAssignment"],
+      "Resource": [
+        "arn:aws:sso:::instance/<SSO_INSTANCE_ID>",
+        "arn:aws:sso:::account/<PROD_ACCOUNT_ID>"
+      ]
+    },
+    {
+      "Sid": "FollowTheAssignmentStatus",
+      "Effect": "Allow",
+      "Action": [
+        "sso:DescribeAccountAssignmentCreationStatus",
+        "sso:DescribeAccountAssignmentDeletionStatus"
+      ],
+      "Resource": "arn:aws:sso:::instance/<SSO_INSTANCE_ID>"
+    },
+    {
+      "Sid": "NeverChangePermissionSetsOrTheirTags",
+      "Effect": "Deny",
+      "Action": [
+        "sso:CreatePermissionSet", "sso:UpdatePermissionSet", "sso:DeletePermissionSet",
+        "sso:PutInlinePolicyToPermissionSet", "sso:AttachManagedPolicyToPermissionSet",
+        "sso:AttachCustomerManagedPolicyReferenceToPermissionSet",
+        "sso:PutPermissionsBoundaryToPermissionSet", "sso:ProvisionPermissionSet",
+        "sso:TagResource", "sso:UntagResource"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

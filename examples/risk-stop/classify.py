@@ -20,7 +20,11 @@ Risky (whatever the change level):
   - on any type, a changed property whose NAME looks like access, exposure or logging control
     (policy, role, security group, VPC, public, authorization, principal, KMS key, logging);
     on creates a narrower set (policy, principal, public, ACL, grant, trust, authorization);
-  - an operation the classifier does not know.
+  - an operation the classifier does not know;
+  - in a pending SQL migration or data-fix file (--tool sql): DROP, TRUNCATE, a column type
+    change, DELETE/UPDATE without a top-level WHERE, grants/roles/row-level security, COPY, and
+    any function body, DO block or EXECUTE, which cannot be classified. A heuristic, not a
+    parser (adapters.py); the hash covers the exact SQL text.
 Advisory policy findings join in phase 2 (not implemented here).
 
 Approval (framework layer 3; OD8, OD13): the original author opens a PR that adds
@@ -140,6 +144,19 @@ RISKY_KEY = re.compile(
 RISKY_CREATE_KEY = re.compile(r"polic|principal|public|acl$|grant|trust|authoriz", re.IGNORECASE)
 KNOWN_OPS = {"create", "update", "replace", "delete", "same"}
 
+# SQL statement kinds (adapters.sql_kinds) that stop a deploy (framework layer 3, "Database
+# changes"; ADR-0011) [design]: data loss, unscoped data changes, access and tenant-isolation
+# changes (grants, roles, row-level security), data export, and code that cannot be classified.
+SQL_RISKY_KINDS = {
+    "drop": "drop", "drop_column": "drop column or constraint", "truncate": "truncate",
+    "alter_column_type": "column type change", "delete_unscoped": "DELETE without WHERE",
+    "update_unscoped": "UPDATE without WHERE", "privilege": "privilege or role change",
+    "row_security": "row-level security change", "copy": "COPY",
+    "dynamic_sql": "function body, DO block or EXECUTE (not classified)",
+    "metadata": "GraphQL-engine metadata: permissions per role (not classified)",
+    "dml_in_migration": "data change (INSERT, UPDATE or DELETE) in a migration, not in data-fixes/<tenant>/",
+}
+
 
 def _matches(rtype, table):
     return any(rtype.startswith(p) or rtype.startswith(c) for p, c in table)
@@ -151,6 +168,9 @@ def reasons_for(change):
         return []
     if op not in KNOWN_OPS:
         return [f"unknown operation '{op}'"]
+    if t.startswith("sql:"):
+        kinds = [SQL_RISKY_KINDS[k] for k in change.get("changed_keys", []) if k in SQL_RISKY_KINDS]
+        return ["SQL: " + ", ".join(kinds)] if kinds else []
     out = []
     if op in ("replace", "delete") and _matches(t, STATEFUL_TYPES):
         out.append(f"{op} of a stateful resource")
@@ -296,7 +316,7 @@ def summary_text(code, h, risky, approved_by_file, rejected=()):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--tool", required=True, choices=["pulumi", "serverless", "normalized"])
+    p.add_argument("--tool", required=True, choices=["pulumi", "serverless", "sql", "normalized"])
     p.add_argument("--preview", required=True)
     p.add_argument("--approvals", required=True, help="deploy-approvals/<stack> directory")
     p.add_argument("--repo", default=".", help="git checkout with full history")

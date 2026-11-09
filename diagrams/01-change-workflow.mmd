@@ -6,21 +6,23 @@ flowchart TD
     L -->|"L2 / L3 prod change"| PR["Pull request to main<br/>PR checks preview non-prod only"]
     L -->|"L3-data real-data read"| DATA["Layer 6: approved 1-h data-read role"]
 
-    PR --> CHK["Required checks: secret scan, dependencies, SAST,<br/>approval-gate app [design, G19]"]
-    CHK --> OWN{"Who owns the changed path?<br/>(CODEOWNERS)"}
-    OWN -->|"deployable path"| R1["1 approval: domain team;<br/>on-call group in incidents (OD9)"]
-    OWN -->|"process path: .github, CLAUDE.md, agent config,<br/>catalogue, SCP stack, policy packs, risk stop"| R2["1 approval: L3 owner team only (OD13)"]
+    PR --> CHK["Required checks: secret scan, dependencies, SAST, IaC scan,<br/>workflow lint, PR size (OD39); approval-gate app [design, G19]"]
+    CHK --> OWN{"Who owns the changed path?<br/>(CODEOWNERS; approval-gate app checks, E12)"}
+    OWN -->|"deployable path"| R1["1 approval: domain team;<br/>on-call group only for an open incident,<br/>approver on shift (OD9, OD27)"]
+    OWN -->|"data fix: db/service/data-fixes/tenant"| R3["Domain approval + a different member<br/>of data-owners-tenant (R4, OD29)"]
+    OWN -->|"process path: .github, CLAUDE.md, agent config, catalogue,<br/>SCP and IAM stacks, policy packs, tools/ci, tools/db,<br/>risk stop, k0s RBAC, oncall (layer 5 list)"| R2["2 approvals: L3 owner team members (OD13, OD26, OD32)"]
     R1 --> RS["Ruleset on main: approver is not author<br/>or last pusher; stale approvals dismissed;<br/>branch up to date; squash only"]
     R2 --> RS
+    R3 --> RS
     RS --> M["Merge = deploy approval"]
 
-    M --> DJ["Deploy job (production environment, main only)<br/>OIDC role; deploys only the tip of main"]
-    DJ --> PV["Prod preview"]
-    PV --> STOP{"Risk stop [design]:<br/>stateful replace/delete, IAM,<br/>network, policy finding?"}
-    STOP -->|"no"| APPLY["Apply; mandatory policy pack<br/>can still block (phase 2)"]
+    M --> DJ["Deploy job, main only, one environment per kind of stack:<br/>production, production-iam, production-db (OD22);<br/>OIDC role; deploys only the tip of main"]
+    DJ --> PV["Prod preview: Pulumi / Serverless diff;<br/>for SQL, the pending migration and data-fix files"]
+    PV --> STOP{"Risk stop [design]:<br/>stateful replace/delete, IAM, network,<br/>policy finding; SQL: destructive, access,<br/>DML in a migration, any metadata?"}
+    STOP -->|"no"| APPLY["Apply; mandatory policy pack can still block (phase 2);<br/>SQL: in-VPC task applies exactly the classified files (ADR-0011)"]
     STOP -->|"yes"| HALT["Job stops; filtered summary posted"]
     HALT --> AP["Original author opens approval PR:<br/>deploy-approvals/stack/commit.yaml<br/>with the preview hash"]
-    AP --> AR["1 approval: owner of that stack<br/>or on-call group (OD8, OD9)"]
+    AP --> AR["1 approval: owner of that stack; on-call only for an open<br/>incident (OD8, OD27); IAM stack: 2 L3 members (OD32)"]
     AR --> RE["Merge triggers a new deploy:<br/>preview again, continue only if hash matches"]
     RE -->|"hash matches"| APPLY
     RE -->|"hash differs"| HALT

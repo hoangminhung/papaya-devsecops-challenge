@@ -12,13 +12,21 @@
 #   days, same GITHUB_SHA) would otherwise roll prod back without any approval;
 # - prod preview -> risk stop -> apply; the risk stop step cannot be skipped or ignored.
 #   No --skip-preview/-f, --target/-t, --exclude, --replace, state, import, destroy.
+# - one GitHub environment per kind of stack (OD22): the IAM stack deploys from
+#   `production-iam`, database changes from `production-db`, every other stack from
+#   `production`. Each environment has its own OIDC subject, so its own deploy roles
+#   (examples/aws/): code running in a domain stack's job cannot obtain the IAM stack's role
+#   (the only role that may change SCP-exempt roles) or the database change role.
+# - no install scripts run (npm_config_ignore_scripts), except for the packages on the reviewed
+#   allowlist tools/ci/allowed-install-scripts.txt, an L3 path (OD22).
 #
 # Known limits (examples/README.md): the stack's own code (the Pulumi program, Serverless
-# plugins) runs with the deploy role during preview and apply, so the risk stop
-# catches risky diffs nobody looked at, not malicious code that was approved. `pulumi up`
-# previews again; a change made outside the pipeline between the two previews is not re-checked.
+# plugins) runs with that stack's deploy role during preview and apply, so the risk stop
+# catches risky diffs nobody looked at, not malicious code that was approved; OD22 limits the
+# damage to what that stack's role may do. `pulumi up` previews again; a change made outside
+# the pipeline between the two previews is not re-checked.
 #
-# Variables of the `production` environment (not secrets): AWS_REGION,
+# Variables of both environments (not secrets; same names, values per environment): AWS_REGION,
 # PROD_PULUMI_DEPLOY_ROLE_ARN, PROD_SERVERLESS_DEPLOY_ROLE_ARN, PULUMI_BACKEND_URL,
 # PULUMI_CLI_VERSION, NODE_VERSION. The Serverless License Key is read from
 # SSM Parameter Store with the deploy role (sf >= 4.4.19, R4.4.8), so no CI secret holds it.
@@ -32,7 +40,7 @@ on:
         type: string
         required: true
       tool:
-        description: "pulumi or serverless"
+        description: "pulumi, serverless or sql (database changes, ADR-0011)"
         type: string
         required: true
       workdir:
@@ -46,7 +54,14 @@ jobs:
   deploy:
     name: deploy ${{ inputs.stack }} to production
     runs-on: ubuntu-24.04
-    environment: production
+    # OD22: only the IAM stack gets `production-iam` (and so the IAM deploy role); only the `sql`
+    # tool gets `production-db` (and so the database change role, ADR-0011), a job that installs
+    # no npm package and runs no Pulumi program. The mapping lives here, in an L3 path, not in a
+    # caller input. `inputs` is available in `environment` (✅ actionlint 1.7.12, which checks
+    # context availability, accepts it).
+    environment: >-
+      ${{ inputs.stack == 'iam' && 'production-iam' || inputs.tool == 'sql' && 'production-db'
+      || 'production' }}
     permissions:
       contents: read   # check out the merged commit
       id-token: write  # OIDC to the prod deploy role; no stored AWS keys
@@ -57,6 +72,10 @@ jobs:
       STACK: ${{ inputs.stack }}
       TOOL: ${{ inputs.tool }}
       WORKDIR: ${{ inputs.workdir }}
+      # Every npm, npx and `pulumi install` in this job skips lifecycle scripts (R9.1.13: "npm
+      # does not run scripts specified in package.json files"; ⚠️ whether this covers every
+      # dependency's scripts is not stated, test on the runner).
+      npm_config_ignore_scripts: "true"
     steps:
       - name: Check out the merged commit, with history for the risk-stop approval checks
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -84,11 +103,24 @@ jobs:
           fi
 
       # Everything that downloads code is installed here, before the AWS credentials are in the
-      # job's environment. Install scripts can still request the job's OIDC token (id-token:
-      # write is job-wide) or leave a process behind (examples/README.md, "Limits").
+      # job's environment, and with install scripts off (job env above). A script that does run
+      # (allowlist below) can still request the job's OIDC token, since id-token: write is
+      # job-wide, or leave a process behind (examples/README.md, "Limits").
       - name: Install dependencies before any prod credential exists in the job
+        if: inputs.tool != 'sql'
         working-directory: ${{ inputs.workdir }}
         run: npm ci
+
+      # `npm rebuild <pkg>` runs the install scripts of the named packages only (R9.1.13).
+      # The list is reviewed by the L3 owner team (CODEOWNERS: /tools/ci/).
+      - name: Run install scripts of allowlisted packages only
+        if: inputs.tool != 'sql'
+        working-directory: ${{ inputs.workdir }}
+        run: |
+          mapfile -t allowed < <(grep -vE '^[[:space:]]*(#|$)' "$GITHUB_WORKSPACE/tools/ci/allowed-install-scripts.txt")
+          if [ "${#allowed[@]}" -gt 0 ]; then
+            npm rebuild --ignore-scripts=false "${allowed[@]}"
+          fi
 
       - name: Install the Pulumi CLI only
         if: inputs.tool == 'pulumi'
@@ -113,12 +145,12 @@ jobs:
         working-directory: ${{ inputs.workdir }}
         run: npx serverless --version
 
-      # Two roles (framework layer 1; SCP in examples/aws/scp-prod-ou.json): only the Pulumi role is
-      # exempt from the Lambda-update deny; the Serverless role only passes the CloudFormation
-      # deploymentRole. This stops drift from `serverless deploy function`; it does NOT stop
-      # malicious code in this job, which can request its own OIDC token for either role
-      # (examples/README.md, "Limits"). One step per tool, so an unset variable fails the step
-      # instead of falling back to the other role.
+      # Two roles per environment (framework layer 1; SCP in examples/aws/scp-prod-ou.json): only
+      # the Pulumi role is exempt from the Lambda-update deny; the Serverless role only passes the
+      # CloudFormation deploymentRole. This stops drift from `serverless deploy function`. Code in
+      # this job can still request an OIDC token for either role of ITS environment, not for the
+      # other environment's roles (OD22; examples/README.md, "Limits"). One step per tool, so an
+      # unset variable fails the step instead of falling back to the other role.
       - name: AWS credentials through GitHub OIDC (Pulumi deploy role)
         if: inputs.tool == 'pulumi'
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
@@ -136,6 +168,19 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-session-name: deploy-${{ github.run_id }}-${{ github.run_attempt }}
 
+      # Database changes (layer 3 "Database changes", ADR-0011, OD29). Aurora is reachable only
+      # inside the prod VPC, so this runner never connects to it. The role may only start the
+      # `db-change-claims` ECS task in that VPC and hand files to it through one S3 prefix
+      # (examples/aws/db-change-ci-role-policy.json); the task's own role holds `rds-db:connect`
+      # as the migration user (db-change-task-role-policy.json; R9.2.11).
+      - name: AWS credentials through GitHub OIDC (database change role)
+        if: inputs.tool == 'sql'
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.PROD_DB_CHANGE_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: deploy-${{ github.run_id }}-${{ github.run_attempt }}
+
       - name: Preview prod (Pulumi)
         if: inputs.tool == 'pulumi'
         working-directory: ${{ inputs.workdir }}
@@ -150,6 +195,22 @@ jobs:
         run: |
           npx serverless package --stage prod --package "$RUNNER_TEMP/sls-package"
           npx serverless diff --stage prod --package "$RUNNER_TEMP/sls-package" --json > "$RUNNER_TEMP/preview.json"
+
+      # [design] The two tools/db scripts (an L3 path, like the risk stop) wrap Papaya's migration
+      # tool, which is not known here. Both run their database part in a one-off Fargate task
+      # (`aws ecs run-task`, then wait) in the prod VPC's private subnets, from an image pinned by
+      # digest in the task definition. pending.sh asks the task which migrations and data fixes
+      # are already applied (IDs only) and writes the rest as {"files": [{"path", "kind",
+      # "sql"}]}. apply.sh uploads exactly that JSON and passes its SHA-256 in the command
+      # override; the task refuses a bundle with another hash, applies the files in order, each
+      # in its own transaction, rolls a data fix back when its row count differs from its
+      # `-- expected_rows: N` header, and applies GraphQL-engine metadata with
+      # `hasura metadata apply` and an admin secret the task definition injects from Secrets
+      # Manager. The job shows statement kinds and row counts, never values.
+      - name: List pending SQL files (database)
+        if: inputs.tool == 'sql'
+        working-directory: ${{ inputs.workdir }}
+        run: '"$GITHUB_WORKSPACE/tools/db/pending.sh" > "$RUNNER_TEMP/preview.json"'
 
       # Risk stop (layer 3). Exit 0: no risky change, or a valid approval matches this preview.
       # Exit 3: risky change without a valid approval. Exit 2: unreadable preview. Any non-zero
@@ -179,6 +240,11 @@ jobs:
         env:
           PULUMI_BACKEND_URL: ${{ vars.PULUMI_BACKEND_URL }}
         run: pulumi up --stack "$STACK" --yes --policy-pack "$GITHUB_WORKSPACE/policy-packs/aws"
+
+      - name: Apply (database), the files that were classified
+        if: inputs.tool == 'sql'
+        working-directory: ${{ inputs.workdir }}
+        run: '"$GITHUB_WORKSPACE/tools/db/apply.sh" "$RUNNER_TEMP/preview.json"'
 
       - name: Apply (Serverless), deploying the package that was diffed
         if: inputs.tool == 'serverless'

@@ -14848,6 +14848,15 @@
     "write": true
    }
   },
+  "rds-db": {
+   "connect": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": true,
+    "resource_scoped": true,
+    "write": true
+   }
+  },
   "s3": {
    "AbortMultipartUpload": {
     "data_plane": true,
@@ -17866,6 +17875,890 @@
     "permission_mgmt": false,
     "resource_scoped": true,
     "write": false
+   }
+  },
+  "sso": {
+   "AddRegion": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "AssociateDirectory": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "AssociateProfile": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "AttachCustomerManagedPolicyReferenceToPermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": true,
+    "resource_scoped": true,
+    "write": true
+   },
+   "AttachManagedPolicyToPermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": true,
+    "resource_scoped": true,
+    "write": true
+   },
+   "CreateAccountAssignment": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "CreateApplication": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "CreateApplicationAssignment": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "CreateApplicationInstance": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "CreateApplicationInstanceCertificate": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "CreateInstance": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "CreateInstanceAccessControlAttributeConfiguration": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "CreateManagedApplicationInstance": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "CreatePermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "CreateProfile": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "CreateTrust": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "CreateTrustedTokenIssuer": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "DeleteAccountAssignment": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "DeleteApplication": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "DeleteApplicationAccessScope": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "DeleteApplicationAssignment": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "DeleteApplicationAuthenticationMethod": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "DeleteApplicationGrant": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "DeleteApplicationInstance": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "DeleteApplicationInstanceCertificate": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "DeleteInlinePolicyFromPermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "DeleteInstance": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "DeleteInstanceAccessControlAttributeConfiguration": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "DeleteManagedApplicationInstance": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "DeletePermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "DeletePermissionsBoundaryFromPermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": true,
+    "resource_scoped": true,
+    "write": true
+   },
+   "DeleteProfile": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "DeleteTrustedTokenIssuer": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "DescribeAccountAssignmentCreationStatus": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "DescribeAccountAssignmentDeletionStatus": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "DescribeApplication": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "DescribeApplicationAssignment": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "DescribeApplicationProvider": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "DescribeInstance": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "DescribeInstanceAccessControlAttributeConfiguration": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "DescribePermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "DescribePermissionSetProvisioningStatus": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "DescribeRegion": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "DescribeRegisteredRegions": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "DescribeTrustedTokenIssuer": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "DetachCustomerManagedPolicyReferenceFromPermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": true,
+    "resource_scoped": true,
+    "write": true
+   },
+   "DetachManagedPolicyFromPermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": true,
+    "resource_scoped": true,
+    "write": true
+   },
+   "DisassociateDirectory": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "DisassociateProfile": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "GetApplicationAccessScope": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "GetApplicationAssignmentConfiguration": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "GetApplicationAuthenticationMethod": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "GetApplicationGrant": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "GetApplicationInstance": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "GetApplicationSessionConfiguration": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "GetApplicationTemplate": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "GetInlinePolicyForPermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "GetManagedApplicationInstance": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "GetMfaDeviceManagementForDirectory": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "GetPermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "GetPermissionsBoundaryForPermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "GetProfile": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "GetSSOStatus": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "GetSharedSsoConfiguration": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "GetSsoConfiguration": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "GetTrust": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "ImportApplicationInstanceServiceProviderMetadata": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "ListAccountAssignmentCreationStatus": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListAccountAssignmentDeletionStatus": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListAccountAssignments": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListAccountAssignmentsForPrincipal": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListAccountsForProvisionedPermissionSet": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListApplicationAccessScopes": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListApplicationAssignments": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListApplicationAssignmentsForPrincipal": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListApplicationAuthenticationMethods": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListApplicationGrants": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListApplicationInstanceCertificates": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "ListApplicationInstances": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "ListApplicationProviders": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListApplicationTemplates": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "ListApplications": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "ListCustomerManagedPolicyReferencesInPermissionSet": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListDirectoryAssociations": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "ListInstances": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "ListManagedPoliciesInPermissionSet": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListPermissionSetProvisioningStatus": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListPermissionSets": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListPermissionSetsProvisionedToAccount": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListProfileAssociations": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "ListProfiles": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "ListRegions": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListTagsForResource": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ListTrustedTokenIssuers": {
+    "data_plane": false,
+    "list": true,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": false
+   },
+   "ProvisionPermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "PutApplicationAccessScope": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "PutApplicationAssignmentConfiguration": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "PutApplicationAuthenticationMethod": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "PutApplicationGrant": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "PutApplicationSessionConfiguration": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "PutInlinePolicyToPermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "PutMfaDeviceManagementForDirectory": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "PutPermissionsBoundaryToPermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": true,
+    "resource_scoped": true,
+    "write": true
+   },
+   "PutPermissionsPolicy": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": true,
+    "resource_scoped": false,
+    "write": true
+   },
+   "RemoveRegion": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "SearchGroups": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "SearchUsers": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": false
+   },
+   "StartSSO": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "TagResource": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "UntagResource": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "UpdateApplication": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "UpdateApplicationInstanceActiveCertificate": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "UpdateApplicationInstanceDisplayData": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "UpdateApplicationInstanceResponseConfiguration": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "UpdateApplicationInstanceResponseSchemaConfiguration": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "UpdateApplicationInstanceSecurityConfiguration": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "UpdateApplicationInstanceServiceProviderConfiguration": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "UpdateApplicationInstanceStatus": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "UpdateInstance": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "UpdateInstanceAccessControlAttributeConfiguration": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
+   },
+   "UpdateManagedApplicationInstanceStatus": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "UpdatePermissionSet": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": true,
+    "resource_scoped": true,
+    "write": true
+   },
+   "UpdateProfile": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "UpdateSSOConfiguration": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "UpdateTrust": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": false,
+    "write": true
+   },
+   "UpdateTrustedTokenIssuer": {
+    "data_plane": false,
+    "list": false,
+    "permission_mgmt": false,
+    "resource_scoped": true,
+    "write": true
    }
   },
   "states": {

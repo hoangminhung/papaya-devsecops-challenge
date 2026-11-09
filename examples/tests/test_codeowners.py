@@ -47,6 +47,10 @@ PROCESS_L3_SAMPLES = [
     "tools/risk-stop/classify.py",     # OD14
     "infra/pulumi/org-scp/index.ts",
     "agent-config/managed-settings.json",
+    "infra/pulumi/iam/index.ts",            # OD32: two L3 approvers, no on-call co-owner
+    "deploy-approvals/iam/0123abcd.yaml",   # OD32
+    "apps/mobile/certs/certificate.pem",    # OD40
+    "ai-agents/claim-assessor/tools.yaml",  # OD45
 ]
 
 # Deployable paths: (sample file, domain team that must be an owner).
@@ -57,12 +61,10 @@ DEPLOYABLE_SAMPLES = [
     ("web/firebase.json", "@example-org/team-web"),
     ("infra/pulumi/claims-data/index.ts", "@example-org/team-claims"),
     ("k8s/claims/deployment.yaml", "@example-org/team-claims"),
-    ("infra/pulumi/iam/index.ts", L3),
 ]
 
 RISK_STOP_SAMPLES = [
     ("deploy-approvals/claims-data/0123abcd.yaml", "@example-org/team-claims"),
-    ("deploy-approvals/iam/0123abcd.yaml", L3),
 ]
 
 
@@ -125,6 +127,18 @@ def owners_of(rules, path):
     return result
 
 
+def pattern_of(rules, path):
+    """The pattern of the last matching line (the one GitHub applies)."""
+    result = None
+    for _, pattern, _owners in rules:
+        if pattern_to_regex(pattern).match(path):
+            result = pattern
+    return result
+
+
+FAIL_SAFE_PATTERNS = {"*", "/deploy-approvals/"}
+
+
 class MatcherTest(unittest.TestCase):
     """The matcher against the examples in GitHub's CODEOWNERS docs."""
 
@@ -178,7 +192,8 @@ class CodeownersTest(unittest.TestCase):
 
     def test_every_deployed_stack_is_owned(self):
         """Each stack deployed by deploy-on-main.yml: its code and its approvals folder are
-        owned by a domain team (or the L3 team for IAM stacks) plus the on-call group."""
+        owned by a domain team plus the on-call group; the IAM stack only by the L3 owner team,
+        so it needs two L3 approvers through the gate's process-path rule (OD32)."""
         with open(os.path.join(HERE, "..", "github", "workflows", "deploy-on-main.yml")) as f:
             jobs = yaml.safe_load(f)["jobs"]
         self.assertTrue(jobs)
@@ -187,10 +202,20 @@ class CodeownersTest(unittest.TestCase):
             for path in (f"deploy-approvals/{stack}/abc.yaml", f"{workdir}/x"):
                 with self.subTest(path=path):
                     owners = owners_of(self.rules, path)
-                    self.assertIn(ONCALL, owners)
-                    self.assertTrue(any(o != ONCALL for o in owners))
-                    # the fail-safe default alone does not count as "owned by the stack"
-                    self.assertNotEqual(sorted(owners), sorted([L3, ONCALL]), path)
+                    if stack == "iam":
+                        self.assertEqual(owners, [L3])
+                    else:
+                        self.assertIn(ONCALL, owners)
+                        self.assertTrue(any(o != ONCALL for o in owners))
+                    # the fail-safe default alone does not count as "owned by the stack": a line
+                    # for that stack must match
+                    self.assertNotIn(pattern_of(self.rules, path), FAIL_SAFE_PATTERNS, path)
+
+    def test_production_agent_prompts_owned_by_the_ai_team_only(self):
+        # OD45: a prompt or model change is never an incident fix, so on-call does not co-own it.
+        for path in ("ai-agents/claim-assessor/prompts/system.md", "ai-agents/claim-assessor/model.yaml"):
+            with self.subTest(path=path):
+                self.assertEqual(owners_of(self.rules, path), ["@example-org/team-ai"])
 
     def test_no_file_is_unowned(self):
         for path in ("package.json", "package-lock.json", "infra/pulumi/new-stack/index.ts",

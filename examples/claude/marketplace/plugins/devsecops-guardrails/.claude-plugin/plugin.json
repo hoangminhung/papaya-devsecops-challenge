@@ -1,7 +1,7 @@
 {
   "name": "devsecops-guardrails",
-  "version": "0.1.0",
-  "description": "How to ship a production change: PR path, risk stop, incident lane, JIT fallback.",
+  "version": "0.2.0",
+  "description": "How to ship a production change (PR path, risk stop, incident lane, JIT fallback), and three DevSecOps tasks: incident triage, explaining a risk-stop summary, fixing a vulnerable dependency.",
   "author": {
     "name": "DevSecOps (control owner)"
   }

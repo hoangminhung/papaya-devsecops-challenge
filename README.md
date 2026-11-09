@@ -3,7 +3,8 @@
 Submission for [DevSecOps Challenge 1](https://github.com/papaya-insurtech/pumpkin/blob/main/Hiring/DevSecOps_Challenges/DevSecOps_Challenge_1.md)
 (local copy: [work/00-challenge.md](work/00-challenge.md)).
 
-> Status: complete; all documents approved by the owner · Updated: 2026-11-09
+> Status: complete. "Owner" in these documents is the author of this submission, who approved each
+> document while writing it; it is not a Papaya sign-off · Updated: 2026-11-09
 
 ## The problem and the answer
 
@@ -11,37 +12,40 @@ Engineering wants Claude Code to talk to AWS directly; Compliance wants nothing 
 production without a named human who reviewed and approved it. The two only disagree about **writes
 to production**: reads of metadata and all of non-prod are outside Compliance's sentence.
 
-The answer ("A + D2'", owner decision): **every prod change is a pull request**, approved by a code
+The answer (the author's proposal): **every prod change is a pull request**, approved by a code
 owner who is not the author and applied by CI, incidents included. A time-boxed, approved JIT grant,
 used by a human without an agent, is the only fallback during an incident when the PR path cannot be
-used. Nobody, human or agent, holds standing prod write or long-lived credentials (one exception:
-k0s/Firebase CI deploy credentials, kept as `production` environment secrets, OD1).
+used. Nobody, human or agent, holds standing prod write or long-lived credentials. Exceptions:
+k0s/Firebase CI deploy credentials, kept as secrets of a separate `production-k0s` environment (OD1,
+OD24); the Expo robot token and update-signing key, in a separate `production-mobile` environment
+(OD40), because Expo has no keyless login from GitHub; and the private keys of the approval-gate and CI-agent GitHub Apps, kept in a secrets store
+and rotated (G19).
 
 | Engineering gets | Compliance gets |
 |---|---|
 | A free non-prod loop with the agent; read-only prod metadata | Approval **before** apply by a named human ≠ author, enforced by GitHub and AWS IAM, outside the agent |
-| One approval, same-day ship; incident approval ≤ 15 min, 24/7 | One evidence chain per change; target ≤ 30 min to retrieve it, realistic from phase 2 |
-| **Costs:** slower incident lane (est. 11–46 min); no raw logs of unredacted services at first; more prompts; 24/7 approver duty; ≤ 5 days for a new tool | **It does not give:** a technical stop on an agent approving through its engineer's login; prevention of admins editing the gate (logged only) |
+| One approval (two on process paths and data fixes), same-day ship; incident approval ≤ 15 min, 24/7 | One evidence chain per change, kept 6 years under Object Lock from phase 1; target ≤ 30 min to retrieve it, realistic from phase 2 |
+| **Costs:** slower incident lane (est. 11–46 min); from phase 2 the agent cannot push, open PRs, run Docker or reach a private registry without a workaround; from phase 1 every `aws`/`pulumi`/`serverless` call asks first, in auto mode too (OD43); raw logs of a service only after its masking lands (deadline: end of phase 2 for claims services); 24/7 approver duty; ≤ 5 days for a new tool | **It does not give:** a technical stop on an agent approving through its engineer's login (deny rules are hygiene, approvals are only flagged); a GitHub login tied to the identity provider (a register does it on Team); prevention of admins editing the gate (logged only) |
 
 **Where it falls short** (stated in [framework §1](docs/01-framework.md#1-the-decision-in-one-page)):
 the JIT fallback meets the approval rule only partly; on GitHub Team nobody sees the prod diff before
-apply, so a risk stop holds risky diffs for a second approval; high-risk (L3) changes get one
-approver, from the owners of the path; admins can edit the gate (logged, not prevented); on normal
-days domain review by the on-call group is a process rule; "an agent never approves a PR" is
-policy and training, not a technical control; k0s and Firebase are weaker; if the required-check GitHub App is down, every merge is blocked, incident PRs included; whether HIPAA applies is a
+apply, so a risk stop holds risky diffs for a second approval; high-risk (L3) changes in deployable
+code get one approver, from the owners of the path (process paths get two); admins can edit the
+gate (logged, not prevented); "an agent never approves a PR" rests on policy, training and deny
+rules that are hygiene, not a technical control; k0s and Firebase are weaker; if the required-check GitHub App is down, every merge is blocked, incident PRs included; whether HIPAA applies is a
 legal question.
 
 ## How to read it
 
 | You are | Read | Time |
 |---|---|---|
-| Decision panel | This page, [framework §1](docs/01-framework.md#1-the-decision-in-one-page), [rollout plan](docs/03-rollout-plan.md), [diagrams](diagrams/README.md) | ~15 min |
+| Decision panel | [Executive brief](docs/00-executive-brief.md) (plain language, no codes), [framework §1](docs/01-framework.md#1-the-decision-in-one-page) with the decisions Papaya must take, [diagrams](diagrams/README.md) | ~20 min |
 | Compliance | [Compliance register](docs/04-compliance-mapping.md), [threat model](docs/05-threat-model.md), [problem → control map](docs/06-problem-control-map.md) | ~45 min |
-| Engineer | [Engineer guide](docs/02-engineer-guide.md), [examples](examples/README.md), framework layers 1–3 | ~45 min |
+| Engineer | [Engineer guide](docs/02-engineer-guide.md), [framework §2](docs/01-framework.md#2-agent-assisted-devsecops-workflows) (how the agents are used), [examples](examples/README.md), framework layers 1–3 | ~45 min |
 
 | Path | Contents |
 |---|---|
-| [docs/](docs/) | Framework (8 layers: principle, Papaya's stack, audit evidence, cost/value), guide, rollout, register, threat model, map, [ADRs](docs/adr/README.md) |
+| [docs/](docs/) | Executive brief; framework (the decision, agent-assisted workflows, 8 layers: principle, Papaya's stack, audit evidence, cost/value); guide, rollout, register, threat model, map, [ADRs](docs/adr/README.md) |
 | [examples/](examples/README.md) | Ruleset, CODEOWNERS, workflows, a runnable risk stop, IAM/OIDC/SCP, managed settings, plugin marketplace, policy pack; each with a local check and what it does **not** prove |
 | [diagrams/](diagrams/README.md) | Change workflow, trust boundaries, incident lane |
 | [work/](work/) | Working notes and decision log (Vietnamese, with English summaries) |
@@ -66,7 +70,7 @@ The repository was written with Claude Code under the same approach it recommend
   started most working sessions in **auto mode** (transcripts record `permissionMode: "auto"`;
   `"default"` only in three short sessions, ✅ grep). Auto mode is allowed by choice (D1), but these
   transcripts do not show Manual-mode prompts. Sessions 1–2 (2026-11-08) used the default config profile; later sessions the clean one.
-- Material choices went to the owner (OD1–OD21 in the framework).
+- Material choices were taken by the author, called "owner" in the documents (OD1–OD21 in the framework; OD22 onwards are the fixes after an independent review, `work/07-review.md`). They are not Papaya sign-offs; the choices left to Papaya are in [framework §1](docs/01-framework.md#1-the-decision-in-one-page).
 
 **Deviation from the agreed form** (framing Q14): there is no Claude Code hook example. The framework
 defines no specific hook, and hooks fail open unless set to block (framework layer 2); `allowManagedHooksOnly` is in the managed
@@ -88,5 +92,5 @@ for CFG in ~/.claude ~/.claude-papaya; do
 done
 ```
 
-Claude Code deletes local transcripts after `cleanupPeriodDays` (default 30 days, minimum 1,
-cannot be disabled). Both profiles on the machine used for this challenge set it to 365 days.
+Claude Code deletes local transcripts after `cleanupPeriodDays` (⚠️ from the settings reference as read
+in an earlier session, not re-checked: default 30 days, minimum 1, cannot be disabled). Both profiles on the machine used for this challenge set it to 365 days.

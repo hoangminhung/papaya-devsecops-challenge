@@ -1,4 +1,4 @@
-# ADR-0008: CI uses OIDC; no long-lived CI keys, with one time-boxed exception
+# ADR-0008: CI uses OIDC; no long-lived CI keys, with time-boxed exceptions
 
 - **Status:** Accepted
 - **Date:** 2026-11-09
@@ -27,10 +27,14 @@ Option C.
   monorepo (📖 R3.4.3, R3.4.4), ideally narrowed by `job_workflow_ref` (📖 R3.4.5; on Team ⚠️ G10).
 - **GCP:** Workload Identity Federation restricted to Papaya's GitHub organization (📖 R3.4.5b).
 - **k0s/Firebase exception** (OD1, OD6): CI deploy credentials only, until it is checked whether they
-  can use OIDC. Conditions [design]: a `production` environment secret, never a repository secret
+  can use OIDC. Conditions [design]: a secret of the separate `production-k0s` environment (OD24;
+  examples E3b), never a repository secret
   (📖 R3.1.2, R3.1.3); GitHub-hosted runners, because on self-hosted runners environment secrets act
   like repository secrets (📖 R3.1.5); if k0s needs a self-hosted runner, it is dedicated to the
-  `production` deploy and the residual risk is recorded (⚠️ G15); a single source of truth; owner, expiry, rotation.
+  `production-k0s` deploy and the residual risk is recorded (⚠️ G15); a single source of truth; owner, expiry, rotation.
+  *Refined by OD22, OD24 and OD40:* one environment per kind of stack (`production`,
+  `production-iam`, `production-db`), and the Expo robot token and update-signing key as a second
+  exception in `production-mobile`, because Expo offers no OIDC (R9.8.7).
 - `GITHUB_TOKEN` default "restricted" (📖 R3.5.3); actions pinned by lockfile or full SHA (📖 R3.5.5).
 
 ## 4. Consequences

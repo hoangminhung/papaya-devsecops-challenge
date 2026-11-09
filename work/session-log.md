@@ -537,3 +537,73 @@ Running log of the working sessions, not part of the reading order.
   - Rollout plan: duyệt tất cả phần thêm (owner, "done when" vẫn là [design], "measured from", 2.9, 2.4, rủi ro S4).
   - Compliance register: duyệt, thêm cột "From phase" (đã thêm; "—" = rollout chưa đặt phase).
   - O-1…O-9: để mở cho Papaya quyết khi triển khai.
+
+## 2026-11-09 — Review độc lập và sửa top 10 (`work/07`–`09`)
+
+- Session mới đóng 4 vai review (`work/07-review.md`): Engineering lead, Compliance, kẻ tấn công, người chấm.
+  Top 10 việc sửa; owner duyệt cả 10 ("Đồng ý sửa theo đề xuất"; F5 chọn (b)). Đề xuất và quyết định:
+  `work/08-fix-proposals.md`.
+- Cách chạy (owner cho phép gộp/song song): bước kiểm docs chạy 4 subagent song song (`work/09-fix-research.md`,
+  hàng R9.x); bước sửa chạy tuần tự theo 4 nhóm (G1 F1/F7/F8, G2 F2/F3/F9, G3 F4/F5/F6, G4 F10), mỗi nhóm
+  một vòng chấm bằng subagent mới chỉ nhận đề + câu hỏi vai 4 + danh sách file.
+- Nghiên cứu đổi đề xuất ở vài chỗ: không có managed data identifier cho VN/TH/HK (F4 chỉ còn custom regex,
+  là lớp phụ); `strictKnownMarketplaces` không có `sha`, chỉ `ref` (F3 pin theo tag); audit-log API chưa
+  chắc có trên Team (F6 export tay ở phase 1); IAM DB auth không được CloudTrail ghi (F5 cần log phía DB).
+- F5 (b) code làm trước: adapter `sql` + luật SQL trong `classify.py`, 5 test mới (30 test risk stop pass).
+- **G1 (F1, F7, F8) → OD22–OD24:**
+  - Examples: `deploy-prod.yml` chọn environment theo stack (`production-iam` cho IAM stack), tắt install
+    script toàn job + allowlist `tools/ci/`; job `iam` trong `deploy-on-main.yml`; trust `production-iam`;
+    policy giới hạn domain role (`svc-*` + boundary) và boundary; SCP: role IAM stack riêng, bảo vệ boundary,
+    chặn `OrganizationAccountAccessRole`; thư mục `k0s/` (RBAC, audit policy, extraArgs, target OIDC) + `test_k0s.py`;
+    CODEOWNERS thêm `tools/ci/`, `infra/pulumi/identity-center/`, `k8s/rbac/`, `infra/k0s/`.
+  - Test `test_codeowners` sửa: IAM stack hợp lệ khi có dòng riêng (L3 + on-call), không phải fail-safe.
+  - ✅ `validate.sh`: 132 test pass; actionlint 1.7.12 + zizmor 1.30.1 (binary trong scratchpad session trước) pass,
+    actionlint xác nhận `inputs` dùng được trong `environment`.
+  - Docs: framework layer 1/5/7, gaps G1, bảng OD22–OD24; rollout 1.15, 1.19, 1.20, 2.2, 2.9, 2.10; register
+    C-01/C-03/C-07/C-14; threat model T5, T21, T22; map P2a/A5/A8; ADR README refinements; guide §3; README;
+    sơ đồ 02 render lại (mmdc).
+  - Tự phát hiện khi sửa: permission set đặt trong `infra/pulumi/iam/` (on-call co-own) trái với OD23 → tách
+    `infra/pulumi/identity-center/` chỉ L3.
+- **G2 (F2, F3, F9) → OD25–OD27, ADR-0012** (gộp gợi ý #5, #6, #13, #15 của vòng chấm G1):
+  - Examples: managed settings phase 1/2 deny `Read(~/.config/gh/**)`, `Bash(gh pr review *)`,
+    `Bash(gh api *reviews*)`; marketplace pin theo tag + `extraKnownMarketplaces` autoUpdate false; MCP cục bộ
+    = image digest; plugin nội bộ pin `sha` + review record; SKILL `prod-change` sửa mâu thuẫn; ruleset repo
+    marketplace (2 approval, tag bất biến, tạo tag chỉ L3) `claude/marketplace-repo/`; logic approval-gate
+    `approval-gate/gate.py` + 8 test (E12); CODEOWNERS thêm `oncall/`.
+  - ✅ `validate.sh`: 146 test pass, `claude plugin validate` pass.
+  - Docs: framework §1, roles, layer 1 (GitHub identity), layer 2, layer 3 (L3 approvals, OD27, GitHub plan,
+    incident lane), layer 4 (pinning), layer 5, layer 7, G19, OD25–OD27; ADR-0012 (thay một phần ADR-0003/0010);
+    rollout 1.6 (prerequisite), 1.12, 1.17, 1.18, 1.21; guide §3/§4/§6/§7/§8; register C-03/04/06/10/12 + gaps;
+    threat model T2/T3/T7/T23; map P4a/P7b/P9c/A8; sơ đồ 01 render lại; README.
+  - **Hệ quả cần owner xác nhận:** OD27 làm OD10 (PR nhiều team chỉ cần 1 approval) chỉ còn đúng khi có incident;
+    ngày thường cần owner của từng team. Đã ghi trong OD27 và ADR-0012.
+  - Rủi ro còn lại ghi rõ: phase 1 ai cũng mở được issue incident → báo cáo tháng liệt kê người tạo.
+- Vòng chấm G2: 15 finding (1 critical = DB, thuộc G3). Đã sửa #2 (quy tắc đếm approval tự mâu thuẫn; 2 sơ đồ;
+  sơ đồ 03 lỗi parse Mermaid vì `;`), #6 (thiết kế tối thiểu approval-gate app, key vào inventory), #11–#15.
+  Owner xác nhận OD27/OD10 và "sửa hết" 6 finding mới → nhóm G5 (F11–F16).
+- Nghiên cứu thêm (3 subagent song song): R9.5 CI security trên Team, R9.6 GCP/Firebase/alert/k0s người dùng;
+  Thái Lan/Hồng Kông còn chờ.
+- **G3 (F4, F5, F6) → OD28–OD30, ADR-0011:**
+  - Examples: `deploy-prod.yml` có job `sql` (role DB qua OIDC, `tools/db/pending.sh` → risk stop → `apply.sh`),
+    job `claims-db`; adapter coi metadata GraphQL engine luôn risky; gate R4 (data fix cần data owner);
+    CODEOWNERS `db/claims/`, `data-fixes/tenant-a/`, `tools/db/`; workflow `evidence-export.yml` + trust/role/
+    Object Lock (E13); masking policy CloudWatch Logs với custom identifier theo tên field (E14) + test.
+  - ✅ `validate.sh`: 157 test pass; actionlint/zizmor sạch cho workflow mới (zizmor nhắc thiếu concurrency → đã thêm).
+  - Docs: framework (L3-data-write, Database changes, masking, evidence bucket, Linear request store, OD28–OD30),
+    ADR-0011, rollout 1.11/1.22/1.23/2.4/S8 + prerequisite 7, register C-15/16/19/21/23/25 + O-1/O-4 đóng,
+    threat model T12/T17/T24, map A1/A3/A11/P6b + summary, guide §2/§3a/§4/§5, examples README E3/E7/E12/E13/E14, README.
+- Owner đồng ý: G2 #4 gộp vào F11; Expo/EAS thành F17 (G5); giữ hai bản tải docs. Nghiên cứu R9.8 (Expo/EAS).
+- **Vòng chấm sau G3:** 15 finding (1 critical, 10 major, 4 minor); bảng phân loại trong `work/08` §"Vòng chấm sau G3".
+  - #3 (F5) đã sửa: job `sql` không nối Aurora; nó khởi ECS task Fargate trong VPC (E15: 2 policy + 6 test);
+    metadata qua `hasura metadata apply` + admin secret Secrets Manager (📖 Hasura, 📖 ECS RunTask).
+  - #12–#15 đã sửa (guide §4 + sơ đồ 03; README/guide wording; ADR-0003/0010 status; examples README).
+  - ✅ `validate.sh` đủ actionlint 1.7.12 + zizmor 1.30.1: 163 test OK, zizmor không finding, "Latest run" cập nhật.
+  - #4, #5, #7 và phần EC2/SNS/ML deploy của #6 là thiết kế mới → hỏi owner.
+- Owner chọn đề xuất cho #4/#5/#7/#6 → F18–F20 (OD31–OD33) làm ngay; bảng kiểm kê đường ghi prod gộp F13.
+  F18 gate theo patch ID; F19 stack IAM là process path; F20 JIT receiver (E16, 8 test). ✅ 172 test OK.
+- **G5 (F11–F17) → OD34–OD40**: chi tiết bảng trong `work/08` §"G5 đã làm". ✅ 172 test OK. Chạy vòng chấm chung G5 + F18–F20.
+- Vòng chấm sau G5 + F18–F20: 13 finding; #1–#5, #9, #10, #12, #13 đã sửa (OD42), F18–F20 phần owner duyệt (OD41). ✅ 178 test OK. Hỏi owner #6, #7, #11.
+- Owner chọn đề xuất cho #6/#7/#11 → OD43–OD45 đã làm. ✅ 180 test OK. Tiếp: G4 (F10).
+- **G4 (F10) → OD46**: executive brief, §1 một trang + Decisions Papaya must take, §2 workflows + 3 skill + templates (E17). ✅ 183 test OK, link check 0 lỗi. Vòng chấm cuối đang chạy.
+- Vòng chấm cuối: Hire, close to strong hire; 12 finding; #1 (một phần), #5, #7, #8, #9, #11, #12 đã sửa (E18, OD47). ✅ 186 test OK. Hỏi owner #2, #3, #4, #6, #10.
+- Owner chọn cho #2/#3/#4/#6 → OD48–OD51 đã làm; #10 giữ nguyên. ✅ 191 test OK.

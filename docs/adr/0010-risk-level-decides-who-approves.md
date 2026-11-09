@@ -1,6 +1,7 @@
 # ADR-0010: Risk level decides who approves, not how many; non-prod needs no approval
 
-- **Status:** Accepted
+- **Status:** Accepted; superseded in part by [ADR-0012](0012-approval-integrity-checked-by-the-gate-app.md)
+  (two approvers on process paths) and extended by [ADR-0011](0011-database-changes-through-the-pipeline.md) (L3-data-write)
 - **Date:** 2026-11-09
 - **Decided by:** owner of this submission (GĐ-14; OD2, OD3, OD8, OD9, OD13)
 - **Scope:** every change made by engineers and their agents, from non-prod to production
@@ -29,8 +30,9 @@ Option C [design levels]:
 | L0 | Reads: non-prod anything, prod metadata | none |
 | L1 | Changes in non-prod (synthetic or masked data only, GĐ-14) | none, author only |
 | L2 | Routine prod change, e.g. Lambda memory 1024 → 2048 MB | 1 code owner ≠ author, ≠ last pusher |
-| L3 | IAM/SCP, stateful replace/delete, network, workflow and agent-config files, catalogue, advisory policy finding (full list: framework layer 5) | 1 owner of that path |
+| L3 | IAM/SCP, stateful replace/delete, network, workflow and agent-config files, catalogue, advisory policy finding (full list: framework layer 5) | 1 owner of that path; *two members of the L3 owner team on process paths (ADR-0012)* |
 | L3-JIT | Break-glass in an incident | on-call approver ≠ requester (ADR-0005) |
+| L3-data-write | Data fix on one tenant's rows (added by ADR-0011) | code owner + a different person from that tenant's data-owner team (ADR-0012, rule R4) |
 | L3-data | Real customer data read | approver ≠ requester + agreement; data-owner co-approval [design] (ADR-0009) |
 
 `CLAUDE.md` and the other agent-configuration files are L3, because they define the workflow for the

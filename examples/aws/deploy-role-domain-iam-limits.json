@@ -1,0 +1,67 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CreateOrChangeServiceRolesOnlyWithTheBoundary",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePermissionsBoundary"
+      ],
+      "Resource": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/svc-*",
+      "Condition": {
+        "StringEquals": {
+          "iam:PermissionsBoundary": "arn:aws:iam::<AWS_ACCOUNT_ID>:policy/app-permissions-boundary"
+        }
+      }
+    },
+    {
+      "Sid": "ManageAndPassServiceRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:UpdateRoleDescription",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:DeleteRole",
+        "iam:PassRole"
+      ],
+      "Resource": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/svc-*"
+    },
+    {
+      "Sid": "NeverRemoveABoundary",
+      "Effect": "Deny",
+      "Action": "iam:DeleteRolePermissionsBoundary",
+      "Resource": "*"
+    },
+    {
+      "Sid": "NeverChangeTheBoundaryPolicy",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicy",
+        "iam:DeletePolicyVersion",
+        "iam:SetDefaultPolicyVersion"
+      ],
+      "Resource": "arn:aws:iam::<AWS_ACCOUNT_ID>:policy/app-permissions-boundary"
+    },
+    {
+      "Sid": "NoIamUsersOrLongLivedKeys",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateUser",
+        "iam:CreateAccessKey",
+        "iam:CreateLoginProfile"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

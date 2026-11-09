@@ -13,19 +13,21 @@ sequenceDiagram
     E->>AG: Analysis session, read-only roles: metrics, redacted logs
     AG-->>E: Proposes timeout, memory and queue visibility changes
     E->>AG: Edit session: change serverless.yml, diff on non-prod
-    E->>GH: Open PR labelled incident (security checks still run)
+    E->>GH: Open PR labelled incident, linked to the open incident issue (OD27), checks still run
     E->>R: Page (phone in phase 1, routed alert from phase 2)
     R->>GH: Review the diff, approve (R never writes the fix, OD7)
     E->>GH: Merge
     GH->>CI: Deploy: prod preview, risk stop, apply
+    Note over E,CI: If the risk stop holds the deploy, its approval PR also gets the incident label and the same issue link, then R approves it
     CI->>AWS: Changes as the deploy role
     Note over E,AWS: Estimate 11 to 46 min against a 30-min target (to be measured first in rollout)
 
     else Fallback only when the PR path cannot be used (Actions down, broken pipeline, op not in IaC)
     E->>R: JIT request: command list, scope, reason, incident link (channel outside GitHub)
-    R-->>E: Approve before the grant (R is not the requester)
+    R-->>E: Approve in Linear before the grant (R is not the requester)
+    Note over E,R: JIT receiver checks signature, R not E, R on shift, incident open, allowed set, then grants (OD33)
     E->>AWS: InfraOperator-service, 1-h role session (window up to about 2 h), E types the commands, no agent in that terminal (D2)
     Note over AWS: After: CloudTrail writes compared with the command list (by hand in phase 1, a job from phase 2)
     E->>GH: Codify PR within the deadline, drift detection until it merges
     end
-    Note over E,AWS: Approval before apply is met only partly here (accepted by the owner, Options §9)
+    Note over E,AWS: Approval before apply is met only partly here (accepted by the author, for Papaya Compliance sign-off)

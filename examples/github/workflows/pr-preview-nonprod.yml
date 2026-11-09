@@ -20,6 +20,8 @@ jobs:
     concurrency:
       group: pr-preview-${{ github.event.pull_request.number }}-${{ matrix.stack }}
       cancel-in-progress: true  # previews only; nothing is applied
+    env:
+      npm_config_ignore_scripts: "true"  # PR code's install scripts never run (OD22)
     strategy:
       fail-fast: false
       matrix:

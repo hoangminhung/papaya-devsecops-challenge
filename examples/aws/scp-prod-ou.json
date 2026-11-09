@@ -73,7 +73,25 @@
       "Condition": {
         "ArnNotLike": {
           "aws:PrincipalArn": [
-            "arn:aws:iam::*:role/github-prod-deploy-pulumi"
+            "arn:aws:iam::*:role/github-prod-deploy-iam"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "BoundaryPolicyOnlyChangedByTheIamStack",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicy",
+        "iam:DeletePolicyVersion",
+        "iam:SetDefaultPolicyVersion"
+      ],
+      "Resource": "arn:aws:iam::*:policy/app-permissions-boundary",
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalArn": [
+            "arn:aws:iam::*:role/github-prod-deploy-iam"
           ]
         }
       }
@@ -105,6 +123,19 @@
         "cloudtrail:UpdateEventDataStore"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "NoOrganizationAccountAccessRoleInProd",
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:aws:iam::*:role/OrganizationAccountAccessRole"
+          ]
+        }
+      }
     }
   ]
 }

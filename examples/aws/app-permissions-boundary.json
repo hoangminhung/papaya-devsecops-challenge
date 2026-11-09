@@ -1,0 +1,31 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "UpperLimitForServiceRoles",
+      "Effect": "Allow",
+      "Action": "*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "NoIdentityChangesOrRootSessions",
+      "Effect": "Deny",
+      "Action": [
+        "iam:*",
+        "sts:AssumeRoot"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "NoAuditTampering",
+      "Effect": "Deny",
+      "Action": [
+        "cloudtrail:StopLogging",
+        "cloudtrail:DeleteTrail",
+        "cloudtrail:UpdateTrail",
+        "cloudtrail:PutEventSelectors"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

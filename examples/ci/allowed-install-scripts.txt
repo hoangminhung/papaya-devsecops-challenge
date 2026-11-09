@@ -1,0 +1,5 @@
+# Packages whose npm install scripts may run in the prod deploy job (OD22; framework layer 5).
+# Lives at tools/ci/allowed-install-scripts.txt in the monorepo, an L3 path (CODEOWNERS).
+# One `npm rebuild` package spec per line. Each entry needs a reason and a review, because its
+# script runs in a job that can request the prod deploy role's OIDC token.
+# Empty by default: add a package only when the deploy fails without its script.

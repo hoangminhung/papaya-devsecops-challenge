@@ -22,7 +22,8 @@ INDEX = "https://servicereference.us-east-1.amazonaws.com/"
 DEFAULT_SERVICES = [
     "cloudformation", "cloudtrail", "cloudwatch", "dynamodb", "ec2", "ecs", "elasticloadbalancing",
     "health", "iam", "kms", "lambda",
-    "logs", "rds", "rds-data", "s3", "secretsmanager", "sns", "sqs", "ssm", "states", "sts", "xray",
+    "logs", "rds", "rds-data", "rds-db", "s3", "secretsmanager", "sns", "sqs", "sso", "ssm", "states", "sts",
+    "xray",
 ]
 
 

@@ -33,7 +33,12 @@
           { "context": "codeowners-validate", "integration_id": 15368 },
           { "context": "secret-scan", "integration_id": 15368 },
           { "context": "dependency-check", "integration_id": 15368 },
-          { "context": "sast", "integration_id": 15368 }
+          { "context": "sast", "integration_id": 15368 },
+          { "context": "iac-scan", "integration_id": 15368 },
+          { "context": "workflow-lint", "integration_id": 15368 },
+          { "context": "pr-size", "integration_id": 15368 },
+          { "context": "agent-eval", "integration_id": 15368 },
+          { "context": "data-fix-scan", "integration_id": 15368 }
         ]
       }
     }

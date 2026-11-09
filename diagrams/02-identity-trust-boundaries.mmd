@@ -11,16 +11,18 @@ flowchart LR
 
     subgraph GH["GitHub Team, monorepo"]
         RULE["Ruleset on main + CODEOWNERS<br/>= the approval gate"]
-        ENV["Environment production<br/>main only, no reviewers on Team"]
+        ENV["Environments production, production-iam, production-db<br/>main only, no reviewers on Team;<br/>one per kind of stack (OD22)"]
+        ENVX["Environments production-k0s, production-mobile<br/>main only; the only stored CI secrets (OD24, OD40)"]
         WF["Reusable deploy workflow<br/>risk stop before apply"]
         RULE --> WF
         WF --> ENV
+        RULE --> ENVX
     end
 
     subgraph PROD["AWS prod account"]
-        SCP["SCPs on the prod OU cap every role here<br/>[design, phase 2]: data-read deny, Lambda update deny,<br/>revocation Deny, trail protection"]
+        SCP["SCPs on the prod OU cap every role here<br/>[design, phase 2]: data-read deny, Lambda update deny,<br/>revocation Deny, trail protection,<br/>no OrganizationAccountAccessRole (OD23)"]
         RO["ProdReadMetadata<br/>metrics, metadata; 1-h session"]
-        DEP["Prod deploy roles<br/>trust only environment production"]
+        DEP["Prod deploy roles per environment<br/>domain roles bounded; only the IAM stack role<br/>changes SCP-exempt roles (OD22)"]
         JITR["InfraOperator-service<br/>JIT only, approved, 1 h"]
         DR["DataRead-store<br/>approved request only"]
         DATA[("Claim data<br/>medical, IDs, bank")]
@@ -28,6 +30,13 @@ flowchart LR
 
     subgraph AUDIT["Log-archive account"]
         CT[("Org CloudTrail with integrity validation")]
+        EVB[("Evidence bucket, Object Lock 6 y (OD30)")]
+    end
+
+    subgraph OTHER["GCP, Firebase, k0s (OD36)"]
+        GCPSA["GCP prod service account<br/>WIF: monorepo + production subject only"]
+        PAM["GCP PAM entitlement<br/>approved, time-bound"]
+        K0S["k0s API<br/>CI: namespaced token (OD24);<br/>people: OIDC read-only, target"]
     end
 
     SSO -->|"standing: read metadata only"| RO
@@ -38,4 +47,7 @@ flowchart LR
     DR --> DATA
     DEP -->|"apply changes"| RES["Prod resources<br/>Lambda, ECS, queues, stores"]
     PROD -->|"management events + selected data events"| CT
-    GH --> EXP[("GitHub audit-log export<br/>from phase 2, destination open")]
+    GH -->|"nightly export; audit log monthly by hand"| EVB
+    ENV -->|"GitHub OIDC to GCP"| GCPSA
+    ENVX -->|"namespaced token"| K0S
+    ENG -->|"approved grant"| PAM
