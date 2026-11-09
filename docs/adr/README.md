@@ -1,6 +1,6 @@
 # Architecture decision records
 
-Each record states one major decision behind [`../framework.md`](../framework.md), the options weighed
+Each record states one major decision behind [`../01-framework.md`](../01-framework.md), the options weighed
 and what it costs. Details and the full evidence live in the framework; an ADR only records the
 choice. Markers follow the framework legend: 📖 R*x.y* = documented research row in
 `work/02-research.md`, ⚠️ = inference or unverified, [design] = proposal of this submission. OD*n* = owner

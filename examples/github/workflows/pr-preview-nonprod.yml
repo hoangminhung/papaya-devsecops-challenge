@@ -1,0 +1,58 @@
+# PR preview against NON-PROD only (framework layer 3, "Pulumi" bullet): a prod preview would run
+# the PR's code with prod state-write and secret access. Prod is previewed only on main, in
+# deploy-prod.yml, after the merge.
+# The non-prod role trusts the `pull_request` subject of this repository; it has no prod access.
+name: pr-preview-nonprod
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  preview:
+    name: preview ${{ matrix.stack }} (non-prod)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read   # check out the PR
+      id-token: write  # OIDC to the non-prod preview role
+    concurrency:
+      group: pr-preview-${{ github.event.pull_request.number }}-${{ matrix.stack }}
+      cancel-in-progress: true  # previews only; nothing is applied
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - stack: claims-data
+            workdir: infra/pulumi/claims-data
+    steps:
+      - name: Check out the PR
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+
+      - name: AWS credentials through OIDC (non-prod role)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.NONPROD_PREVIEW_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Install the Pulumi CLI only
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          pulumi-version: ${{ vars.PULUMI_CLI_VERSION }}
+
+      - name: Preview non-prod
+        working-directory: ${{ matrix.workdir }}
+        env:
+          STACK: ${{ matrix.stack }}-nonprod
+          PULUMI_BACKEND_URL: ${{ vars.NONPROD_PULUMI_BACKEND_URL }}
+        run: |
+          npm ci
+          pulumi preview --stack "$STACK" --diff

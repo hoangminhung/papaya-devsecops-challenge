@@ -1,0 +1,64 @@
+{
+ "$comment": "Extracted from github/rest-api-description@2f8f80e47ea4d3292cf4e37ba9d9b25475e06140 (OpenAPI 3.0.3, API 1.1.4), PUT /repos/{owner}/{repo}/environments/{environment_name}, by examples/tools/extract_github_schemas.py",
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "additionalProperties": false,
+ "properties": {
+  "deployment_branch_policy": {
+   "description": "The type of deployment branch policy for this environment. To allow all branches to deploy, set to `null`.",
+   "properties": {
+    "custom_branch_policies": {
+     "description": "Whether only branches that match the specified name patterns can deploy to this environment.  If `custom_branch_policies` is `true`, `protected_branches` must be `false`; if `custom_branch_policies` is `false`, `protected_branches` must be `true`.",
+     "type": "boolean"
+    },
+    "protected_branches": {
+     "description": "Whether only branches with branch protection rules can deploy to this environment. If `protected_branches` is `true`, `custom_branch_policies` must be `false`; if `protected_branches` is `false`, `custom_branch_policies` must be `true`.",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "protected_branches",
+    "custom_branch_policies"
+   ],
+   "type": [
+    "object",
+    "null"
+   ]
+  },
+  "prevent_self_review": {
+   "description": "Whether or not a user who created the job is prevented from approving their own job.",
+   "type": "boolean"
+  },
+  "reviewers": {
+   "description": "The people or teams that may review jobs that reference the environment. You can list up to six users or teams as reviewers. The reviewers must have at least read access to the repository. Only one of the required reviewers needs to approve the job for it to proceed.",
+   "items": {
+    "properties": {
+     "id": {
+      "description": "The id of the user or team who can review the deployment",
+      "type": "integer"
+     },
+     "type": {
+      "description": "The type of reviewer.",
+      "enum": [
+       "User",
+       "Team"
+      ],
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "type": [
+    "array",
+    "null"
+   ]
+  },
+  "wait_timer": {
+   "description": "The amount of time to delay a job after the job is initially triggered. The time (in minutes) must be an integer between 0 and 43,200 (30 days).",
+   "type": "integer"
+  }
+ },
+ "type": [
+  "object",
+  "null"
+ ]
+}

@@ -297,3 +297,76 @@ Running log of the working sessions, not part of the reading order.
 - Review độc lập vòng 1: 1 HIGH, 9 MEDIUM; vòng 2: 0 HIGH, 3 MEDIUM, 8 LOW; đã sửa hết. Các sửa vòng 2 chưa có vòng kiểm lại. Chờ owner trả lời Q1–Q7.
 - Owner trả lời Q1–Q7 của plan: "OK" cho cả 7 đề xuất. **Plan deliverable được duyệt.** Đổi status của `docs/problem-control-map.md`
   thành approved (Q7). Dừng ở review vòng 2; các sửa vòng 2 chưa có vòng kiểm lại.
+
+## 2026-11-09 — Viết bản cuối, bước 0–1
+- Commit plan (`21b4b52`). Cài vào scratch (Q5): `actionlint` 1.7.12 (checksum OK), `zizmor` 1.30.1 (`pip --target`, máy không có
+  `python3-venv`; 1.31.1 không có wheel tương thích).
+- Đổi tên (Q3): `docs/framework.md` → `docs/01-framework.md`, `threat-model.md` → `05-threat-model.md`,
+  `problem-control-map.md` → `06-problem-control-map.md`; sửa link trong `docs/`. Các mục cũ trong `work/` giữ tên cũ (lịch sử).
+- Bước 1 (layer 3): viết E1 ruleset, E2 CODEOWNERS, E3 workflows, E3b environment, E7 risk stop, `validate.sh`, `examples/README.md`.
+  `validate.sh`: 43 test + actionlint + zizmor (auditor) + yamllint + jq đều đạt ✅.
+- Phát hiện khi viết example (chưa đưa vào framework):
+  - classifier của risk stop phải là path L3 → thêm `/tools/risk-stop/` vào CODEOWNERS [design], **cần owner xác nhận**;
+  - hash duyệt phải gồm digest giá trị;
+  - `AWS::Lambda::Version` bị thay ở mọi lần đổi code;
+  - cú pháp `$/` cho reusable workflow (📖 GitHub docs) mà actionlint chưa biết;
+  - `runner.temp` không dùng được trong `env` cấp job.
+- Review độc lập bước 1, vòng 1: 1 HIGH, 5 MEDIUM, 8 LOW. Đã sửa:
+  - HIGH: `deploy-approvals/claims-api/` không có owner. Sửa: thêm dòng owner, thêm default fail-safe `*` [design],
+    thêm test lấy stack từ `deploy-on-main.yml`.
+  - MEDIUM:
+    - test không chứng minh risk stop chặn được apply → thêm test, có mutation kèm theo;
+    - danh sách type để lọt → thêm luật theo tên thuộc tính, ghép danh sách Pulumi/CFN theo cặp;
+    - bản duyệt gắn với git: tổ tiên, commit chỉ chạm `deploy-approvals/<stack>/`, tối đa 7 ngày [design];
+    - hash Serverless không ổn định → bỏ `Code`/`Lambda::Version` khỏi hash (⚠️ theo trí nhớ).
+  - M2 (code của stack chạy với deploy role nên có thể vô hiệu hoá risk stop): chỉ ghi giới hạn trong README,
+    phương án mạnh hơn (role preview riêng + tách job) **chờ owner**.
+  - LOW:
+    - flag được tách token và kiểm theo allowlist;
+    - ghi giới hạn của concurrency (không dùng `queue: max` vì thứ tự không bảo đảm, 📖);
+    - ghi khoảng hở giữa hai lần preview;
+    - `npm ci` chạy trước khi có credential;
+    - biến prod chuyển sang environment;
+    - bỏ `require_extra_approval_for_unattributed_changes`;
+    - xoá code chết;
+    - thêm marker nguồn;
+    - ghi `$GITHUB_STEP_SUMMARY`;
+    - thêm `.gitignore`.
+  - Kết quả: `validate.sh` đạt, 54 test ✅.
+- Review bước 1, vòng 2: 3 HIGH, 3 MEDIUM, 9 LOW. Agent tự tái hiện H1 trước khi sửa ✅. Đã sửa:
+  - H1: approval bị sửa sau khi thêm vẫn được chấp nhận → đọc từ git object, từ chối file đã bị sửa.
+  - H2: merge commit cho phép PR tự duyệt → ruleset chỉ cho squash [design], kiểm theo first-parent.
+  - H3: re-run deploy cũ làm prod quay lui mà không ai duyệt → bước chỉ deploy đỉnh `main` [design],
+    là điều kiện mới cho layer 3.
+  - M1: approval merge trước thay đổi rủi ro → thư mục stack và classifier phải không đổi từ stopped commit.
+  - M2: luật tên thuộc tính áp cho cả create (tập hẹp), thêm nhóm audit, prefix `aws-native:`.
+  - M3: `pulumi install` (📖), policy pack, `serverless --version` (⚠️) chạy trước credential.
+  - LOW:
+    - test apply theo lệnh, không theo tên step;
+    - kiểm tên file và stack;
+    - ghi rõ việc dùng lại trong 7 ngày là cố ý;
+    - sửa comment, parse URN;
+    - link "planned";
+    - bảng ánh xạ path;
+    - "co-owned";
+    - liệt kê các luật [design] mới.
+  - Kết quả: `validate.sh` đạt, 60 test ✅.
+- Review bước 1, vòng 3: 0 HIGH, 3 MEDIUM, 6 LOW. Các bản sửa trước giữ được; luồng hợp lệ của layer 3 vẫn qua.
+  - M1 (approval merge sớm + thay đổi ngoài thư mục stack): **chưa đóng**. Ghi trong README Limits, có test ghi nhận.
+    Cách đóng là approval-gate app kiểm hash của run đã dừng (G19) [design], chờ owner.
+  - M2: guard dùng `git/ref/heads/main` (✅ endpoint chỉ nhận branch), tag tên `main` không còn lừa được.
+  - M3: người duyệt chỉ thấy resource/thuộc tính đổi, không thấy giá trị → sửa câu chữ trong framework ở bản cuối
+    (ADR-0004 không sửa được vì đã accepted; cần ghi chú hoặc ADR mới).
+  - LOW:
+    - tuổi approval tính theo đồng hồ thật;
+    - ghi rõ `[skip ci]`, việc mất approval khi stack đổi, và script của `npm ci`;
+    - test guard và mainline giờ bắt được mutation;
+    - ghi nguồn License Key.
+  - Kết quả: `validate.sh` đạt, 62 test ✅. Các sửa của vòng 3 chưa có vòng kiểm lại.
+- Owner trả lời (nguyên văn rút gọn: "Đồng ý" cho cả 5 câu, "Không cần chạy vòng 4"). Ghi vào framework thành OD14–OD18:
+  - `/tools/risk-stop/` vào danh sách L3;
+  - risk stop giữ phạm vi hiện tại, role preview + tách job đưa vào roadmap phase 2;
+  - chỉ cho squash merge;
+  - chỉ deploy đỉnh `main`;
+  - lỗ hở "bản duyệt merge sớm" là giới hạn được chấp nhận, giao G19.
+  - Dừng review bước 1 ở vòng 3.

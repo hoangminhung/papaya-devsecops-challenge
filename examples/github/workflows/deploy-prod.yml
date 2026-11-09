@@ -1,0 +1,169 @@
+# Reusable production deploy (framework layer 3 "Merge approval = deploy approval", layer 5).
+# The ONLY workflow that references the `production` environment. Called by deploy-on-main.yml.
+#
+# Conditions this file must keep (checked by examples/tests/test_workflow_policy.py):
+# - no ref/SHA input: it deploys the commit that was merged (github.sha of the push to main);
+# - one concurrency group per stack without cancel-in-progress, so a running deploy is never
+#   cancelled (Pulumi guide: that can leave infrastructure half-applied). GitHub still cancels
+#   a run that is only *pending* when a newer one arrives, so not every merged commit gets its
+#   own deploy run; the newer run deploys both commits;
+# - OIDC only (id-token: write); no AWS keys; every action pinned to a full commit SHA;
+# - it deploys only the current tip of main: re-running an old run (allowed for writers for 30
+#   days, same GITHUB_SHA) would otherwise roll prod back without any approval;
+# - prod preview -> risk stop -> apply; the risk stop step cannot be skipped or ignored.
+#   No --skip-preview/-f, --target/-t, --exclude, --replace, state, import, destroy.
+#
+# Known limits (examples/README.md): the stack's own code (the Pulumi program, Serverless
+# plugins) runs with the deploy role during preview and apply, so the risk stop
+# catches risky diffs nobody looked at, not malicious code that was approved. `pulumi up`
+# previews again; a change made outside the pipeline between the two previews is not re-checked.
+#
+# Variables of the `production` environment (not secrets): AWS_REGION, PROD_DEPLOY_ROLE_ARN,
+# PULUMI_BACKEND_URL, PULUMI_CLI_VERSION, NODE_VERSION. The Serverless License Key is read from
+# SSM Parameter Store with the deploy role (sf >= 4.4.19, R4.4.8), so no CI secret holds it.
+name: deploy-prod
+
+on:
+  workflow_call:
+    inputs:
+      stack:
+        description: Stack name, e.g. claims-data. Also the deploy-approvals/<stack>/ directory.
+        type: string
+        required: true
+      tool:
+        description: "pulumi or serverless"
+        type: string
+        required: true
+      workdir:
+        description: Directory of the stack in the monorepo
+        type: string
+        required: true
+
+permissions: {}
+
+jobs:
+  deploy:
+    name: deploy ${{ inputs.stack }} to production
+    runs-on: ubuntu-24.04
+    environment: production
+    permissions:
+      contents: read   # check out the merged commit
+      id-token: write  # OIDC to the prod deploy role; no stored AWS keys
+    concurrency:
+      group: deploy-prod-${{ inputs.stack }}
+      cancel-in-progress: false
+    env:
+      STACK: ${{ inputs.stack }}
+      TOOL: ${{ inputs.tool }}
+      WORKDIR: ${{ inputs.workdir }}
+    steps:
+      - name: Check out the merged commit, with history for the risk-stop approval checks
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+
+      - name: Refuse to deploy anything but the current tip of main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          # git/ref/heads/main names the branch explicitly; a tag called `main` cannot match.
+          tip=$(gh api "repos/$REPO/git/ref/heads/main" --jq .object.sha)
+          if [ "$tip" != "$GITHUB_SHA" ]; then
+            echo "This run is for $GITHUB_SHA but main is at $tip (re-run, or a newer merge)."
+            echo "Nothing is deployed; the run for the newer commit deploys both."
+            echo "If no newer run exists (e.g. its message had [skip ci]), merge an empty change."
+            exit 1
+          fi
+
+      # Everything that downloads code is installed here, before any prod credential exists in
+      # the job, so install scripts and downloads never see the deploy role.
+      - name: Install dependencies before any prod credential exists in the job
+        working-directory: ${{ inputs.workdir }}
+        run: npm ci
+
+      - name: Install the Pulumi CLI only
+        if: inputs.tool == 'pulumi'
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          pulumi-version: ${{ vars.PULUMI_CLI_VERSION }}
+
+      - name: Install Pulumi plugins and the policy pack before credentials
+        if: inputs.tool == 'pulumi'
+        working-directory: ${{ inputs.workdir }}
+        run: |
+          pulumi install
+          cd "$GITHUB_WORKSPACE/policy-packs/aws"
+          npm ci
+          pulumi install
+
+      # ⚠️ From memory, not verified: Serverless v4's npm package downloads the framework on
+      # first run. Running it once here keeps that download before the credentials. Whether
+      # `--version` works before authentication (R4.4.8) is also unverified.
+      - name: Install the Serverless Framework before credentials
+        if: inputs.tool == 'serverless'
+        working-directory: ${{ inputs.workdir }}
+        run: npx serverless --version
+
+      - name: AWS credentials through GitHub OIDC (no stored keys)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.PROD_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          # The run ID in the session name links CloudTrail events to this run (layer 7 change record).
+          role-session-name: deploy-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Preview prod (Pulumi)
+        if: inputs.tool == 'pulumi'
+        working-directory: ${{ inputs.workdir }}
+        env:
+          PULUMI_BACKEND_URL: ${{ vars.PULUMI_BACKEND_URL }}
+        run: pulumi preview --stack "$STACK" --json > "$RUNNER_TEMP/preview.json"
+
+      # Serverless Framework v4 (sf-core >= 4.37.0 for `diff`)
+      - name: Package once and diff against prod (Serverless)
+        if: inputs.tool == 'serverless'
+        working-directory: ${{ inputs.workdir }}
+        run: |
+          npx serverless package --stage prod --package "$RUNNER_TEMP/sls-package"
+          npx serverless diff --stage prod --package "$RUNNER_TEMP/sls-package" --json > "$RUNNER_TEMP/preview.json"
+
+      # Risk stop (layer 3). Exit 0: no risky change, or a valid approval matches this preview.
+      # Exit 3: risky change without a valid approval. Exit 2: unreadable preview. Any non-zero
+      # exit fails the job here, before any Apply step. The summary goes to the job summary and
+      # lists resource type, name, operation and changed property names, never values.
+      - name: Risk stop
+        run: >-
+          python3 tools/risk-stop/classify.py
+          --tool "$TOOL" --preview "$RUNNER_TEMP/preview.json"
+          --approvals "deploy-approvals/$STACK" --repo "$GITHUB_WORKSPACE" --workdir "$WORKDIR"
+          --summary "$RUNNER_TEMP/risk-summary.md"
+
+      - name: Keep the filtered preview summary as evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: risk-summary-${{ inputs.stack }}
+          path: ${{ runner.temp }}/risk-summary.md
+          if-no-files-found: ignore
+
+      # --yes is needed in CI (no terminal). Pulumi previews again before applying; a mandatory
+      # policy violation stops the update (R4.2.2). This is the phase-2 shape: until the policy
+      # pack exists (phase 2, layer 5), drop --policy-pack here and its install step above.
+      - name: Apply (Pulumi)
+        if: inputs.tool == 'pulumi'
+        working-directory: ${{ inputs.workdir }}
+        env:
+          PULUMI_BACKEND_URL: ${{ vars.PULUMI_BACKEND_URL }}
+        run: pulumi up --stack "$STACK" --yes --policy-pack "$GITHUB_WORKSPACE/policy-packs/aws"
+
+      - name: Apply (Serverless), deploying the package that was diffed
+        if: inputs.tool == 'serverless'
+        working-directory: ${{ inputs.workdir }}
+        run: npx serverless deploy --stage prod --package "$RUNNER_TEMP/sls-package"

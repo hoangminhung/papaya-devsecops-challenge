@@ -1,0 +1,9 @@
+{
+  "changes": [
+    {"type": "AWS::Lambda::Function", "name": "ClaimsIngestLambdaFunction", "op": "update", "detail_digest": "a1"},
+    {"type": "AWS::Lambda::Version", "name": "ClaimsIngestLambdaVersionOld", "op": "delete", "detail_digest": "a2"},
+    {"type": "AWS::Lambda::Version", "name": "ClaimsIngestLambdaVersionNew", "op": "create", "detail_digest": "a3"},
+    {"type": "AWS::SQS::Queue", "name": "ClaimsIngestQueue", "op": "update", "detail_digest": "a4"},
+    {"type": "aws:ecs/service:Service", "name": "claims-api", "op": "same"}
+  ]
+}

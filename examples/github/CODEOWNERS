@@ -1,0 +1,64 @@
+# Example CODEOWNERS for the monorepo (framework layers 3 and 5; ADR-0003, ADR-0010).
+# Lives at .github/CODEOWNERS on the base branch. Team names and the directory layout are
+# illustrative placeholders: Papaya's real layout is not known.
+#
+# Teams (all need explicit write access, or GitHub silently assigns no owner):
+#   @example-org/l3-owners         L3 owner team: process-defining paths and the SCP stack (OD13)
+#   @example-org/oncall-approvers  on-call approver group: co-owns every deployable path (OD9)
+#   @example-org/team-claims, @example-org/team-underwriting, @example-org/team-web
+#                                  domain teams
+#
+# ORDER MATTERS: the last matching pattern wins (GitHub docs, about-code-owners).
+# So the section "3. Process-defining L3 paths" must stay LAST, or a broader domain line
+# below it would take ownership away from the L3 owner team.
+# Never write a pattern without owners: it removes ownership, and then any writer can approve.
+
+# ---------------------------------------------------------------------------
+# 0. Fail-safe defaults [design]: no file is ever unowned. Anything not matched below (root
+#    package.json and lockfiles, a new stack, a new service) needs the L3 owner team or the
+#    on-call group until a domain line is added. New deploy-approvals/<stack>/ folders default
+#    to the same owners.
+# ---------------------------------------------------------------------------
+*                                 @example-org/l3-owners @example-org/oncall-approvers
+/deploy-approvals/                @example-org/l3-owners @example-org/oncall-approvers
+
+# ---------------------------------------------------------------------------
+# 1. Deployable paths: domain team + on-call approver group (L2, and L3 content in domain files)
+# ---------------------------------------------------------------------------
+/services/claims/                 @example-org/team-claims @example-org/oncall-approvers
+/services/underwriting/           @example-org/team-underwriting @example-org/oncall-approvers
+/web/                             @example-org/team-web @example-org/oncall-approvers
+/infra/pulumi/claims-data/        @example-org/team-claims @example-org/oncall-approvers
+/infra/pulumi/underwriting-data/  @example-org/team-underwriting @example-org/oncall-approvers
+/k8s/claims/                      @example-org/team-claims @example-org/oncall-approvers
+
+# IAM-only stacks are deployable L3: L3 owner team + on-call group (layer 3 table).
+/infra/pulumi/iam/                @example-org/l3-owners @example-org/oncall-approvers
+
+# ---------------------------------------------------------------------------
+# 2. Risk-stop approvals: owners of that stack + on-call group (OD8, OD9). Not an L3 path.
+# ---------------------------------------------------------------------------
+/deploy-approvals/claims-data/        @example-org/team-claims @example-org/oncall-approvers
+/deploy-approvals/claims-api/         @example-org/team-claims @example-org/oncall-approvers
+/deploy-approvals/underwriting-data/  @example-org/team-underwriting @example-org/oncall-approvers
+/deploy-approvals/iam/                @example-org/l3-owners @example-org/oncall-approvers
+
+# ---------------------------------------------------------------------------
+# 3. Process-defining L3 paths: L3 owner team ONLY, never the on-call group (OD13).
+#    Canonical list: framework layer 5, "CODEOWNERS" bullet. Keep this section last.
+# ---------------------------------------------------------------------------
+/.github/                         @example-org/l3-owners
+CLAUDE.md                         @example-org/l3-owners
+CLAUDE.local.md                   @example-org/l3-owners
+.claude/                          @example-org/l3-owners
+.claude.json                      @example-org/l3-owners
+.mcp.json                         @example-org/l3-owners
+/.husky/                          @example-org/l3-owners
+/.gitmodules                      @example-org/l3-owners
+.ripgreprc                        @example-org/l3-owners
+/.devcontainer/                   @example-org/l3-owners
+.npmrc                            @example-org/l3-owners
+/policy-packs/                    @example-org/l3-owners
+/tools/risk-stop/                 @example-org/l3-owners   # OD14: the risk stop is a control
+/infra/pulumi/org-scp/            @example-org/l3-owners
+/agent-config/                    @example-org/l3-owners

@@ -1,0 +1,5 @@
+{
+  "changes": [
+    {"type": "aws:rds/cluster:Cluster", "name": "claims-db", "op": "replace", "detail_digest": "c1"}
+  ]
+}

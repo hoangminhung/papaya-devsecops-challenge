@@ -777,3 +777,8 @@ answers are recorded in `work/session-log.md`.
 | OD11 | Risk stop when the first approver is unavailable: may another owner of the stack approve? | Yes; it makes three people and is recorded as a deviation. |
 | OD12 | `sandbox.autoAllowBashIfSandboxed`: `true` or `false`? | Keep `true` (fewer prompts, relies on the sandbox, which arrives in phase 2). |
 | OD13 | Confirm three agent readings: (1) OD8, who opens and approves the risk-stop approval PR; (2) OD9, scope of the on-call group; (3) L3-JIT, does the on-call approver count as service owner? | Confirmed: (1) the original author opens it and the first approver approves it; (2) the on-call group does not co-own process-defining paths or the SCP stack, which only the L3 owner team approves; (3) yes. |
+| OD14 | Add the risk-stop classifier (`tools/risk-stop/`) to the canonical L3 path list? (found while writing `examples/`) | Yes: it is a control, so only the L3 owner team may change it. |
+| OD15 | Scope of the risk stop: risky diffs nobody looked at, or also malicious approved code? | Keep the current scope and state its limits; a separate prod preview role and a job split go to the phase-2 roadmap. |
+| OD16 | Squash-only merges to `main` (needed so a PR cannot carry its own risk-stop approval)? | Yes; the cost is that PR-internal commit history is not kept on `main`. |
+| OD17 | Deploy only the current tip of `main`, so re-running an old run cannot roll prod back? | Yes; added to the layer-3 "merge approval = deploy approval" conditions. |
+| OD18 | An approval merged before a deploy stops, matched by a later change outside the stack's directory, is still accepted | Accepted as a stated limit; the approval-gate app (G19) is to close it by checking the stopped run's hash. |

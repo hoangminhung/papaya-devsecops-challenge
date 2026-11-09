@@ -6,7 +6,7 @@
 ## How to read this
 
 One row per problem from the framing. **Controls** name the framework layer (L1–L8; "risk-level L3" means the change level of layer 3), ADR or threat
-(T*n*, [`threat-model.md`](threat-model.md)) that answers it. **Evidence** is what shows the control
+(T*n*, [`05-threat-model.md`](05-threat-model.md)) that answers it. **Evidence** is what shows the control
 works. Codes: S*n* success criteria and GĐ-*n* assumptions of the framing, G*n* framework gaps,
 OD*n* owner decisions, D1–D3 owner decisions in research 6.6, "Options §n" sections of
 `work/03-options.md`. **Coverage**:

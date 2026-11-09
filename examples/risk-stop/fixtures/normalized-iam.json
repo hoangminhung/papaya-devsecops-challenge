@@ -1,0 +1,6 @@
+{
+  "changes": [
+    {"type": "aws:lambda/function:Function", "name": "claims-ingest", "op": "update", "detail_digest": "b1"},
+    {"type": "aws:iam/rolePolicy:RolePolicy", "name": "claims-ingest-s3", "op": "update", "detail_digest": "policy-version-A"}
+  ]
+}

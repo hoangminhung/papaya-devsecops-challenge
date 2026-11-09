@@ -1,0 +1,12 @@
+# Risk-stop approval (framework layer 3, ADR-0004). File name = the stopped commit.
+# Opened as a PR by the original author; approved by an owner of the stack (CODEOWNERS on
+# deploy-approvals/claims-data/), usually the first PR's approver, who now sees the prod diff.
+# The approver's identity is the PR review in GitHub, not anything written in this file.
+# classify.py accepts it only if: stopped_commit is a strict ancestor of HEAD; this file was
+# added after it, by a commit that changes nothing outside deploy-approvals/claims-data/; and
+# that commit is at most 7 days older than HEAD. The values below are placeholders.
+stack: claims-data
+stopped_commit: 0123456789abcdef0123456789abcdef01234567
+preview_hash: sha256:e5cdf5d173547bfad5231f543847fd1dd91aab96846aa3e8d761bf871a3decd8
+original_pr: 1234
+reason: "claims-ingest needs s3:GetObject on the new documents prefix"

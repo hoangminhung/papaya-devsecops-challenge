@@ -1,0 +1,7 @@
+{
+  "_comment": "Hand-written in the ASSUMED shape of `serverless diff --json` (adapters.py). Not real output.",
+  "resources": [
+    {"logicalId": "ClaimsIngestLambdaFunction", "type": "AWS::Lambda::Function", "action": "modify", "replacement": false, "properties": {"Timeout": 90}},
+    {"logicalId": "IamRoleLambdaExecution", "type": "AWS::IAM::Role", "action": "modify", "replacement": false, "properties": {"Policies": "..."}}
+  ]
+}

@@ -1,0 +1,32 @@
+# Caller: every push to main (= every merged, approved PR) deploys through the reusable
+# deploy-prod.yml. Framework layer 3: the merge to main is the approval gate (ADR-0003).
+# No workflow_dispatch: a manual run could pick another ref; `production` only allows `main`
+# anyway (environment-production/), but the fewer triggers the smaller the attack surface.
+name: deploy-on-main
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  claims-data:
+    uses: $/.github/workflows/deploy-prod.yml
+    permissions:
+      contents: read   # passed to deploy-prod.yml: check out
+      id-token: write  # passed to deploy-prod.yml: OIDC to the prod deploy role
+    with:
+      stack: claims-data
+      tool: pulumi
+      workdir: infra/pulumi/claims-data
+
+  claims-api:
+    uses: $/.github/workflows/deploy-prod.yml
+    permissions:
+      contents: read   # passed to deploy-prod.yml: check out
+      id-token: write  # passed to deploy-prod.yml: OIDC to the prod deploy role
+    with:
+      stack: claims-api
+      tool: serverless
+      workdir: services/claims

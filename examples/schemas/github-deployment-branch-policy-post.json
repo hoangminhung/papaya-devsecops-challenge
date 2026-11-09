@@ -1,0 +1,23 @@
+{
+ "$comment": "Extracted from github/rest-api-description@2f8f80e47ea4d3292cf4e37ba9d9b25475e06140 (OpenAPI 3.0.3, API 1.1.4), POST /repos/{owner}/{repo}/environments/{environment_name}/deployment-branch-policies, by examples/tools/extract_github_schemas.py",
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "properties": {
+  "name": {
+   "description": "The name pattern that branches or tags must match in order to deploy to the environment.\n\nWildcard characters will not match `/`. For example, to match branches that begin with `release/` and contain an additional single slash, use `release/*/*`.\nFor more information about pattern matching syntax, see the [Ruby File.fnmatch documentation](https://ruby-doc.org/core-2.5.1/File.html#method-c-fnmatch).",
+   "type": "string"
+  },
+  "type": {
+   "description": "Whether this rule targets a branch or tag",
+   "enum": [
+    "branch",
+    "tag"
+   ],
+   "type": "string"
+  }
+ },
+ "required": [
+  "name"
+ ],
+ "title": "Deployment branch and tag policy name pattern",
+ "type": "object"
+}

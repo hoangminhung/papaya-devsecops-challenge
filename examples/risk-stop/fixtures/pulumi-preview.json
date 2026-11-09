@@ -1,0 +1,17 @@
+{
+  "_comment": "Hand-written in the ASSUMED shape of `pulumi preview --json` (adapters.py). Not real output.",
+  "steps": [
+    {
+      "op": "update",
+      "urn": "urn:pulumi:prod::claims::aws:lambda/function:Function::claims-ingest",
+      "oldState": {"type": "aws:lambda/function:Function", "inputs": {"timeout": 30, "memorySize": 1024}},
+      "newState": {"type": "aws:lambda/function:Function", "inputs": {"timeout": 90, "memorySize": 2048}}
+    },
+    {
+      "op": "create-replacement",
+      "urn": "urn:pulumi:prod::claims::aws:s3/bucketV2:BucketV2::claim-documents",
+      "oldState": {"type": "aws:s3/bucketV2:BucketV2", "inputs": {"bucket": "old-name"}},
+      "newState": {"type": "aws:s3/bucketV2:BucketV2", "inputs": {"bucket": "new-name", "tags": {"note": "PLACEHOLDER-SECRET-LIKE-VALUE"}}}
+    }
+  ]
+}

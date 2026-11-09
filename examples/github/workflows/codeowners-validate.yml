@@ -1,0 +1,37 @@
+# Required check `codeowners-validate` (ruleset-main.json; framework layer 5).
+# GitHub silently skips invalid CODEOWNERS lines and owners that do not exist or lack write
+# access, so a typo can remove an approval requirement without anyone noticing. This job fails
+# the PR when GitHub reports any CODEOWNERS error for the PR's head commit.
+# Note: GitHub applies the CODEOWNERS file of the BASE branch to a PR; this check stops a broken
+# file from reaching main in the first place.
+name: codeowners-validate
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  codeowners-validate:
+    name: codeowners-validate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read  # read CODEOWNERS errors for this repository
+    concurrency:
+      group: codeowners-validate-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Ask GitHub for CODEOWNERS errors
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          errors=$(gh api "repos/$REPO/codeowners/errors?ref=$HEAD_SHA" --jq '.errors | length')
+          if [ "$errors" != "0" ]; then
+            gh api "repos/$REPO/codeowners/errors?ref=$HEAD_SHA" \
+              --jq '.errors[] | "line \(.line): \(.kind) \(.message)"'
+            exit 1
+          fi
+          echo "CODEOWNERS: no errors"

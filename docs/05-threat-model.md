@@ -1,6 +1,6 @@
 # Threat model: coding agents in Papaya's DevSecOps workflow
 
-> Status: draft for owner review · Updated: 2026-11-09 · Builds on [`framework.md`](framework.md) and
+> Status: draft for owner review · Updated: 2026-11-09 · Builds on [`01-framework.md`](01-framework.md) and
 > [`adr/`](adr/README.md)
 
 ## How to read this
