@@ -1,0 +1,329 @@
+1. **The boundary is IAM and the CI gate.** Server-managed settings are "a client-side control, not
+   a security boundary" (📖 R1.1.7); local admins can edit endpoint files (📖 R1.1.8).
+2. **Assume prompt injection succeeds:** neither OWASP nor NIST knows a full prevention (📖 R6.1.1, R6.1.2).
+3. **Friction where damage is large, none where it is small**, measured, with a time-boxed escape.
+4. **Evidence by construction:** the path produces the records.
+
+### Roles
+
+| Role | Rule |
+|---|---|
+| Author (engineer + their agent) | Never approves own change; GitHub blocks PR authors from approving (📖 R3.3.1). |
+| Approver | Always an engineer, never an agent (owner rule, OD5). Named in CODEOWNERS; ≠ author, ≠ last pusher (📖 R3.2.3); for an app-opened PR, ≠ the person who triggered it (⚠️ R3.3.4, layer 5). |
+| Incident responder | Engineer who diagnoses and writes the fix or the JIT request. Never the on-call approver of the same shift (OD7). |
+| On-call approver | Engineer on the on-call schedule, primary + backup, 24/7; wait ≤ 15 min (S7). While on call they only approve: they write no fix and file no JIT request, so the approver is always distinct from the author (OD7). The primary approves; the backup replaces an unavailable primary (OD2). No platform-team membership is required; all engineers follow one agreed approval procedure (OD2). |
+| Data owner [design] | Named per tenant; co-approves real-data reads, or reviews a night-time read the next working day (layer 6). |
+| Control owner | DevSecOps (1–2 people, GĐ-1); owns policies and metrics; not the only approver. |
+| L3 owner team | Owns the process-defining L3 paths and the SCP stack (layer 3); composition open (G17). |
+
+---
+
+## Layer 1 — Identity and access
+diff --git a/docs/01-framework.md b/docs/01-framework.md
+index 6339fca..f1220a5 100644
+--- a/docs/01-framework.md
++++ b/docs/01-framework.md
+@@ -16,8 +16,11 @@ auditor can test without asking anyone). Copy-paste detail belongs in `examples/
+ | ⚠️ R*x.y* | Inference, open question or "What this means for Papaya" conclusion in the research (sections 1.8, 2.9, 3.6, 3.7, 4.6, 5.6, 5.7, 6.5), or the ⚠️ part of a mixed row. Reasoned, not documented. |
+ | ⚠️ | Not verified at all, e.g. an illustrative command. |
+ | [design] | My proposal, built from documented parts, untested. Treat as ⚠️. |
++| 📖 + inline link | Official page linked in place: facts found while writing `examples/` (2026-11-09), after the research file. |
+ 
+-Nothing here was checked locally (✅): this is a design without access to Papaya's systems.
++This is a design without access to Papaya's systems; nothing was run against them. The files in
++[`examples/`](../examples/README.md) were checked locally (✅, commands and output there), and
++"examples finding n" / "E*n*" point to that file.
+ **GĐ-n** = assumption in `work/01-problem-framing.md` §4 (owner-confirmed: GĐ-1, 2, 5, 6, 8, 9, 11,
+ 14; the others are marked "unconfirmed" where used); **S-n** = success criteria
+ (§5); **P/A-n** = problems (§1); **D1–D3** = owner decisions in research 6.6; **Options §n** =
+@@ -131,7 +134,8 @@ to metadata. No long-lived credentials. Prod and non-prod are separate boundarie
+     documented meaning, R3.5.6).
+ - **IAM Identity Center permission sets** (📖 R2.1.1) [design names]:
+   - `ProdReadMetadata`: metrics, redacted log groups, configuration; no data-plane read on claim
+-    stores; 1 h session, the minimum (📖 R2.1.4). Until a service's logs are redacted at source
++    stores; 1 h session, the minimum (📖 R2.1.4). Some "metadata" reads (mostly ⚠️) return configuration or
++    secrets, so `Resource: "*"` only for a reviewed action list (examples E6, findings 11, 12). Until a service's logs are redacted at source
+     (layer 6), it gets that service's metrics only. Lambda configuration can hold secrets resolved by
+     Serverless in plain text (⚠️ R4.4.7), so configuration reads are allowed per service only after
+     its secrets move to runtime resolution (⚠️ R4.6 #7). Cost: until then the agent reads
+@@ -147,9 +151,15 @@ to metadata. No long-lived credentials. Prod and non-prod are separate boundarie
+     `sqs:ReceiveMessage`, `states:GetExecutionHistory`, are incomplete and unchecked (⚠️ G13);
+   - deny `lambda:UpdateFunctionCode` / `lambda:UpdateFunctionConfiguration` (⚠️ R4.6 #3) except
+     CloudFormation `deploymentRole`s, the Pulumi prod deploy role (if Pulumi manages Lambdas) and the
+-    JIT roles. This closes `serverless deploy function`, which changes config outside CloudFormation
++    JIT roles. The Serverless prod deploy role is a separate role and is not exempt: it only passes
++    the `deploymentRole` (examples finding 13). This closes `serverless deploy function`, which changes config outside CloudFormation
+     (📖 R4.4.4), and needs `deploymentRole` set on every Serverless stack (key 📖 R4.4.5; need ⚠️ R4.6 #3);
+-  - a pre-deployed revocation Deny on `identitystore:UserId` (📖 R2.4.4); protect the org trail (📖 R2.6.2).
++  - a pre-deployed revocation Deny on `identitystore:UserId` (📖 R2.4.4); deny changes to any trail
++    in prod accounts, since member accounts cannot touch the organization trail anyway (📖 R2.6.2;
++    examples findings 10, 15);
++  - exempt role names are protected: only the IAM stack's deploy role may change such roles (OD19).
++    Until OD20 gives the IAM stack its own role, that is the shared Pulumi prod deploy role, so in
++    practice "only an approved prod Pulumi deploy" (examples finding 16).
+   - Limits: 10 SCPs per target, 10,240 characters; no SCP applies to the management account
+     (📖 R2.3.2, R2.3.4), so whatever deploys SCPs there is the most sensitive role (L3 path, held by the L3 owner team only, not co-owned by the on-call group; OD13).
+ - **Sessions/MFA:** portal session length set on purpose; an IdP session can extend it silently
+@@ -164,10 +174,7 @@ to metadata. No long-lived credentials. Prod and non-prod are separate boundarie
+   owner role on laptops; prod deploys only from CI. Firebase is not on the GCP BAA list (📖 R5.5.3), so
+   Firebase Hosting must hold no PHI (⚠️ R5.7 #7).
+ 
+-**Audit evidence.** Identity Center assignment export (S1); CloudTrail `CreateAccountAssignment` /
+-`DeleteAccountAssignment` per grant (📖 R2.4.2), linked to its approval by request ID [design]; SCPs
+-and trust policies as Pulumi code; IAM Access Analyzer `check-no-new-access` on policy PRs
+-(📖 R2.8.1; from phase 2); quarterly access review of permission sets and GitHub admins.
++**Audit evidence.** Identity Center assignment export (S1), CloudTrail grant events per JIT request, SCP and trust-policy code, Access Analyzer results from phase 2, and a quarterly access review; full register: [04-compliance-mapping.md](04-compliance-mapping.md#register).
+ 
+ **Cost / value.** Engineers lose standing prod write and keep a free non-prod loop. Prod reads stay
+ fast for metrics and metadata, but shrink during the transition: because the engineer's access is the
+@@ -191,27 +198,29 @@ untrusted content holds as little power as possible (📖 R6.1.2).
+ - **Delivery:** server-managed settings (available on Team, 📖 R1.1.5) for all laptops. With MDM, also
+   an endpoint file; by default one managed source supplies most keys, so the two must carry the same
+   keys or use `managedSourcesBehavior: "merge"` (📖 R1.1.3, R1.1.4). MDM is unknown; both are prepared.
+-- **Baseline** (template: Anthropic's `settings-hipaa.json`, 📖 R5.5.4). All keys 📖 at the row cited. Only the phase-1 subset in layer 8 ships first; the other keys (sandbox, `allowManagedHooksOnly`, credential denies, `allowManagedPermissionRulesOnly`, `allowedProviders`, `forceLoginOrgUUID`, the `ask` rule for WebFetch, and the other deny rules) arrive in phase 2 (OD4):
++- **Baseline** (template: Anthropic's `settings-hipaa.json`, 📖 R5.5.4). All keys 📖 at the row cited. Only the phase-1 subset ([rollout plan](03-rollout-plan.md) item 1.18) ships first; the other keys (sandbox, `allowManagedHooksOnly`, most credential denies, `allowManagedPermissionRulesOnly`, `allowedProviders`, `forceLoginOrgUUID`, the `ask` rule for WebFetch, and the other deny rules) arrive in phase 2 (OD4):
+ 
+   | Key | Value and reason |
+   |---|---|
+   | `permissions.defaultMode` | `default` (Manual). A default, not a lock: users can switch to auto; VS Code remembers the last pick (D1, R6.9.3). |
+-  | `permissions.allow` | Read-only commands Papaya uses, to cut prompts (R6.9.3). It contains no command listed in `sandbox.excludedCommands` (`aws`, `pulumi`, `serverless`): an allowed excluded command would run outside the sandbox, with `~/.aws` and the network, without a prompt (⚠️ inference from R1.2.6, R1.6.4) [design]. Cost: a prompt for every `aws` read. |
++  | `permissions.allow` | Two exact repo scripts (`npm test`, `npm run lint`) [design]. Read-only commands need no rule: a built-in set runs without a prompt in every mode (R6.9.3); wildcard rules such as `Bash(git log *)` can write files (examples finding 19). Phase 1 also denies `Read(~/.aws/**)` and sets `autoMode.classifyAllShell` (OD21). |
+   | `allowManagedPermissionRulesOnly` | `true`, one rule set (D1, research 6.9.4 Q4; R1.2.5). Cost: project and user rules are ignored, so the managed set must carry every deny/ask rule projects need; prompts likely rise (⚠️ research 6.9.4 Q4). |
+   | `permissions.disableBypassPermissionsMode` | `"disable"`: removes bypass mode (P3a; R1.2.2). Auto mode, where a classifier approves instead of a person, stays available (D1) and is measured through `permission_mode`. |
+-  | `permissions.deny` / `ask` | Deny credential paths (R5.5.4; `Read(...)` syntax ⚠️ R1.8 #5). Ask for `WebFetch`, which the sandbox domain list does not limit (R1.6.2); cost: a prompt per fetch. The HIPAA template denies WebFetch (R5.5.4); "ask" is a deliberate deviation so that documentation lookups still work. |
+-  | `requiredMinimumVersion` | ≥ 2.1.285 for `allowedProviders` (R1.1.15), which also covers `--restricted` (2.1.248, R6.9.1b) and the plugin-pin fix (2.1.179, R6.2.7); ≥ 2.1.295 if any managed hook uses `onFailure: "block"` (R1.5.2); and ≥ the latest fixed advisory at rollout (R6.3.9). It does not end running sessions and fails open on a bad value (R1.1.13). |
++  | `permissions.deny` / `ask` | Deny credential paths (R5.5.4; `Read(...)` syntax ⚠️ R1.8 #5). Ask for `WebFetch`, which the sandbox domain list does not limit (R1.6.2); cost: a prompt per fetch. The HIPAA template denies WebFetch (R5.5.4); "ask" is a deliberate deviation so that documentation lookups still work. Ask for `Bash(aws *)`, `Bash(pulumi *)`, `Bash(serverless *)`, which prompts even in auto mode (📖 [auto mode config](https://code.claude.com/docs/en/auto-mode-config.md); examples finding 22). Credential denies extend to the known credential stores of Papaya's stack; some paths are ⚠️ and some stores are not covered (examples E8, with every deviation from the template). |
++  | `requiredMinimumVersion` | ≥ 2.1.310 in phase 2: 2.1.285 for `allowedProviders` (R1.1.15), 2.1.310 so `allowManagedHooksOnly` also blocks monitors of plugins that are not force-enabled (📖 [settings reference](https://code.claude.com/docs/en/settings-reference.md#allowmanagedhooksonly)); which also covers `--restricted` (2.1.248, R6.9.1b) and the plugin-pin fix (2.1.179, R6.2.7); ≥ 2.1.295 if any managed hook uses `onFailure: "block"` (R1.5.2); and ≥ the latest fixed advisory at rollout (R6.3.9). It does not end running sessions and fails open on a bad value (R1.1.13). |
+   | `allowedProviders` + `forceLoginOrgUUID` | `["anthropic"]` + Papaya's org; closes most bypasses on **endpoint-managed** machines (R1.1.15). `forceLoginOrgUUID` checks claude.ai sign-ins only, not Claude Console sign-ins (R5.5.5); with it set, sessions on `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` or `apiKeyHelper` are refused (R1.11.3.11). |
+   | `allowManagedHooksOnly` | `true` (R1.5.4). |
+-  | sandbox | `sandbox.enabled`, `failIfUnavailable`, `allowUnsandboxedCommands: false`, narrow `network.allowedDomains` locked by `network.allowManagedDomainsOnly`; `credentials` / `filesystem.denyRead` on `~/.aws`, which the sandbox can otherwise read (R1.6.3, R1.6.4). |
+-  | `sandbox.autoAllowBashIfSandboxed` | Left at its default `true` (owner decision OD12). This widens D1's "Manual + read-only allowlist": every sandboxed command, writes in the working directory and calls to allowed domains included, runs without a prompt. Detail: sandboxed Bash runs without a prompt, so in Manual mode prompts are for edits, unsandboxed commands and fetches, not every command (R5.5.5b). A deliberate choice: the sandbox (no `~/.aws`, allowlisted network) is the control for those commands. The HIPAA README says to set `false` if policy needs a person to approve each command (R5.5.5b); cost of `false`: a prompt per command. |
++  | `autoMode` | `classifyAllShell: true` and the template's `"$defaults"` pins, which keep the built-in rules; not a boundary (examples finding 25). |
++  | sandbox | `sandbox.enabled`, `failIfUnavailable`, `allowUnsandboxedCommands: false`, narrow `network.allowedDomains` locked by `network.allowManagedDomainsOnly`; `credentials` / `filesystem.denyRead` on `~/.aws` and the other credential stores, which the sandbox can otherwise read (R1.6.3, R1.6.4). Reads are a denylist and allowed domains are exfiltration paths; `git push`, `gh`, Docker and private-registry `npm ci` fail inside the sandbox (limits and costs: examples E8). |
++  | `sandbox.autoAllowBashIfSandboxed` | Left at its default `true` (owner decision OD12). This widens D1's "Manual + allowlist": every sandboxed command, writes in the working directory and calls to allowed domains included, runs without a prompt. Detail: sandboxed Bash runs without a prompt, so in Manual mode prompts are for edits, unsandboxed commands and fetches, not every command (R5.5.5b). A deliberate choice: the sandbox (no `~/.aws`, allowlisted network) is the control for those commands. The HIPAA README says to set `false` if policy needs a person to approve each command (R5.5.5b); cost of `false`: a prompt per command. |
+   | MCP, plugins | Layer 4. |
+   | OTel | Exporter on, content flags `0` (R1.1.20, R5.5.4). |
+ 
+-- **Trade-off on AWS credentials [design].** With `~/.aws` hidden from the sandbox, the plan is to
+-  list `aws`, `pulumi` and `serverless` in `sandbox.excludedCommands`. Excluded commands run "with
+-  full access" (📖 R1.6.4), which likely includes the network (⚠️ inference). How the list matches
+-  commands (prefix or text, and chained commands) is not researched (⚠️). This is worse than an
++- **Trade-off on AWS credentials [design].** With `~/.aws` hidden from the sandbox, phase 2 lists
++  `aws *`, `pulumi *` and `serverless *` in `sandbox.excludedCommands`. Excluded commands run "with
++  full access" (📖 R1.6.4), network included ("no filesystem restrictions and no network proxy", 📖 [sandboxing](https://code.claude.com/docs/en/sandboxing.md#run-commands-outside-the-sandbox-with-excludedcommands)). Matching follows `Bash(...)` rule
++  syntax on the command text (same page; details in examples finding 22); each excluded
++  call prompts through the `ask` rules above. This is worse than an
+   egress channel: `pulumi preview` runs the Pulumi program and `serverless` loads its config and
+   plugins, all code in the repo that the agent can edit, so excluding them lets repo code run
+   outside the sandbox with network access and with `~/.aws` readable (⚠️ inference). For these
+@@ -242,9 +251,11 @@ untrusted content holds as little power as possible (📖 R6.1.2).
+   | JIT terminal | JIT grant | no agent | Process rule (D2). |
+   | Auto-mode environment (phase 3) | non-prod only | auto encouraged | D1 option (c). |
+ 
+-- **Phase-1 interim posture:** the sandbox and credential denies arrive in phase 2 (OD4), so for
+-  the first 30–60 days `~/.aws` is readable and the network is open to every Bash command; in auto
+-  mode the classifier is the only gate. Impact is bounded once standing prod write is removed at the
++- **Phase-1 interim posture:** the sandbox and most credential denies arrive in phase 2 (OD4), so for
++  the first 30–60 days the network is open to every Bash command, and `~/.aws` is protected only by
++  the `Read(~/.aws/**)` deny rule (OD21), which does not cover a command that reads files without
++  naming them or a script that opens them itself (📖 [permissions](https://code.claude.com/docs/en/permissions.md)); in auto mode the classifier
++  is the only other gate. Impact is bounded once standing prod write is removed at the
+   end of phase 1 (layer 1); before that, today's exposure continues, and token theft is easier in this window.
+ - **Hard limits:** Bash rules are not a boundary (📖 R1.2.6); hooks fail open unless
+   `"onFailure": "block"` (📖 R1.5.2); `--restricted` cannot be forced by a setting (📖 R6.9.1), and a `PATH` wrapper on laptops can be bypassed (⚠️ R6.9.1c);
+@@ -256,17 +267,10 @@ untrusted content holds as little power as possible (📖 R6.1.2).
+ - **Fallback:** switch to `disableAutoMode` (📖 R1.2.2) if the planted-injection test steers auto mode, a serious
+   advisory appears, or an audit finds auto mode touched a protected scope (D1).
+ 
+-**Audit evidence.** Managed settings as an expected copy in git with PR approvals. The live copy is
+-edited in the Claude admin console by Owners / Primary Owners (📖 R1.1.5), not by PR, and Team audit
+-events for settings changes are unconfirmed (⚠️ R1.1.12). `/status` shows which managed source
+-applies (📖 R1.1.18), and likely not the key values (⚠️), so it cannot detect a console edit; until a way to read the
+-live values is found (G18), an Owner exports the console settings monthly and diffs them with git
+-[design], and the list of Claude org Owners is kept short and reviewed quarterly; `/status` and `claude doctor` from
+-sampled machines (📖 R1.1.18); OTel `claude_code.tool_decision` (`permission_mode`) and
+-`claude_code.tool.blocked_on_user` (`duration_ms`, rubber-stamping signal) (fields 📖 research 6.6
+-D1 metrics; thresholds ⚠️).
+-
+-**Cost / value.** More prompts than auto mode, partly offset by the read-only allowlist. Compliance
++**Audit evidence.** Managed settings as an expected copy in git with PR approvals, a monthly diff with the console export (G18), sampled `/status`, and OTel permission-mode metrics; full register: [04-compliance-mapping.md](04-compliance-mapping.md#register).
++
++**Cost / value.** More prompts than auto mode, partly offset by the built-in read-only commands and
++the two allowed repo scripts. Compliance
+ gets one organization policy with evidence instead of personal choices (P3c).
+ 
+ ---
+@@ -346,9 +350,13 @@ the domain team that edits it most.
+   preview hash; the workflow does not open it, because the setting that lets Actions create and approve PRs stays
+   off (📖 R3.3.3; ⚠️ R3.6 #3). CODEOWNERS on `deploy-approvals/<stack>/` names the owners of that stack and the
+   on-call group (OD8, OD9). The approver is ≠ author and may be the first PR's approver, who now sees
+-  the prod diff. Merging it triggers the deploy on the new HEAD, which previews again and continues
++  which prod resources and properties change; values stay out of the summary to keep secrets out
++  of logs, and are reviewed in the code of the stopped PR. Merging it triggers the deploy on the new HEAD, which previews again and continues
+   only if the hash matches the approved one; if another PR merged in between, the hash differs and
+-  the deploy stops again (Options §1; hash stability ⚠️ Options §8). Cost: while a stack is
++  the deploy stops again (Options §1; hash stability ⚠️ Options §8). The approval is bound to git
++  history, not only to the hash (six conditions, 7-day expiry; examples E7, finding 2) [design].
++  Known gap (OD18): an early approval can match a later change outside the stack (G19 closes it: the app checks that the stopped run's summary carries the same hash).
++  The stop catches risky diffs nobody looked at, not approved malicious code (OD15, OD20). Cost: while a stack is
+   stopped, later merges to that stack stop too until a matching approval lands; in an incident, a
+   risky change already waiting on `main` blocks the fix for the same stack until it is approved or
+   reverted. A
+@@ -358,7 +366,9 @@ the domain team that edits it most.
+ - **Merge approval = deploy approval** only if (⚠️ R3.6 #1, from 📖 R3.1.3, R3.4.5c): `production`
+   allows only `main`; only the reusable deploy workflow (under CODEOWNERS) references it; no ref/SHA
+   inputs; no `issue_comment`, `pull_request_target` or `workflow_run` triggers; one concurrency group
+-  per stack without `cancel-in-progress` (📖 R4.1.4).
++  per stack without `cancel-in-progress` (📖 R4.1.4); squash-only merges, so each PR is one commit on
++  `main` (OD16); and the job deploys only the current tip of `main`, because a writer can re-run an
++  old run for 30 days and roll prod back without approval (OD17; 📖 GitHub docs, linked in examples finding 4).
+ - **Pulumi:** PRs preview non-prod only, because a prod preview runs PR code with state-write and
+   secret access (📖 R4.3.3, R4.3.4; ⚠️ R4.6 #2). On `main`: prod preview, then `pulumi up` with the
+   policy pack, which stops on a mandatory violation (📖 R4.2.2). Prod runs allow no `--skip-preview`
+@@ -394,8 +404,7 @@ unavailable).
+ 4. The deploy workflow packages, previews prod, finds no risky change, deploys with the OIDC role.
+ 5. Estimate 11–46 min (⚠️ Options §6) against ≤ 30 min: measured first in rollout.
+ 
+-**Audit evidence.** The PR (diff, approvers, checks); run log and preview artifact, exported because
+-retention is unverified (⚠️ G7); deploy-role CloudTrail events; all linked by commit SHA and run ID.
++**Audit evidence.** The PR (diff, approvers, checks), the deploy run log and risk-stop summary (exported, retention ⚠️ G7), the `deploy-approvals/` PR, and CloudTrail events linked by commit SHA and run ID; walk-through: [04-compliance-mapping.md](04-compliance-mapping.md#evidence-for-one-prod-change-s8).
+ 
+ **Cost / value.** One approver for every prod change, from the owners of the path; two approvals,
+ usually by the same approver, when the risk stop fires (OD13; OD11). Cross-team PRs: one approval (OD10). None in non-prod.
+@@ -431,9 +440,7 @@ Review takes ≤ 5 working days (S6), or people work around it.
+ - **Known gaps:** no per-group targeting in server-managed settings (📖 R1.1.6, R1.4.4); tool
+   description changes after approval are not covered (⚠️ research 6.6).
+ 
+-**Audit evidence.** Catalogue file in git (each entry = an approved PR); supplier register; OTel
+-`claude_code.plugin_installed` / `plugin_loaded` (📖 R1.4.6). MCP tool logging needs
+-`OTEL_LOG_TOOL_DETAILS=1` (📖 R1.3.8); it stays off until we know whether it logs tool inputs (⚠️).
++**Audit evidence.** Catalogue file in git with an approved PR and a review record per entry, the supplier register, and OTel plugin events; full register: [04-compliance-mapping.md](04-compliance-mapping.md#register).
+ 
+ **Cost / value.** Up to 5 days' wait for a new tool. Compliance gets an asset inventory and supplier
+ records.
+@@ -486,11 +493,14 @@ checks as human code (S10).
+   the deploy workflow lives in the same repo (📖 R3.5.5; conclusion [design]).
+ - **CODEOWNERS** on `.github/`, `CLAUDE.md`, `CLAUDE.local.md`, `.claude/`, `.claude.json`, `.mcp.json`,
+   `.husky/`, `.gitmodules`, `.ripgreprc`, `.devcontainer/` (📖 R3.2.8; list ⚠️ R6.5 #5, R6.3.11), plus
+-  `.npmrc` (registry redirection) [design], the policy packs, the SCP code and the
+-  catalogue file. This is the canonical L3 path list that layer 3 refers to. Not on it:
++  `.npmrc` (registry redirection) [design], the policy packs, the SCP code, the
++  catalogue file and the risk-stop classifier `tools/risk-stop/` (OD14: the deploy runs it from the
++  merged commit, so a domain-approved PR could otherwise switch it off). This is the canonical L3 path list that layer 3 refers to. Not on it:
+   `deploy-approvals/<stack>/`, owned by the stack's owners and the on-call group (OD8, OD9). The private plugin
+   marketplace is a separate repo and needs its own ruleset and CODEOWNERS [design]. CI validates the file, because
+-  invalid lines are skipped silently (📖 R3.2.7).
++  invalid lines are skipped silently (📖 R3.2.7). A fail-safe default line (`*` → L3 owner team and
++  on-call group) keeps new stacks and root files from being unowned, since an unowned file accepts
++  an approval from any writer (examples finding 7) [design].
+ - **No privileged triggers with untrusted code** (`pull_request_target`, `workflow_run` + checkout,
+   📖 R3.5.4).
+ - **Agent review:** an independent agent (not the one that made the change) may post an automated
+@@ -510,12 +520,12 @@ checks as human code (S10).
+   (📖 R4.2.2). For Serverless stacks, Access Analyzer would check the IAM policies in the
+   CloudFormation template that `serverless package` produces, against the deployed ones (⚠️ not
+   researched); policy packs do not apply to them. Until phase 2, the only compensation for OD8 is
+-  the risk stop, which fires on every IAM change in the prod preview.
++  the risk stop, which fires on every IAM change in the prod preview. A mandatory policy is only
++  advisory during a preview while a value is still unknown (✅ `@pulumi/policy` 1.21.0 source,
++  examples finding 23), so Access Analyzer is the preview-time IAM check; the policy-pack example
++  (E10) also lists the routes it does not cover.
+ 
+-**Audit evidence.** Workflows and lockfile in git; audit-log events such as
+-`org.update_actions_secret`, `repo.set_workflow_permission_can_approve_pr`, `repository_ruleset.update`
+-(📖 R3.3.3, R3.5.6). An audit event for environment-secret changes was not researched (⚠️); the
+-settings comparison in layer 7 covers the S2 exception meanwhile. Check results per PR; secrets inventory (S2).
++**Audit evidence.** Workflows and lockfile in git, the secrets inventory and exception register (S2), audit-log events for secrets and Actions settings, and check results per PR; full register: [04-compliance-mapping.md](04-compliance-mapping.md#register).
+ 
+ **Cost / value.** One-time migration to OIDC and pinned actions; slower action updates. Compliance
+ gets S2 and the same guardrails for agent and human code.
+@@ -577,9 +587,7 @@ from outside is untrusted. Non-prod is synthetic or masked (GĐ-14).
+   transfer (📖 R5.4.5); agent flows, including employee names in logs and transcripts, update the
+   transfer impact assessment (⚠️ R5.7 #4, needs Papaya legal).
+ 
+-**Audit evidence.** SCP/IAM text as the written access rule for sensitive data (📖 R5.4.3; ⚠️ R5.7 #5);
+-data-read requests and the data-read role's CloudTrail; planted-injection reports (layer 8); non-prod
+-scan results (S11).
++**Audit evidence.** SCP/IAM text as the written access rule for sensitive data, real-data requests with the data-read role's CloudTrail events, and non-prod scan results; full register: [04-compliance-mapping.md](04-compliance-mapping.md#register).
+ 
+ **Cost / value.** Debugging with redacted and synthetic data; a request for the rare real-data read.
+ Compliance gets "minimum necessary" (📖 R1.11.1.8) enforced by IAM for AWS stores (fully from phase 2;
+@@ -656,10 +664,7 @@ is approved before use, time-boxed and reconciled after.
+   conditions (Options §2; outside 02-research, G6); break-glass from an environment without the agent
+   (D2, ⚠️).
+ 
+-**Audit evidence.** Validated CloudTrail; exported GitHub audit log; change records and monthly
+-reconciliation (S3, S8 ≤ 30 min); JIT requests, reconciliations, codify PRs; drift tickets; on-call
+-schedule and approval waits (S7); monthly report of cross-domain approvals by on-call group members
+-on PRs without the `incident` label (OD9).
++**Audit evidence.** Validated CloudTrail, the exported GitHub audit log, change records and monthly reconciliation (S3, S8), JIT records, drift tickets and incident approval waits (S7); full register: [04-compliance-mapping.md](04-compliance-mapping.md#register).
+ 
+ **Cost / value.** The incident lane is slower than direct access (estimated 11–46 vs 2–20 min,
+ Options §6), and JIT needs a written command list. Compliance gets approval before apply even in
+@@ -685,45 +690,22 @@ attacks.
+   Owners, reviewed quarterly.
+ - **Metrics:** S1–S11 exactly as in framing §5; this framework adds the JIT metrics (layer 7) and the
+   prompt metrics (layer 2). S2 and S5 have caveats (OD1; layer 2).
+-- **Rollout** (≈ 90 days, GĐ-12 unconfirmed). Framing Q8 (round 1): (1) remove long-lived CI credentials,
+-  (2) narrow standing prod access, (3) MCP/plugin catalogue; the on-call approver list before or with (2).
+-
+-  | Phase | Days | Items, in order |
+-  |---|---|---|
+-  | 1 | 0–30 | Measure the incident PR lane on one service (first task once that service has an OIDC deploy workflow, Options §9), including the prompt for each `aws` read, which the allowlist excludes (layer 2). Non-prod data scan. OIDC for deploy workflows; remove long-lived keys (except k0s/Firebase under OD1); move laptop deploys to CI (GĐ-10, unconfirmed). Rulesets, CODEOWNERS and its validation check; the required-check app, before any agent workflow may open PRs (G19); remove human write kubeconfigs for prod k0s (interim, layer 1); phase-1 S10 checks (secret scanning, dependency check, SAST; Access Analyzer and policy packs follow in phase 2, so until then OD8 relies on the risk stop alone). Minimal real-data read flow (request, 1-h data-read role, approver ≠ requester, data-owner review afterwards; layer 6). `ProdReadMetadata` becomes the only standing prod role (existing broad prod read roles removed only once that flow works, layer 8 principle); start moving secrets to runtime resolution and redacting logs at source, service by service. On-call approver schedule and a minimal incident-responder schedule (named, 24/7), because on-call approvers only approve (OD7); minimal JIT fallback **with** per-grant CloudTrail comparison and a drift check of the stacks it touched (by hand until automated: a temporary deviation from D2, which asks for a drift job). Phase-1 JIT has no immediate stop: deleting the assignment ends new sessions only, so a grant can run up to about 2 h (⚠️ R2.9 #3); the revocation Deny SCP is deployed with the other SCPs in phase 2 (layer 7); risk stop in the deploy job (the policy-finding trigger works from phase 2); k0s/Firebase deploy credentials moved to `production` environment secrets; **then** remove standing prod write. MCP/plugin catalogue v1. Managed settings, phase-1 subset: `defaultMode` (D1 said "immediately"), `disableBypassPermissionsMode`, the keys that enforce the catalogue (`strictKnownMarketplaces`, `blockedMarketplaces`, `disableSideloadFlags`, `allowedMcpServers` + `allowManagedMcpServersOnly`, `disableClaudeAiConnectors`), the OTel exporter with content flags `0` (no prompts added; it is the evidence for D1's auto-mode metric and the plugin events of layer 4), and `requiredMinimumVersion` (phase-1 floor: the higher of 2.1.248, needed by `--restricted` (D3) and above the 2.1.179 plugin-pin fix, and the latest fixed high advisory at rollout; 2.1.285 when `allowedProviders` arrives in phase 2). Also the read-only `permissions.allow` list, kept with Manual mode as D1 paired them (OD7b). Plus a `Read(~/.aws/**)` deny rule and `autoMode.classifyAllShell: true` (OD21). |
+-  | 2 | 30–60 | Rest of the managed baseline and verification of the SSM option (moved here by the owner, OD4). SCPs: data-plane deny, Lambda update deny, revocation Deny, protection of the org trail, outside-org write deny; scheduled drift detection; automated JIT reconciliation; audit-log export, change records, monthly reconciliation; Access Analyzer and policy-pack checks; Aurora activity streams; emergency federation for Identity Center outages; alert routing and the rest of on-call. |
+-  | 3 | 60–90 | Planted-injection test on the real configuration (📖 R6.1.1, R6.1.5; ⚠️ R6.5 #12); a deliberate trade-off: auto mode runs from day 1 (D1) without this data, and until then only D1's other fallback triggers apply; auto-mode non-prod environment (D1 c); separate OS user or container for prod-reading sessions; first ISO evidence pack; 90-day review of D1–D3. |
+-
+-- **Phase-1 load [design; effort not estimated ⚠️]:** phase 1 holds about 20 items for 1–2 DevSecOps
+-  people (GĐ-1) plus the owners of deploy workflows, within ~90 days overall (GĐ-12, unconfirmed). This is
+-  the main rollout risk. Hard prerequisites before standing prod write is removed: OIDC deploys from
+-  CI, rulesets + CODEOWNERS, the on-call approver and responder schedules, minimal JIT, the risk
+-  stop, and the k0s/Firebase secret move (a repository secret would be standing prod write, layer 5).
+-  Items that may slip to phase 2 without blocking that step: catalogue v1 (a deviation from framing
+-  Q8, which ranked it third for the first 30 days; needs owner agreement) together with the
+-  managed-settings keys that enforce it, and log redaction and secret moves beyond the first
+-  services. Not allowed to slip: `defaultMode`, the read-only allowlist (D1 "immediately", OD7b) and
+-  the OTel exporter (evidence for D1).
+-  If a hard prerequisite slips, standing prod write stays until it lands, and the slip is reported.
+-  Likewise, broad read roles stay until the minimal real-data read flow works.
++- **Rollout** (≈ 90 days, GĐ-12 unconfirmed): [`03-rollout-plan.md`](03-rollout-plan.md), moved
++  there with its items unchanged and expanded with owners and checks [design]. Order (framing Q8): (1) remove long-lived CI credentials, (2) narrow standing prod
++  access, (3) MCP/plugin catalogue; the on-call approver list before or with (2). Phase 1 (0–30 days)
++  makes the PR the default prod write path, with six hard prerequisites before standing prod write is
++  removed; phase 2 (30–60) adds SCPs, the rest of the managed baseline and automated
++  reconciliation; phase 3 (60–90) tests and reviews. The phase-1 load on 1–2 DevSecOps people is the
++  main rollout risk [design; effort not estimated ⚠️].
+ 
+ - **Exceptions:** a ticket with owner, reason and expiry.
+-- **Standards mapping** (⚠️ R5.6; HIPAA and Vietnam text 📖 R5.2, R5.4; ISO IDs recalled, not read,
+-  ⚠️ R5.1):
+-
+-  | Layers | ISO 27001:2022 Annex A (⚠️) | HIPAA Security Rule | Vietnam example |
+-  |---|---|---|---|
+-  | 1, 6 access | 5.15–5.18, 8.2, 8.3, 8.5 | 164.312(a)(2)(i); 164.308(a)(3)–(4) | Decree 356 Art. 4(2) |
+-  | 3, 5 change | 8.32, 8.31, 8.25, 5.3 | 164.312(c); 164.316(b) | — |
+-  | 7 logging, break-glass | 8.15, 8.16, 5.28 | 164.312(b); 164.308(a)(1)(ii)(D); 164.312(a)(2)(ii) (mapping ⚠️ R5.7 #3) | Law 91 Art. 23 72 h notice (📖 R5.4.6; mapping ⚠️, new in this draft) |
+-  | 4 suppliers | 5.19–5.23 | 164.308(b), 164.314(a) | Law 91 Art. 20 |
+-
+-  "A named human approves" is Papaya's chosen way to meet these controls, not a literal requirement
+-  (⚠️ R5.7 #1).
++- **Standards mapping:** ISO 27001:2022 Annex A (IDs recalled, ⚠️ R5.1), HIPAA Security Rule
++  (📖 R5.2) and Vietnam law (📖 R5.4) are mapped per control area in the
++  [compliance register](04-compliance-mapping.md#standards-cross-reference), with every caveat. "A named human approves"
++  is Papaya's chosen way to meet these controls, not a literal requirement (⚠️ R5.7 #1).
+ - **Out of scope:** security of the production AI agents (A7a); noted as a follow-up.
+ 
+-**Audit evidence.** Git history of policy files; monthly metrics; 90-day review minutes; exception
+-register; planted-injection reports.
++**Audit evidence.** Git history of policy files, monthly metrics, 90-day review minutes, the exception register and planted-injection reports; standards: [04-compliance-mapping.md](04-compliance-mapping.md#standards-cross-reference).
+ 
+ **Cost / value.** Steady, small overhead for DevSecOps and the owners of deploy workflows. Compliance gets a managed system
+ with owners and review dates.
+@@ -752,7 +734,7 @@ with owners and review dates.
+ | G16 | Managing GitHub team membership as code; audit event for a membership change | 3, 7 |
+ | G17 | Who forms the L3 owner team and how many people (GĐ-1: never a single reviewer) | 3, 8 |
+ | G18 | Reading the live values of server-managed settings (API or local cache) to compare with git | 2, 8 |
+-| G19 | Required-check app and CI-agent app: review-event triggers, source pinning against same-name checks, hosting, private-key storage and whether those keys count against S2 | 3, 5 |
++| G19 | Required-check app and CI-agent app: review-event triggers, source pinning against same-name checks, hosting, private-key storage and whether those keys count against S2; the app's check that a risk-stop approval matches the stopped run's hash (OD18) | 3, 5 |
+ | G20 | Emergency revocation at night: who can apply the revocation Deny SCP (management account) within minutes; `aws:TokenIssueTime` kill switch (⚠️ R2.9 #3) | 1, 7 |
+ 
+ Open checks from `work/03-options.md` §8 remain open.

@@ -1,0 +1,31 @@
+%% Incident lane: Lambda timeouts at 2 a.m. (framework layer 3 example, layer 7 break-glass; Options §6).
+%% E = incident responder, R = on-call approver (backup only if R is unavailable, OD2).
+sequenceDiagram
+    autonumber
+    actor E as E (incident responder)
+    participant AG as Agent sessions on E's laptop
+    actor R as R (on-call approver)
+    participant GH as GitHub (PR, ruleset)
+    participant CI as Deploy job (OIDC role)
+    participant AWS as AWS prod
+
+    alt Main path: the pull request, with faster people, not fewer checks
+    E->>AG: Analysis session, read-only roles: metrics, redacted logs
+    AG-->>E: Proposes timeout, memory and queue visibility changes
+    E->>AG: Edit session: change serverless.yml, diff on non-prod
+    E->>GH: Open PR labelled incident (security checks still run)
+    E->>R: Page (phone in phase 1, routed alert from phase 2)
+    R->>GH: Review the diff, approve (R never writes the fix, OD7)
+    E->>GH: Merge
+    GH->>CI: Deploy: prod preview, risk stop, apply
+    CI->>AWS: Changes as the deploy role
+    Note over E,AWS: Estimate 11 to 46 min against a 30-min target (to be measured first in rollout)
+
+    else Fallback only when the PR path cannot be used (Actions down, broken pipeline, op not in IaC)
+    E->>R: JIT request: command list, scope, reason, incident link (channel outside GitHub)
+    R-->>E: Approve before the grant (R is not the requester)
+    E->>AWS: InfraOperator-service, 1-h role session (window up to about 2 h), E types the commands, no agent in that terminal (D2)
+    Note over AWS: After: CloudTrail writes compared with the command list (by hand in phase 1, a job from phase 2)
+    E->>GH: Codify PR within the deadline, drift detection until it merges
+    end
+    Note over E,AWS: Approval before apply is met only partly here (accepted by the owner, Options §9)

@@ -11,6 +11,15 @@ Running log of the working sessions, not part of the reading order.
   two question rounds, and the owner confirmed the scope and assumptions.
 - **2026-11-09:** wrote `03-options.md` (4 options, 2 combinations) and took it through 5 independent review rounds.
   The owner chose A + D2' and set the incident target to ≤ 30 min.
+- **2026-11-09, design:** wrote the framework (17 review rounds), 10 ADRs, the threat model and the
+  problem-control map; the owner approved each and decided OD1–OD13.
+- **2026-11-09, deliverable plan and examples:** fixed the deliverable plan; built and locally checked the
+  examples in three steps (change workflow, identity and access, agent runtime/supply chain/policy pack),
+  each with independent review rounds and mutation tests; owner decisions OD14–OD21.
+- **2026-11-09, final pass:** moved the rollout plan out of the framework, added the compliance register,
+  engineer guide, three diagrams and the README; synced the framework, ADR index, threat model and map
+  with the examples' findings. Two independent final reviews (no HIGH except one: the README's claim
+  about Manual permission mode was false, since most working sessions ran in auto mode; corrected).
 
 ## 2026-11-08 — Session 1: dựng khung repo
 
@@ -493,3 +502,32 @@ Running log of the working sessions, not part of the reading order.
   không chạy vòng 4 (các sửa vòng 3 chưa có vòng kiểm lại); làm tiếp các bước còn lại và báo khi xong hết.
   - OD21 ghi vào bảng owner decisions của framework, layer 8 (phase 1), README E8 + finding 19; test mới.
   - `validate.sh` rc=0: 108 test Python, 35/35 case policy ✅.
+
+## 2026-11-09 — Bước 4–8: rollout, register, sơ đồ, đồng bộ, guide, README, review cuối
+- Commit bước 3 (`68e38e3`) sau OD21. Owner: làm tiếp đến hết các bước rồi báo.
+- Bước 4: tách `docs/03-rollout-plan.md` từ layer 8 (thêm owner, "done when", cột "measured from", ghi rõ là
+  phần thêm [design] chờ owner xem). `docs/04-compliance-mapping.md` (register C-01…C-24, walk-through S8,
+  O-1…O-9) do một agent soạn, agent chính kiểm anchor, sửa link. Đoạn "Audit evidence" của 8 layer thành
+  một câu + link; bảng standards chuyển sang register.
+- Bước 5: ba sơ đồ Mermaid, render SVG bằng `mmdc` 11.12.0 ✅, xem PNG để kiểm nhãn bị cắt/đè.
+- Bước 6: đồng bộ framework layer 1, 2, 3, 5 với findings của examples và OD14–OD21; sửa câu "Nothing here was
+  checked locally"; ADR không sửa (quy tắc ADR), thêm mục "Refinements since acceptance" ở `adr/README.md`
+  cho ADR-0003, 0004, 0007; threat model đổi status thành approved, sửa T4 và phase-1 window; map sửa P3b, P8a, P9c.
+- Bước 7: `docs/02-engineer-guide.md`, README mới.
+- Bước 8: hai review độc lập song song.
+  - Review B (README, guide, sơ đồ, link, secret): 1 HIGH, 10 MEDIUM. HIGH: README nói "từ session 2 chạy Manual
+    mode" là sai. Agent tự kiểm ✅ `permissionMode` trong transcript: các session làm việc chính đều `auto`, chỉ
+    3 session ngắn là `default`. Đã viết lại README cho đúng và ghi là lệch so với `CLAUDE.md`; dòng quyết định
+    trong `CLAUDE.md` cần owner đồng ý trước khi sửa. Các MEDIUM khác: README thiếu ngoại lệ k0s/Firebase, thiếu
+    chi phí cho engineer và một số điểm "falls short"; guide thiếu phần on-call approver, thay đổi phase 2,
+    bước đăng nhập lại trước JIT/data-read, quy tắc store chưa quét; sơ đồ 2 ghi "every API call". Đã sửa hết.
+  - Review A (rollout, register, đồng bộ framework): 0 HIGH, 6 MEDIUM. Rollout ghi "không đổi nội dung" nhưng có
+    thêm, kể cả một luật mới → bỏ luật đó, ghi rõ phần thêm; walk-through S8 giả định một run = một commit →
+    sửa; mất câu về log MCP → thêm vào C-12; threat model/map còn câu cũ → sửa; ADR-0003 thiếu refinement →
+    thêm; 📖 không có link → thêm link và một dòng legend. Các LOW chính cũng đã sửa.
+  - Framework 10 974 → khoảng 11k từ, trên mục tiêu 9.5–10k (Q1). Reviewer gợi ý chuyển tiếp bảng owner decisions,
+    gaps, bảng break-glass; chưa làm vì cần owner quyết.
+  - Các sửa của vòng này chưa có vòng review lại.
+- Vòng review lại (ngắn, chỉ phần sửa): 0 HIGH, 2 MEDIUM, 6 LOW. MEDIUM: README nói sai "các session ngày 11-08 dùng
+  profile mặc định" (chỉ session 1–2); threat model T1 và đoạn "excluded commands" còn mô tả phase 1/auto mode cũ.
+  Đã sửa cả 2 MEDIUM và 6 LOW. Không chạy thêm vòng nữa: phần còn lại chỉ là sửa một câu; các sửa này chưa có vòng kiểm lại.

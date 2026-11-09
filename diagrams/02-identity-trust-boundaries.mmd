@@ -1,0 +1,41 @@
+%% Identity and trust boundaries (framework layers 1, 2, 5, 7; threat model "trust boundaries").
+%% Key point: the engineer's access is the agent's access, so the boundary is what the engineer holds.
+flowchart LR
+    subgraph LAPTOP["Laptop: one trust zone"]
+        ENG["Engineer"]
+        AG["Claude Code agent<br/>managed settings, sandbox: hygiene,<br/>not the boundary (ADR-0007)"]
+        SSO["AWS SSO cache<br/>shared by engineer and agent"]
+        ENG --- AG
+        AG --- SSO
+    end
+
+    subgraph GH["GitHub Team, monorepo"]
+        RULE["Ruleset on main + CODEOWNERS<br/>= the approval gate"]
+        ENV["Environment production<br/>main only, no reviewers on Team"]
+        WF["Reusable deploy workflow<br/>risk stop before apply"]
+        RULE --> WF
+        WF --> ENV
+    end
+
+    subgraph PROD["AWS prod account"]
+        SCP["SCPs on the prod OU cap every role here<br/>[design, phase 2]: data-read deny, Lambda update deny,<br/>revocation Deny, trail protection"]
+        RO["ProdReadMetadata<br/>metrics, metadata; 1-h session"]
+        DEP["Prod deploy roles<br/>trust only environment production"]
+        JITR["InfraOperator-service<br/>JIT only, approved, 1 h"]
+        DR["DataRead-store<br/>approved request only"]
+        DATA[("Claim data<br/>medical, IDs, bank")]
+    end
+
+    subgraph AUDIT["Log-archive account"]
+        CT[("Org CloudTrail with integrity validation")]
+    end
+
+    SSO -->|"standing: read metadata only"| RO
+    ENG -->|"approved PR"| RULE
+    ENV -->|"GitHub OIDC, no stored keys"| DEP
+    ENG -->|"incident fallback, approved;<br/>no agent in that terminal: a process rule (D2)"| JITR
+    ENG -->|"L3-data request, approved"| DR
+    DR --> DATA
+    DEP -->|"apply changes"| RES["Prod resources<br/>Lambda, ECS, queues, stores"]
+    PROD -->|"management events + selected data events"| CT
+    GH --> EXP[("GitHub audit-log export<br/>from phase 2, destination open")]

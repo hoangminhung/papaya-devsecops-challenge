@@ -1,0 +1,29 @@
+%% Change workflow by risk level (framework layer 3; ADR-0001, 0003, 0004, 0010).
+%% Every box is stated in docs/01-framework.md layer 3; [design] items are untested proposals.
+flowchart TD
+    A["Author: engineer with agent<br/>(agent never approves, OD5)"] --> L{"Risk level?"}
+    L -->|"L0 read / L1 non-prod"| NP["Read-only identity, non-prod roles<br/>or PR pipeline: no new approval (S4)"]
+    L -->|"L2 / L3 prod change"| PR["Pull request to main<br/>PR checks preview non-prod only"]
+    L -->|"L3-data real-data read"| DATA["Layer 6: approved 1-h data-read role"]
+
+    PR --> CHK["Required checks: secret scan, dependencies, SAST,<br/>approval-gate app [design, G19]"]
+    CHK --> OWN{"Who owns the changed path?<br/>(CODEOWNERS)"}
+    OWN -->|"deployable path"| R1["1 approval: domain team;<br/>on-call group in incidents (OD9)"]
+    OWN -->|"process path: .github, CLAUDE.md, agent config,<br/>catalogue, SCP stack, policy packs, risk stop"| R2["1 approval: L3 owner team only (OD13)"]
+    R1 --> RS["Ruleset on main: approver is not author<br/>or last pusher; stale approvals dismissed;<br/>branch up to date; squash only"]
+    R2 --> RS
+    RS --> M["Merge = deploy approval"]
+
+    M --> DJ["Deploy job (production environment, main only)<br/>OIDC role; deploys only the tip of main"]
+    DJ --> PV["Prod preview"]
+    PV --> STOP{"Risk stop [design]:<br/>stateful replace/delete, IAM,<br/>network, policy finding?"}
+    STOP -->|"no"| APPLY["Apply; mandatory policy pack<br/>can still block (phase 2)"]
+    STOP -->|"yes"| HALT["Job stops; filtered summary posted"]
+    HALT --> AP["Original author opens approval PR:<br/>deploy-approvals/stack/commit.yaml<br/>with the preview hash"]
+    AP --> AR["1 approval: owner of that stack<br/>or on-call group (OD8, OD9)"]
+    AR --> RE["Merge triggers a new deploy:<br/>preview again, continue only if hash matches"]
+    RE -->|"hash matches"| APPLY
+    RE -->|"hash differs"| HALT
+    APPLY --> EV["Evidence: PR, run log, risk summary,<br/>CloudTrail session named by run ID"]
+
+    PR -. "pipeline unavailable in an incident" .-> JIT["JIT fallback (layer 7, diagram 03)"]
