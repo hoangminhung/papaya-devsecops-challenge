@@ -92,7 +92,10 @@ Rules of use:
 
 - **Submitted material** (`README.md`, everything in `docs/`, `examples/`, `diagrams/`,
   commit messages, code comments) is in **English**.
-- **Working notes** in `work/` may be in Vietnamese or English.
+- **Working notes** in `work/` may be in Vietnamese or English, but every working note starts
+  with an `## English summary` section (about 5–10 lines) directly under its title, so graders
+  can follow the reasoning without reading Vietnamese. The summary only restates what the note
+  already says. (Agreed 2026-11-09.)
 - In chat, reply in the language the user writes in (currently Vietnamese), keeping technical
   terms in English.
 - This file overrides the global rule that writes handover docs in Vietnamese.
@@ -121,6 +124,10 @@ Rules of use:
 - **Transcript copies:** sessions under the clean profile write to
   `~/.claude-papaya/projects/<encoded-repo-path>/`; the copy command in `README.md` covers
   both locations.
+- **Chosen approach (2026-11-09):** A + D2' from `work/03-options.md` §9. The PR pipeline is
+  the default path for every prod change, incidents included ("IaC first"). A JIT window is
+  only a narrow, approved fallback when the PR path is unavailable; it is accepted as meeting
+  the approval constraint only partially. Incident target: ≤ 30 min from decision to apply.
 
 ## Rule 4 — Working method
 

@@ -1,5 +1,28 @@
 # 02 — Research: what the tools can actually do today
 
+## English summary
+
+- **Scope:** six topics checked against official docs, each through independent review rounds: Claude Code at org level,
+  AWS identity/guardrails/audit, GitHub, Pulumi and Serverless in CI, compliance (ISO 27001, HIPAA, Vietnam as the
+  regional example), and coding-agent risks (prompt injection).
+- **Claude Code (Topic 1):** managed settings can lock modes, MCP, plugins and hooks, but they are client-side and not a
+  security boundary. Compliance's approval rule must therefore be enforced in AWS IAM and the GitHub gate.
+- **AWS (Topic 2):** on a laptop an agent using the engineer's SSO cache is indistinguishable from the engineer. The
+  decisive control is no standing prod-write access for humans: changes go through CI, and human writes come only from
+  approved JIT assignments. Revocation is slow by design; SCPs and an org CloudTrail are the guardrails the agent cannot edit.
+- **GitHub (Topic 3):** on the Team plan, private repos have no environment approval gate, so the gate is the PR merge
+  to `main`, enforced by rulesets and CODEOWNERS, with OIDC trust pinned to repo, environment and workflow.
+- **Pulumi/Serverless (Topic 4):** PRs preview non-prod only, because prod preview needs state-write and secret access.
+  On Team, no human sees the prod diff before apply; this gap is stated openly.
+- **Compliance (Topic 5):** the "named human" rule is Papaya's chosen way to meet ISO/HIPAA controls, not a quoted
+  requirement. Approval and change records are kept ≥ 6 years.
+- **Agent risks (Topic 6):** design as if prompt injection succeeds. IAM and the CI gate limit impact; agent-side
+  controls only reduce frequency. Balance principle (6.8): friction where damage is large, none where it is small.
+- **Owner decisions (2026-11-08):** agents stay outside PHI scope; the design prepares for both MDM and no-MDM; GitHub
+  Team without merge queue; customer-data scope not extended. D1: sessions start in Manual mode (a default, not a hard
+  control). D2: in an incident JIT window the agent proposes and the human runs writes in a separate terminal, with a
+  codify PR and drift detection. D3: `--restricted` is mandatory for write-capable and unattended sessions.
+
 Purpose: ground every later design decision in current, official documentation, not model memory.
 Written in English (it will be quoted in `docs/`); short Vietnamese notes where useful.
 

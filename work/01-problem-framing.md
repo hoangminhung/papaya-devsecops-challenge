@@ -1,5 +1,22 @@
 # 01 — Đóng khung bài toán (problem framing)
 
+## English summary
+
+- **Main problems:** engineers run Claude Code on laptops with SSO profiles that reach production, some with permission
+  prompts off; MCP servers/plugins are installed without review; CI uses long-lived GitHub tokens and AWS keys; on-call
+  and monitoring are fragmented. Grouped into 7 areas: identity & access, production change paths, agent behaviour,
+  tooling supply chain, sensitive/tenant data, detection & evidence, security of agent-written code (§1).
+- **Central conflict:** Engineering and Compliance only truly conflict on *writes to production*; reading real data
+  (medical, national ID, bank) is a grey zone (§3). Security of Papaya's production AI agents is out of scope (§1.4).
+- **Key assumptions (owner-confirmed, §4):** separate prod/non-prod AWS accounts with IAM Identity Center; GitHub Team
+  plan (no environment reviewers on private repos, no merge queue); laptops are untrusted; every prod change is approved
+  before apply, incidents included; agents read metadata only, real data by approved exception; the approver is never the
+  author or the authoring agent; non-prod holds synthetic data only.
+- **Success criteria (§5):** zero long-lived prod-write credentials on laptops or in GitHub secrets; zero unapproved or
+  after-the-fact prod changes; no loss of engineer speed (approval wait ≤ 1 h in working hours, free non-prod loop);
+  incident approval wait ≤ 15 min, 24/7; audit evidence for any prod change within 30 min; plus managed agent config,
+  a reviewed plugin catalogue, approved-only access to real data, CI security checks on agent code, no real data in non-prod.
+
 > Working note (Vietnamese). Mục đích: hiểu đúng bài toán **trước** khi nghĩ giải pháp.
 > File này cố ý **không đề xuất giải pháp**. Mọi dữ kiện về Papaya lấy từ `work/00-challenge.md`;
 > những gì đề không nói được tách riêng ở mục 4 và đánh dấu **[GĐ]** (giả định).

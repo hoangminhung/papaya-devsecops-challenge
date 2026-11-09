@@ -1,5 +1,17 @@
 # Ghi chú làm việc (Vietnamese)
 
+## English summary
+
+Running log of the working sessions, not part of the reading order.
+- **Session 1 (2026-11-08):** fetched the challenge text and set up the repo skeleton. Transcript location and retention
+  were checked. The transcript also contains the employer account's skill and connector names; this was accepted.
+- **Session 2 (2026-11-08):** set a repo-local git identity and rewrote unpushed commits; wrote the problem framing.
+  The session ran through the VS Code extension in auto mode on the default profile; this was accepted.
+- **Session 3 (2026-11-08):** ran on the clean profile (`~/.claude-papaya`); the problem framing was reviewed in
+  two question rounds, and the owner confirmed the scope and assumptions.
+- **2026-11-09:** wrote `03-options.md` (4 options, 2 combinations) and took it through 5 independent review rounds.
+  The owner chose A + D2' and set the incident target to ≤ 30 min.
+
 ## 2026-11-08 — Session 1: dựng khung repo
 
 - Đã tải đề từ GitHub về `work/00-challenge.md` ✅.
@@ -54,3 +66,17 @@
   thêm P9, nhóm 7, mục 1.4 (out of scope), GĐ-14, S10, S11; xác nhận GĐ-2 và S7.
 - Bước tiếp theo: thiết kế (docs/ + examples/). Tra docs cho GĐ-5 (GitHub environment protection)
   và GĐ-6 (managed settings trên gói Team).
+
+## 2026-11-09 — Brainstorm phương án (`work/03-options.md`)
+
+- Viết `work/03-options.md`: 4 phương án (A PR-only, B runbook SSM có `aws:approve`, C JIT trực tiếp, D agent hosted)
+  và 2 tổ hợp (A + D2 hiện tại, A + D2' đề xuất); ma trận 5 tiêu chí; kịch bản Lambda lúc 2 giờ sáng; khuyến nghị.
+- Kiểm docs AWS mới ✅ (bản `.md`): Change Manager đóng với khách hàng mới từ 2025-11-07; SSM Automation `aws:approve`
+  có approver dạng role ARN, tối đa 10, không hỗ trợ automation multi-account/Region.
+- Review độc lập 5 vòng. Vòng 1–3 có HIGH/MEDIUM, nên file được viết lại thành v4. Vòng 4–5 còn MEDIUM nhỏ (bẫy SQS
+  visibility timeout chưa được xử lý ở mọi kịch bản; nói thẳng C nhanh hơn ở đâu). Đã sửa; lần sửa cuối là sửa một
+  dòng, chỉ kiểm bằng grep, không chạy thêm vòng review.
+- Khuyến nghị: A + D2'. Chờ owner trả lời Q1–Q3 ở mục 9 của file.
+- Owner trả lời (2026-11-09): Q1 chọn A + D2' (cách đọc D2 = "IaC trước"); Q2 chấp nhận JIT dự phòng đạt một phần,
+  chỉ dùng khi đường chính không dùng được và đã được approve; Q3 mục tiêu ≤ 30 phút. Ghi ở mục 9 của `03-options.md`.
+- Sửa một câu bị gãy ở mục 7 của `03-options.md` (đoạn "A + D2 như đang có").
