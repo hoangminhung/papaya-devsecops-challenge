@@ -1,0 +1,465 @@
+    77 work/00-challenge.md
+   255 work/01-problem-framing.md
+  1817 work/02-research.md
+   459 work/03-options.md
+    56 work/session-log.md
+  2664 total
+     1	# 03 — Các phương án (brainstorm)
+     2	
+     3	> Working note (Vietnamese). Mục đích: có các phương án **khác nhau về bản chất** cho câu hỏi trung tâm,
+     4	> so sánh chúng, rồi để owner chọn. File này **không** viết framework đầy đủ.
+     5	>
+     6	> Updated: 2026-11-09 · Status: draft v2 (đã sửa theo review độc lập vòng 1), chờ owner quyết (mục 9)
+     7	
+     8	Ký hiệu (theo Rule 1 trong `CLAUDE.md`):
+     9	- ✅ / 📖 / ⚠️ như trong `CLAUDE.md`. Một tham chiếu kiểu "(02-research 3.1.2)" nghĩa là dòng đó trong
+    10	  research đã có nguồn và marker riêng; ở đây tôi chỉ dùng lại, và giữ marker gốc khi nó là ⚠️.
+    11	- **[TK]**: ý thiết kế của tôi, chưa ai kiểm chứng (một dạng ⚠️). Mọi con số thời gian trong file là ⚠️ ước lượng.
+    12	- GĐ-n: giả định trong `work/01-problem-framing.md` §4. D1–D3: quyết định của owner trong `02-research.md` 6.6.
+    13	
+    14	---
+    15	
+    16	## 0. Câu hỏi, ràng buộc, phần chung
+    17	
+    18	### 0.1 Câu hỏi trung tâm và các phương án khác nhau ở đâu
+    19	
+    20	> Coding agent được chạm vào production như thế nào để Engineering vẫn ship nhanh, mà Compliance vẫn có
+    21	> "một người có tên đã review và approve" cho mọi thay đổi?
+    22	
+    23	Theo framing §3.1, mâu thuẫn thật chỉ nằm ở **ghi vào prod**. Các phương án khác nhau ở bốn điểm của con đường ghi:
+    24	
+    25	1. **Cái được duyệt là gì:** một diff code (A), một thao tác cụ thể (B), một cửa sổ quyền (C), hay một lượt chạy của agent (D).
+    26	2. **Ai thực thi:** pipeline CI, một runbook tất định (deterministic), agent/người trên laptop, hay agent trên hạ tầng Papaya.
+    27	3. **Identity nào mang quyền ghi prod:** role của pipeline, role của runbook, role JIT của người, hay role riêng của agent.
+    28	4. **Agent chạy ở đâu** khi chạm prod: laptop hay môi trường do Papaya kiểm soát.
+    29	
+    30	Nói thẳng về mức khác biệt: **A, B và D dùng chung luồng PR + pipeline cho thay đổi code/IaC thường ngày.**
+    31	Ba phương án này khác nhau chủ yếu ở **đường sự cố và thao tác ngoài IaC** (restart, scale, đổi một tham số).
+    32	Chỉ **C** khác cả ở luồng thường, vì C là đúng đề xuất của Engineering: agent gọi AWS trực tiếp cho cả thay đổi thường.
+    33	Ma trận (mục 5) vì vậy tách tốc độ thành hai hàng.
+    34	
+    35	### 0.2 Ràng buộc đã quyết (đầu vào, file này không bàn lại)
+    36	
+    37	| Ràng buộc | Nguồn |
+    38	|---|---|
+    39	| Mọi thay đổi prod được duyệt **trước** khi áp dụng, kể cả trong sự cố | GĐ-8 |
+    40	| Thời gian **chờ duyệt** trong sự cố ≤ 15 phút, 24/7. (S7 đo thời gian chờ duyệt, **không** đo end-to-end; framing chưa có mục tiêu end-to-end, xem mục 9 câu Q3) | S7 |
+    41	| Người duyệt khác người làm (tác giả và agent tạo thay đổi); agent không được tính là người duyệt | GĐ-11 |
+    42	| GitHub **Team**, không merge queue: không có required reviewers ở environment cho repo private; cổng duyệt là merge PR vào `main` qua rulesets | GĐ-5; 02-research 3.1.2, 3.6 #1, 3.7 |
+    43	| Agent không chạm PHI; mặc định chỉ đọc metadata; đọc dữ liệu thật là ngoại lệ có duyệt | GĐ-9; 02-research 1.9, 5.8 |
+    44	| Non-prod chỉ có dữ liệu synthetic, nên vòng lặp non-prod tự do | GĐ-14 |
+    45	| 100% PR vào nhánh deploy chạy secret scan, kiểm tra dependency và SAST | S10 |
+    46	| Không thay Pulumi, Serverless, GitHub Actions | `CLAUDE.md` |
+    47	| Đội 20–60 engineer, DevSecOps 1–2 người | GĐ-1 ✔ |
+    48	| Managed settings mặc định Manual; `--restricted` cho session phân tích và CI; nguyên tắc "ma sát tỉ lệ với thiệt hại" | D1, D3, 02-research 6.8 |
+    49	| **Sự cố:** agent phân tích bằng identity read-only; người trực chạy lệnh ghi trong terminal riêng có quyền JIT hẹp, TTL ngắn; mọi thay đổi tay được codify bằng PR, có drift detection; đây là kiểm soát bằng quy trình | **D2** |
+    50	
+    51	**Giả định chưa xác nhận nhưng ảnh hưởng tới khuyến nghị:** GĐ-12 (lộ trình ~90 ngày, ngân sách công cụ nhỏ).
+    52	GĐ-12 vẫn là [GĐ] (framing §6, "Giả định chưa xác nhận").
+    53	
+    54	D2 đã trả lời một phần câu hỏi cho luồng sự cố. Tôi vẫn đưa các phương án đầy đủ, vì so sánh có thể cho thấy
+    55	D2 nên giữ, nên chỉnh hay nên thay. D2 được chấm như một tổ hợp riêng ("A + D2") ở mục 5.
+    56	
+    57	### 0.3 Phần chung cho mọi phương án (không phải điểm khác biệt)
+    58	
+    59	- **Không ai có quyền ghi prod thường trực**, người hay agent (02-research 2.9 #2).
+    60	- **Không còn credential dài hạn trong CI**: GitHub OIDC sang AWS/GCP (02-research 3.4, 3.6 #2).
+    61	- **Agent đọc prod** bằng một identity read-only chỉ thấy metadata (config, metrics, log đã che). SCP chặn data
+    62	  plane trên bucket/queue chứa PHI (02-research 2.9 #4).
+    63	- **Claude Code managed settings là lớp vệ sinh, không phải kiểm soát chính.** Tài liệu nói rõ server-managed
+    64	  settings là "a client-side control, not a security boundary" (02-research 1.1.7 ✅, 1.8 #1).
+    65	- **Audit nền:**
+    66	  - Organization CloudTrail đổ về log-archive account, có integrity validation (02-research 2.9 #5).
+    67	  - GitHub org audit log chỉ giữ 180 ngày, nên phải export (02-research 3.5.6, 3.6 #6).
+    68	  - Bản ghi phê duyệt và thay đổi giữ ≥ 6 năm (02-research 5.7 #2).
+    69	- **Chặn đường vòng của Lambda, và ngoại lệ của nó.**
+    70	  - 02-research 4.6 #3 đề xuất deny `lambda:UpdateFunctionCode` và `lambda:UpdateFunctionConfiguration` với
+    71	    mọi principal trừ CloudFormation `deploymentRole` (đặt bằng SCP hoặc IAM, ⚠️ chưa chọn).
+    72	  - **Mọi đường ghi ngoài pipeline** (runbook của B, JIT của C/D2, role của D) phải là một **ngoại lệ có tên**
+    73	    trong lệnh deny đó.
+    74	  - Mỗi ngoại lệ là một đường vòng đã khai báo: phải có alert khi được dùng, và mỗi lần dùng là một tín hiệu drift [TK].
+    75	
+    76	### 0.4 Các hướng đã loại trước khi so sánh
+    77	
+    78	| Hướng | Lý do loại |
+    79	|---|---|
+    80	| Làm trước, duyệt sau (break-glass không duyệt) | Trái GĐ-8. Owner đã bác ở vòng 1 của framing. |
+    81	| Dùng permission prompt, hook hoặc managed settings của Claude Code làm cổng duyệt | Chạy phía client, bypass được (02-research 1.1.7, 1.1.8). Bash rule không phải ranh giới bảo mật (1.2.6 ✅). Người bấm "approve" trong prompt cũng là người làm, nên không đạt GĐ-11. |
+    82	| Agent có permission set riêng trên laptop, còn người vẫn giữ quyền ghi prod | Trên laptop, agent dùng chung SSO cache với người và với mọi role của người, nên không tách được (02-research 2.9 #1). |
+    83	| Cổng duyệt ở GitHub Environment (required reviewers) | Không có trên Team cho repo private (02-research 3.1.2 ✅). Chỉ là biến thể của A nếu Papaya lên Enterprise Cloud. |
+    84	| AWS Systems Manager **Change Manager** làm hệ thống phê duyệt | "will no longer be open to new customers starting November 7, 2025" ✅ ([change-manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/change-manager.html), đọc bản `.md` ngày 2026-11-09). Chỉ dùng được nếu Papaya đã đăng ký trước ngày đó (⚠️ không biết). |
+    85	
+    86	---
+    87	
+    88	## 1. Phương án A — "Mọi thay đổi là một PR" (pipeline-only)
+    89	
+    90	**Một câu:** agent chỉ viết code; thay đổi prod duy nhất là merge một PR đã được người khác duyệt, sau đó pipeline
+    91	áp dụng. Không có đường ghi nào khác, kể cả trong sự cố.
+    92	
+    93	- **Identity agent dùng:**
+    94	  - Laptop: identity của engineer cho git/PR. AWS chỉ có quyền non-prod và một role read-only metadata cho prod.
+    95	  - Chỉ role deploy của pipeline ghi được prod. Role này trust qua OIDC `sub` = `environment:production`, nên ghim
+    96	    thêm reusable workflow (02-research 3.6 #2).
+    97	- **Luồng thay đổi thường:**
+    98	  1. Agent sửa Pulumi / `serverless.yml` / code, chạy preview trên **non-prod**. PR không được cầm credential prod,
+    99	     vì preview chạy code của PR và đọc được secret (02-research 4.6 #2).
+   100	  2. Mở PR bằng identity của engineer. GitHub không cho tác giả tự duyệt (02-research 3.3.1 ✅).
+   101	  3. Rulesets: cần approval, code owner, dismiss stale, approval sau lần push cuối, bypass list rỗng (02-research 3.6 #1).
+   102	  4. Merge xong, workflow deploy trên `main` chạy prod preview rồi apply.
+   103	- **Diff rủi ro cần lần duyệt thứ hai.** Nếu prod preview cho thấy replace/delete tài nguyên stateful, đổi IAM
+   104	  hoặc vi phạm policy, workflow **tự dừng** (02-research 4.6 #1 (b)). Trên Team không có environment reviewer, nên
+   105	  lần duyệt thứ hai phải dựng trên GitHub [TK]:
+   106	  - mở một PR thứ hai, thêm file `deploy-approvals/<sha>.yaml` có CODEOWNERS là platform team;
+   107	  - merge PR đó thì workflow chạy lại và kiểm tra file khớp SHA.
+   108	  - Đây chính là loại "thành phần phê duyệt ngoài environment" mà D cũng cần; ở A nó dựng trên GitHub.
+   109	- **Thao tác không phải IaC = "ops-as-code".**
+   110	  - Một PR sửa file khai báo (ví dụ `ops/requests/…yaml`); sau khi merge, một workflow chạy thao tác trong allowlist [TK].
+   111	  - Về bản chất đây là **một broker dựng trên GitHub**: có allowlist, role thực thi, và người duyệt thấy đúng thao
+   112	    tác qua diff của file.
+   113	  - Khác biệt với B: cổng duyệt nằm ở GitHub, không có dịch vụ riêng, và phụ thuộc vào uptime của GitHub.
+   114	  - Tốn công xây (executor, allowlist), nên được tính vào điểm độ phức tạp của A.
+   115	- **Luồng sự cố:** "làn sự cố" của chính con đường này.
+   116	  - PR gắn nhãn `incident`; người trực duyệt (on-call approver) được page.
+   117	  - **Security checks (secret scan, dependency, SAST) luôn chạy** (S10). Chỉ bớt test chậm không liên quan tới path [TK].
+   118	  - Một required check bị bỏ qua vì path filter có thể kẹt ở trạng thái pending và chặn merge (⚠️ chưa kiểm, mục 8).
+   119	  - Rulesets có dismiss stale, approval sau lần push cuối và branch phải up-to-date. Vì vậy mỗi lần push hoặc
+   120	    rebase lúc 2 giờ sáng là phải **duyệt lại**.
+   121	- **Ai duyệt được lúc 2 giờ sáng (trade-off chưa giải) [TK].**
+   122	  - Cách đơn giản: nhóm on-call approver là code owner của mọi path deploy được (CODEOWNERS chỉ cần **một** owner
+   123	    bất kỳ, 02-research 3.2.7 ✅).
+   124	  - Cái giá: mọi PR thường cũng được thoả code-owner review chỉ với một người on-call, nên chuyên môn theo domain
+   125	    mất tác dụng. Nếu ruleset còn có path-based required reviewers (3.2.4), người on-call vẫn chưa đủ.
+   126	  - Cách khác: một ruleset riêng cho nhánh sự cố (⚠️ chưa kiểm là làm được không), hoặc rota on-call phủ đủ domain.
+   127	- **Bằng chứng audit:**
+   128	  - PR (diff, người duyệt, check) + log và artifact của workflow run (prod preview, kết quả deploy) + CloudTrail
+   129	    của role deploy, nối với nhau qua commit SHA và run ID.
+   130	  - Log và artifact của run trên GitHub có thời hạn lưu (⚠️ chưa kiểm con số), nên phải export sang log archive.
+   131	- **Người duyệt thực sự thấy gì:** diff code và preview **non-prod**. Trên Team, **không ai thấy prod diff trước
+   132	  khi apply** (02-research 4.6 #1); lớp bù là "tự dừng khi diff rủi ro".
+   133	- **Điểm yếu, phụ thuộc:**
+   134	  - GitHub hoặc Actions ngừng thì không thay đổi được gì, kể cả trong sự cố.
+   135	  - Admin sửa được rulesets; việc đó chỉ được log, không bị chặn (02-research 3.6 #1).
+   136	  - PR do agent viết dễ dài nên dễ bị duyệt hời hợt (P9c), nhất là lúc 2 giờ sáng trên điện thoại.
+   137	  - Session đã đọc log không tin cậy (A7b) giờ viết luôn PR sự cố. Injection có thể đi vào nội dung PR, và
+   138	    người duyệt là lớp chặn duy nhất.
+   139	- **Quan hệ với D2:** không mâu thuẫn. A thêm một đường sự cố **không cần quyền JIT** cho thay đổi diễn đạt được bằng IaC.
+   140	
+   141	## 2. Phương án B — "Thao tác đã duyệt, chạy bằng runbook"
+   142	
+   143	**Một câu:** agent soạn **một thao tác cụ thể** (loại thao tác + tham số). Người khác duyệt đúng thao tác đó.
+   144	Một runbook tất định thực thi bằng role riêng. Không người hay agent nào cầm credential ghi.
+   145	
+   146	- **Có sẵn trên AWS, không phải tự xây từ đầu** (✅ đọc [automation-action-approve](https://docs.aws.amazon.com/systems-manager/latest/userguide/automation-action-approve.html) bản `.md`, 2026-11-09):
+   147	  - SSM Automation có bước `aws:approve`: "pauses an automation until designated principals either approve or reject the action".
+   148	  - `Approvers` nhận "An IAM role ARN" hoặc "An IAM assume role ARN", tối đa 10; có `MinRequiredApprovals`.
+   149	  - Bước này "doesn't support multi-account and Region automations".
+   150	  - Runbook chạy bằng `assumeRole` của nó.
+   151	  - **Chưa kiểm (⚠️):** có chặn được người khởi chạy tự duyệt không; bản ghi lưu identity nào của người duyệt khi
+   152	    approver là một role Identity Center dùng chung; lịch sử execution được giữ bao lâu.
+   153	  - 02-research 2.4.1 chỉ nói AWS không có tính năng gốc để request/approve **quyền truy cập** tạm thời. Nó không
+   154	    nói gì về phê duyệt **thao tác**, nên không mâu thuẫn với điểm này.
+   155	- **Identity agent dùng:**
+   156	  - Laptop: read-only metadata cho prod, cộng quyền **khởi chạy** một số runbook đã duyệt sẵn. Agent không có quyền thực thi trực tiếp.
+   157	  - Quyền ghi prod nằm ở `assumeRole` của từng runbook, mỗi role chỉ đủ cho đúng loại thao tác của runbook đó [TK].
+   158	- **Luồng thay đổi thường:**
+   159	  - Thay đổi code/IaC vẫn qua PR + pipeline như A. Nếu không, runbook trở thành nguồn drift so với IaC.
+   160	  - Bản thân runbook là code trong monorepo, đi qua PR và CODEOWNERS [TK].
+   161	- **Luồng sự cố:**
+   162	  1. Agent chọn runbook (ví dụ "đổi timeout/memory của Lambda") và điền tham số, kèm lý do.
+   163	  2. Runbook kiểm tra tham số (function thuộc prod, giá trị trong khoảng cho phép), rồi tới bước `aws:approve`;
+   164	     SNS báo cho người duyệt.
+   165	  3. Người duyệt xem tham số trong console bằng identity SSO của mình, rồi approve.
+   166	  4. Runbook thực thi, sau đó mở ticket/PR codify vào IaC [TK].
+   167	- **Bằng chứng audit:** lịch sử execution của Automation (tham số, bước duyệt, kết quả) + CloudTrail của role
+   168	  runbook, export sang log archive [TK].
+   169	- **Người duyệt thực sự thấy gì:** **đúng tham số của thao tác sẽ chạy**. Đây là mức "review đúng thứ được áp dụng"
+   170	  chặt nhất trong các phương án, với điều kiện thao tác nằm trong một runbook đã viết sẵn.
+   171	- **Điểm yếu, phụ thuộc:**
+   172	  - Chỉ thao tác có runbook mới đi được đường này; thao tác lạ vẫn cần đường khác.
+   173	  - Drift với IaC cho tới khi codify.
+   174	  - Duyệt nằm trong AWS console chứ không ở GitHub, nên evidence nằm ở hai nơi.
+   175	  - Phần "chặn tự duyệt" và "ghi đúng người duyệt" là ⚠️ quyết định B có đạt GĐ-11 hay không.
+   176	  - Nếu SSM không đáp ứng được, B quay về dạng tự xây (dịch vụ riêng giữ quyền ghi, vận hành 24/7), và điểm độ
+   177	    phức tạp và chi phí giảm mạnh.
+   178	- **Quan hệ với D2:** **thay** D2 cho những thao tác có runbook. Không còn cửa sổ JIT trên laptop cho các thao tác đó.
+   179	
+   180	## 3. Phương án C — "Cửa sổ quyền JIT, agent gọi AWS trực tiếp" (đúng đề xuất của Engineering)
+   181	
+   182	**Một câu:** engineer xin một cửa sổ quyền ghi hẹp, có thời hạn; người khác duyệt **cửa sổ đó**; trong cửa sổ, Claude
+   183	Code gọi AWS trực tiếp, cho cả thay đổi thường lẫn sự cố.
+   184	
+   185	- **Identity agent dùng:**
+   186	  - Identity của engineer, mang thêm một permission set JIT qua assignment tạm thời. Ví dụ `InfraOperator-<service>`
+   187	    cho prod, 1–4 giờ.
+   188	  - Có thể đi qua AWS MCP Server để có context key do server đặt (`aws:ViaAWSMCPService`). Nhưng key này chỉ là
+   189	    kiểm soát khi agent **không** gọi trực tiếp được (02-research 2.2.5, 2.9 #1).
+   190	- **Luồng thay đổi thường:**
+   191	  1. Engineer xin cửa sổ JIT cho service cần sửa; người khác duyệt (mục tiêu ≤ 1 giờ trong giờ làm việc, S4b).
+   192	  2. Agent áp dụng trực tiếp (`pulumi up` / `serverless deploy` từ laptop, hoặc AWS CLI), rồi commit code.
+   193	  3. PR sau đó chỉ để đồng bộ code, không còn là cổng duyệt.
+   194	  - Pipeline vẫn tồn tại cho deploy ứng dụng.
+   195	- **Luồng sự cố:** giống luồng thường, với on-call approver.
+   196	- **Công cụ JIT:** sản phẩm của partner, sample TEAM, hoặc tự xây trên `CreateAccountAssignment` (02-research 2.4.1, 2.4.1b, 2.4.2).
+   197	- **Bằng chứng audit:**
+   198	  - Bản ghi phê duyệt trong công cụ JIT + CloudTrail của việc cấp quyền + CloudTrail của các lệnh trong cửa sổ.
+   199	  - Khi audit, phải tái dựng "lệnh nào thuộc yêu cầu nào" theo khoảng thời gian.
+   200	- **Người duyệt thực sự thấy gì:** **phạm vi và lý do, không phải thay đổi**. Mọi lệnh trong cửa sổ không được ai xem trước.
+   201	- **Điểm yếu, phụ thuộc:**
+   202	  - Đúng điều kiện nguy hiểm nhất của prompt injection: agent đọc log/tài liệu không tin cậy **trong khi** cầm
+   203	    quyền ghi (02-research 6.5 #1, #8).
+   204	  - CloudTrail ghi identity của engineer cho cả lệnh của agent; không tách được hai bên (02-research 2.9 #1).
+   205	  - **Thu hồi:**
+   206	    - Xoá assignment chỉ chặn role session **mới** (02-research 2.4.2, ⚠️ inference).
+   207	    - Session đang chạy sống tới hết thời hạn của nó, tối đa bằng session duration của permission set (tối thiểu
+   208	      cấu hình được là 1 giờ, 02-research 2.1.4 ✅).
+   209	    - Muốn chặn ngay phải có SCP Deny theo `identitystore:userId` dựng sẵn (02-research 2.4.4 ✅).
+   210	  - Thay đổi từ laptop bỏ qua prod preview và policy chạy trong pipeline.
+   211	- **Quan hệ với D2:** **trái** D2. D2 cấm agent dùng quyền JIT; C cho phép.
+   212	
+   213	## 4. Phương án D — "Agent là một principal riêng, chạy trên hạ tầng Papaya"
+   214	
+   215	**Một câu:** việc chạm prod không bao giờ chạy trên laptop. Một agent chạy trong runtime do Papaya kiểm soát, với
+   216	identity riêng của nó. Người duyệt **một lượt chạy** (nhiệm vụ + kế hoạch + giới hạn công cụ), và cả phiên được ghi
+   217	lại tập trung.
+   218	
+   219	- **Identity agent dùng [TK]:**
+   220	  - Một role workload riêng (ví dụ task role trên ECS/k0s) trong account "agent-runtime". Trong CloudTrail nó sẽ
+   221	    là một principal tách khỏi mọi người, nên giải quyết trực tiếp P1a/P1b.
+   222	  - Laptop không còn cầm credential prod nào, kể cả read-only.
+   223	- **Luồng thay đổi thường:**
+   224	  - Engineer vẫn dùng Claude Code trên laptop cho non-prod và cho PR.
+   225	  - Nếu agent hosted mở PR dưới danh nghĩa app, tác giả PR là app. Khi đó cần thêm luật: 2 approval hoặc một check
+   226	    có nguồn được ghim (02-research 3.3.4, 3.7 A3).
+   227	- **Luồng sự cố:**
+   228	  1. Người trực khởi động một lượt chạy "incident". Agent hosted phân tích bằng role read-only của chính nó.
+   229	  2. Agent đề xuất kế hoạch; người duyệt phê duyệt kế hoạch.
+   230	  3. Runtime nhận một role ghi hẹp, có TTL cho đúng lượt chạy đó [TK], và agent thực thi.
+   231	  - Có thể tách "agent lập kế hoạch" (đọc log) khỏi "agent thực thi" (chỉ nhận kế hoạch đã duyệt), theo NIST
+   232	    "multiple LLMs with different permissions" (02-research 6.5 #2).
+   233	- **Bằng chứng audit:** phê duyệt + toàn bộ transcript/OTel của lượt chạy trong kho tập trung + CloudTrail với
+   234	  principal của agent. Đây là bằng chứng đầy đủ nhất về **agent đã làm gì**.
+   235	- **Người duyệt thực sự thấy gì:** kế hoạch, chưa phải lệnh chính xác. Bên thực thi vẫn là LLM nên có thể lệch khỏi
+   236	  kế hoạch; chỉ IAM scope giới hạn được độ lệch.
+   237	- **Điểm yếu, phụ thuộc:**
+   238	  - Chi phí dựng runtime lớn nhất.
+   239	  - Server-managed settings không tới được job chạy bằng API key/OIDC (02-research 1.7.10 ✅). Trên runtime do Papaya
+   240	    kiểm soát (image riêng trên ECS/k0s), có thể bake file endpoint `managed-settings.json` vào image (02-research 1.8 #3).
+   241	    Cách này giải quyết phần lớn vấn đề, miễn là agent không có root trong container [TK].
+   242	  - Nếu dùng GitHub-hosted runner thì agent có sudo và sửa được file policy (02-research 3.5.1).
+   243	  - Vẫn cần một chỗ phê duyệt nằm ngoài GitHub Environment: `aws:approve` của B, hoặc cơ chế PR như lần duyệt thứ hai của A.
+   244	  - LLM vẫn cầm quyền ghi sau khi đọc log không tin cậy, tức là chạm lại 02-research 6.5 #1, trừ khi tách planner/executor.
+   245	  - Transcript tập trung là kho dữ liệu nhạy cảm mới (02-research 6.5 #9).
+   246	- **Quan hệ với D2:** **khác hướng** với giai đoạn sau của D2. D2 muốn break-glass từ môi trường **không có** agent;
+   247	  D đặt agent **vào** môi trường cầm quyền ghi, đổi lại được tách identity bằng kỹ thuật.
+   248	
+   249	## 4b. Tổ hợp hiện có và tổ hợp được đề xuất (để chấm cùng)
+   250	
+   251	- **A + D2 (hiện tại):**
+   252	  - Thay đổi thường đi A.
+   253	  - Sự cố: agent read-only đề xuất lệnh; người trực xin JIT, tự gõ lệnh trong terminal riêng; người duyệt duyệt **yêu cầu JIT**.
+   254	  - Thứ tự IaC trước hay JIT trước **không được D2 nói rõ**. 02-research 2.9 #2 nói "the incident path is the same
+   255	    flow with a fast approver".
+   256	- **A + D2' (đề xuất, mục 7):**
+   257	  - Như trên, nhưng chốt **IaC trước**: làn sự cố của A là mặc định.
+   258	  - JIT chỉ dùng khi A không dùng được.
+   259	  - Yêu cầu JIT phải chứa **đúng danh sách lệnh**, và người duyệt duyệt danh sách đó.
+   260	  - Sau cửa sổ, một job đối chiếu sự kiện ghi trong CloudTrail với danh sách đã duyệt [TK].
+   261	  - Khi đã kiểm xong `aws:approve` (mục 8), thao tác lặp lại nhiều lần chuyển dần sang runbook của B.
+   262	
+   263	---
+   264	
+   265	## 5. Ma trận so sánh
+   266	
+   267	### 5.1 Kiểm tra ràng buộc cứng
+   268	
+   269	"Người có tên đã review **thay đổi** và approve **trước** khi áp dụng, người duyệt khác người làm" (GĐ-8, GĐ-11).
+   270	Quy ước: "đạt một phần" thì điểm Compliance ở 5.2 không quá 3.
+   271	
+   272	| A | B | C | D | A + D2 | A + D2' |
+   273	|---|---|---|---|---|---|
+   274	| **Đạt.** Duyệt diff trước merge; thiếu prod preview trên Team. | **Đạt nếu** `aws:approve` chặn được tự duyệt và ghi đúng người duyệt (⚠️). | **Không đạt.** Duyệt quyền, không duyệt thay đổi, cho mọi thay đổi. | **Một phần.** Duyệt kế hoạch; LLM thực thi. | **Một phần.** Luồng thường đạt; JIT duyệt quyền, không duyệt lệnh. | **Một phần, hẹp hơn.** Duyệt danh sách lệnh; việc thực thi không bị ràng buộc kỹ thuật, chỉ được đối chiếu sau. |
+   275	
+   276	Vì sao "một phần" chấp nhận được cho D2' mà không cho C:
+   277	- Ở C, khoảng hở áp dụng cho **mọi** thay đổi và agent tự chạy lệnh.
+   278	- Ở D2', khoảng hở chỉ áp dụng cho ngoại lệ khi A không dùng được (tần suất đo được). Người gõ từng lệnh đã duyệt,
+   279	  và mọi lệch đều bị phát hiện sau.
+   280	- Đây là lập luận, không phải bảo đảm kỹ thuật. Owner cần chấp nhận rõ ràng (mục 9 Q2).
+   281	
+   282	### 5.2 Chấm điểm
+   283	
+   284	Thang 1–5, **5 luôn là tốt nhất cho Papaya**: nhanh nhất / đáp ứng tốt nhất / đơn giản nhất / rẻ nhất / rủi ro còn
+   285	lại thấp nhất. Không cộng tổng: các tiêu chí không cùng trọng số, và Compliance là ràng buộc (5.1). Tốc độ được tách
+   286	làm hai hàng (xem 0.1).
+   287	
+   288	| Tiêu chí | A — PR-only | B — Runbook đã duyệt | C — JIT trực tiếp | D — Agent hosted | A + D2 | A + D2' |
+   289	|---|---|---|---|---|---|---|
+   290	| **Tốc độ — thay đổi thường** | **4** — như luồng PR hiện nay; ship trong ngày (S4a); thêm chờ duyệt ≤ 1 giờ. | **4** — giống A cho code/IaC. | **4** — không chờ CI, nhưng vẫn chờ duyệt cửa sổ JIT; nhanh hơn A khi làm nhiều thay đổi nhỏ liên tiếp. | **4** — giống A. | **4** — giống A. | **4** — giống A. |
+   291	| **Tốc độ — sự cố / ngoài IaC** | **2** — CI + deploy + có thể phải duyệt lại sau rebase (~10–45 phút ⚠️); thao tác ngoài IaC phải đi ops-as-code. | **4** — chọn runbook + duyệt + chạy (~5–20 phút ⚠️); chỉ với thao tác đã có runbook. | **5** — agent làm ngay trong cửa sổ, không cần soạn từng thao tác. | **3** — khởi động runtime và lập kế hoạch tốn thêm (~10–30 phút ⚠️). | **4** — JIT + người gõ lệnh (~5–20 phút ⚠️). | **3** — mặc định đi A (chậm hơn), JIT khi cần; thêm bước liệt kê lệnh. |
+   292	| **Compliance / ISO / HIPAA** | **4** — four-eyes ép bằng rulesets; chuỗi PR → run → CloudTrail; trừ điểm vì không ai thấy prod diff và admin chỉ bị log. | **5 (có điều kiện)** — duyệt đúng tham số; nối với CloudTrail; nếu ⚠️ về tự duyệt không đạt thì **3**. | **2** — duyệt quyền chứ không duyệt thay đổi; không tách lệnh agent với lệnh người. | **3** — identity agent riêng, transcript đầy đủ; nhưng duyệt kế hoạch, LLM thực thi (đạt một phần). | **3** — luồng thường như A; sự cố duyệt quyền chứ không duyệt lệnh. | **3** — tốt hơn A + D2 vì phần lớn sự cố đi A và JIT duyệt danh sách lệnh; vẫn là kiểm soát bằng quy trình. |
+   293	| **Độ phức tạp triển khai** | **3** — dùng GitHub/Pulumi/Serverless sẵn có; phần mới: OIDC, rulesets, deploy workflow, lần duyệt thứ hai cho diff rủi ro, ops-as-code. | **3 (có điều kiện)** — A cộng runbook SSM cho từng loại thao tác; nếu SSM không dùng được thì phải tự xây dịch vụ: **1**. | **3** — JIT qua TEAM/partner/tự xây; ít code hơn A; phải xử lý thu hồi và SCP. | **1** — runtime agent, identity riêng, image có policy, kho transcript, thêm thành phần duyệt. | **3** — A cộng một công cụ JIT. | **3** — như A + D2, cộng job đối chiếu CloudTrail. |
+   294	| **Chi phí** | **5** — không công cụ mới; thêm phút CI. | **4** — SSM Automation dùng cho công việc cần làm (giá ⚠️ chưa tra); tốn công viết runbook. | **3** — TEAM miễn phí nhưng phải vận hành; partner tốn license (⚠️ chưa tra giá). | **2** — compute cho runtime, kho transcript, công xây lớn nhất. | **4** — A cộng công cụ JIT. | **4** — như A + D2. |
+   295	| **Rủi ro còn lại** (5 = thấp nhất) | **4** — không ai cầm quyền ghi prod; còn: chuỗi cung ứng CI, admin sửa rulesets, duyệt hời hợt lúc 2 giờ sáng, injection qua nội dung PR, GitHub ngừng là kẹt. | **4** — role runbook hẹp theo thao tác; còn: tham số do agent điền (người duyệt phải đọc), thao tác ngoài runbook, drift. | **1** — injection trong lúc cầm quyền ghi cho mọi thay đổi; bỏ qua prod preview và policy; thu hồi cần SCP dựng sẵn. | **3** — identity tách bạch, không credential trên laptop; nhưng LLM cầm quyền ghi sau khi đọc log; runtime là bề mặt tấn công mới. | **3** — trong cửa sổ JIT, agent trên cùng laptop vẫn dùng được quyền (D2 tự nói là quy trình); thu hồi như C. | **3** — giống A + D2 nhưng cửa sổ hiếm hơn, và lệch được phát hiện sau; vẫn không chặn trước. |
+   296	
+   297	### 5.3 Đọc ma trận
+   298	
+   299	- **C không đạt ràng buộc cứng** và có rủi ro còn lại cao nhất. Giá trị của C trong file này là cho Engineering thấy
+   300	  cái giá của "để Claude Code gọi AWS trực tiếp": chỉ nhanh hơn rõ rệt ở đường sự cố, và ở luồng thường gần như ngang A.
+   301	- Với **thay đổi thường**, mọi phương án gần như ngang nhau về tốc độ. Lựa chọn thật nằm ở **đường sự cố / ngoài IaC**.
+   302	- **A** rẻ nhất và đủ chặt cho Compliance, nhưng chậm nhất khi có sự cố.
+   303	- **B** cho người duyệt thấy đúng tham số với mức rủi ro tốt. Toàn bộ lợi thế này phụ thuộc vào hai điểm ⚠️ của
+   304	  `aws:approve`. Ops-as-code của A cũng cho người duyệt thấy đúng thao tác, nhưng chậm hơn và phụ thuộc GitHub.
+   305	- **D** tách identity triệt để nhất, nhưng đắt nhất và không đạt hẳn ràng buộc.
+   306	- **A + D2'** không vượt A + D2 ở rủi ro còn lại. Nó chỉ thu hẹp tần suất và thêm khả năng phát hiện.
+   307	
+   308	---
+   309	
+   310	## 6. Kịch bản: sửa cấu hình Lambda trên prod lúc 2 giờ sáng
+   311	
+   312	**Bối cảnh chung (giả định để so sánh):**
+   313	- Function `claims-doc-extract` (tên giả định) xử lý message từ SQS.
+   314	- Một partner bắt đầu gửi file lớn hơn, nên function timeout hàng loạt, message quay lại queue, backlog tăng. Alarm kêu.
+   315	- Bản sửa: tăng `timeout` 30s → 90s, `memorySize` 1024 → 2048. Cả hai nằm trong `serverless.yml`.
+   316	- Bẫy có thật trong loại thay đổi này: visibility timeout của queue nguồn phải đủ lớn so với timeout của function
+   317	  (AWS khuyến nghị ≥ 6 lần; ⚠️ nhớ từ docs, chưa mở trang trong phiên này). Agent có thể bỏ sót; đây là chỗ người
+   318	  duyệt có giá trị.
+   319	- Người trực: engineer E. Người duyệt trực: R (người khác).
+   320	- Bước chẩn đoán giống nhau ở mọi phương án và không tính vào thời gian dưới đây.
+   321	
+   322	### A — PR-only
+   323	
+   324	1. E nhận page. E mở **session phân tích** của Claude Code: `--restricted`, chỉ có tool đọc, identity read-only
+   325	   metadata (D3, 02-research 6.9.4 Q2). Agent đọc metric, log đã che và `GetFunctionConfiguration`, rồi chẩn đoán.
+   326	2. E mở **session thứ hai** có Edit và git/gh, không có identity prod, để viết bản sửa. Session này nhận bản tóm tắt
+   327	   chẩn đoán chứ không đọc lại log thô [TK]. Agent sửa `serverless.yml` (timeout, memory, kèm visibility timeout nếu
+   328	   cùng stack) và chạy `serverless diff` trên non-prod.
+   329	   - Lệnh này cần sf-core ≥ 4.37.0, và khác biệt không làm exit code khác 0, nên CI phải tự parse `--json` (02-research 4.4.2 ✅).
+   330	3. Agent mở PR bằng identity của E, gắn nhãn `incident`. Security checks chạy đủ; test chậm không liên quan được bỏ.
+   331	4. R được page, xem diff (GitHub Mobile duyệt được PR là ⚠️ chưa kiểm), và approve.
+   332	5. E merge. Workflow deploy chạy prod preview. Diff không thuộc loại "rủi ro" nên workflow chạy tiếp
+   333	   `serverless deploy --package` bằng role OIDC `production` (02-research 4.4.3).
+   334	6. E theo dõi metric để xác nhận.
+   335	- **Thời gian từ quyết định sửa tới khi áp dụng:** ~10–45 phút ⚠️ (PR ~2–3; checks ~5–15; chờ duyệt ≤ 15 theo S7;
+   336	  CloudFormation ~3–10; cộng thêm một vòng duyệt lại nếu phải rebase).
+   337	- **Còn lại sau sự cố:** không drift, không cần PR codify; bằng chứng nằm sẵn trong PR, run và CloudTrail.
+   338	
+   339	### B — Runbook đã duyệt (SSM Automation)
+   340	
+   341	1. Chẩn đoán như A, bước 1.
+   342	2. Agent chọn runbook `Papaya-LambdaSetTimeoutMemory` (tên giả định) và điền function = X, timeout = 90,
+   343	   memory = 2048, lý do. E khởi chạy bằng quyền "start runbook".
+   344	3. Runbook kiểm tra: function thuộc prod, giá trị trong khoảng cho phép. Runbook tới bước `aws:approve`, SNS page R.
+   345	4. R mở console bằng SSO, xem tham số và approve. Runbook không hiển thị ngữ cảnh: nếu không ai nhắc visibility timeout,
+   346	   R chỉ bắt được khi R tự biết bẫy này. Cách bù: runbook đọc visibility timeout của queue và chặn nếu không đủ [TK].
+   347	5. Runbook thực thi bằng `assumeRole` của nó (role này là ngoại lệ có tên trong lệnh deny Lambda, 0.3), rồi mở PR
+   348	   codify vào `serverless.yml`.
+   349	6. E theo dõi metric. Sáng hôm sau, PR codify đi luồng thường.
+   350	- **Thời gian:** ~5–20 phút ⚠️ (điền tham số ~2; chờ duyệt ≤ 15; thực thi vài giây).
+   351	- **Còn lại sau sự cố:** drift cho tới khi PR codify merge. Một `serverless deploy` sau đó có thể ghi đè hoặc để
+   352	  nguyên drift (⚠️ chưa kiểm hành vi CloudFormation).
+   353	
+   354	### C — JIT trực tiếp
+   355	
+   356	1. Chẩn đoán như A, nhưng trên cùng session mà lát nữa sẽ cầm quyền ghi.
+   357	2. E gửi yêu cầu JIT: permission set `InfraOperator-claims`, account prod, 1 giờ, lý do "timeout claims-doc-extract".
+   358	3. R duyệt trong công cụ JIT. R thấy phạm vi và lý do, **không thấy lệnh**.
+   359	4. Công cụ tạo assignment; E đăng nhập lại profile (thời gian provisioning là ⚠️).
+   360	5. Agent tự chạy `aws lambda update-function-configuration …` (permission set này phải là ngoại lệ trong lệnh deny
+   361	   Lambda). Agent cũng có thể chạy thêm lệnh khác trong phạm vi mà không ai xem trước.
+   362	6. Hết giờ, assignment bị xoá. Session đang có sống tới hết hạn, trừ khi bật SCP Deny dựng sẵn (02-research 2.4.4).
+   363	7. Sau đó: PR codify; audit đối chiếu CloudTrail trong cửa sổ với yêu cầu.
+   364	- **Thời gian:** ~5–20 phút ⚠️.
+   365	- **Còn lại sau sự cố:** drift; không tách được lệnh của agent với lệnh của người.
+   366	
+   367	### D — Agent hosted
+   368	
+   369	1. E khởi động lượt chạy "incident" trên runtime, qua Slack hoặc CLI, kèm link alarm.
+   370	2. Agent hosted phân tích bằng role read-only của chính nó và đề xuất kế hoạch: sửa `serverless.yml` và mở PR làn sự
+   371	   cố (giống A), **hoặc** chạy thao tác trực tiếp có giới hạn.
+   372	3. R duyệt kế hoạch (qua `aws:approve` hoặc cơ chế PR).
+   373	4. Runtime cấp role ghi hẹp có TTL cho lượt chạy; agent thực thi; transcript được lưu tập trung.
+   374	5. E xác nhận bằng metric. Nếu dùng thao tác trực tiếp thì cần PR codify.
+   375	- **Thời gian:** ~10–30 phút ⚠️.
+   376	- **Còn lại sau sự cố:** tuỳ nhánh ở bước 2. Bằng chứng đầy đủ nhất.
+   377	
+   378	### A + D2 / A + D2' (để đối chiếu)
+   379	
+   380	- **A + D2:**
+   381	  - Agent read-only đề xuất `aws lambda update-function-configuration …`.
+   382	  - E xin JIT; R duyệt yêu cầu; E **tự gõ** lệnh trong terminal riêng.
+   383	  - CloudTrail ghi E, **giống hệt C**: ở C agent cũng chạy bằng identity của E (02-research 2.9 #1). Khác biệt duy
+   384	    nhất là bảo đảm **bằng quy trình** rằng E đã đọc từng lệnh.
+   385	  - Thu hồi có cùng điểm yếu với C. Còn lại: drift, PR codify.
+   386	- **A + D2':**
+   387	  - Vì thay đổi này **là** IaC, nên đi đường A ở trên. JIT không được dùng.
+   388	  - JIT chỉ dùng nếu, ví dụ, GitHub Actions đang ngừng. Khi đó yêu cầu JIT liệt kê đúng một lệnh, R duyệt lệnh đó,
+   389	    và sau cửa sổ job đối chiếu CloudTrail.
+   390	
+   391	---
+   392	
+   393	## 7. Khuyến nghị
+   394	
+   395	**Chọn A + D2': A là xương sống; giữ D2 làm đường dự phòng hẹp, có chỉnh. Song song, kiểm chứng `aws:approve`
+   396	ngay trong giai đoạn đầu: nếu đạt, thao tác lặp lại chuyển sang runbook (B) và đường JIT co lại thêm. D để dành,
+   397	chỉ làm khi có điều kiện kích hoạt.**
+   398	
+   399	1. **A cho mọi thay đổi diễn đạt được bằng code, kể cả trong sự cố.**
+   400	   - A đạt ràng buộc cứng, rẻ nhất, và dựng trên công cụ Papaya đã có, phù hợp đội DevSecOps 1–2 người (GĐ-1).
+   401	     Điểm này mạnh hơn nữa nếu GĐ-12 (90 ngày, ngân sách nhỏ) đúng; GĐ-12 chưa được xác nhận.
+   402	   - A đặt ranh giới ở IAM và cổng CI, đúng nguyên tắc 6.8.
+   403	   - Kịch bản 2 giờ sáng cho thấy: thay đổi cấu hình Lambda **là** IaC, nên đi A thì không để lại drift và không
+   404	     cần cửa sổ quyền.
+   405	2. **Chốt thứ tự trong D2: IaC trước, JIT sau.**
+   406	   - D2 không nói rõ thứ tự. Tôi đề xuất chốt: JIT (agent đề xuất, người gõ) chỉ dùng khi A không dùng được. Đó là
+   407	     khi thao tác không có trong IaC và chưa có runbook, khi GitHub/Actions ngừng, hoặc khi chính pipeline hỏng.
+   408	   - Đây là thay đổi phạm vi của D2, cần owner quyết (mục 9 Q1).
+   409	3. **Thu hẹp khoảng hở "duyệt quyền, không duyệt lệnh" bằng một bước rẻ.**
+   410	   - Yêu cầu JIT chứa đúng danh sách lệnh; R duyệt danh sách đó.
+   411	   - Sau cửa sổ, một job đối chiếu sự kiện ghi trong CloudTrail với danh sách đã duyệt; lệch thì mở finding [TK].
+   412	   - Đây vẫn là quy trình cộng phát hiện, không phải chặn trước (5.1).
+   413	4. **Kiểm chứng B (SSM `aws:approve`) trong giai đoạn đầu, vì kết quả có thể đổi khuyến nghị.**
+   414	   - Nếu `aws:approve` chặn được tự duyệt và ghi đúng người duyệt, B cho người duyệt thấy đúng tham số với chi phí
+   415	     thấp. Khi đó các thao tác vận hành lặp lại (đổi timeout/memory, scale, redrive) nên chuyển sang runbook, và
+   416	     JIT chỉ còn cho thao tác thật sự lạ.
+   417	   - Nếu không đạt, giữ A + D2'.
+   418	5. **Không chọn C.**
+   419	   - C không đạt ràng buộc cứng. Rủi ro của C nằm đúng chỗ Papaya đặc thù: agent đọc tài liệu và log có thể bị cài
+   420	     cắm (A7b) trong khi cầm quyền ghi.
+   421	   - Với Engineering, câu trả lời là A cộng vòng lặp non-prod tự do. "Tự ship" vẫn đúng; chỉ bước merge vào prod cần
+   422	     thêm một người, và ma trận cho thấy với thay đổi thường thì C không nhanh hơn A đáng kể.
+   423	6. **D: có điều kiện kích hoạt.** Làm D khi cần tách identity agent bằng kỹ thuật (ví dụ auditor hoặc partner yêu
+   424	   cầu), hoặc khi có cách lưu transcript tập trung đáp ứng yêu cầu dữ liệu.
+   425	
+   426	**Rủi ro của chính khuyến nghị này (nói thẳng):**
+   427	- **Tốc độ sự cố của A chưa đo, và framing chưa có mục tiêu end-to-end** (S7 chỉ đo thời gian chờ duyệt). Nếu A quá
+   428	  chậm, người ta sẽ dùng đường JIT thường xuyên, tức là trôi về A + D2 hoặc gần C. Việc đầu tiên trong rollout phải
+   429	  là đo thời gian end-to-end của một PR làn sự cố trên một service thật, so với một mục tiêu owner đặt (mục 9 Q3).
+   430	- **Đường dự phòng chỉ đạt ràng buộc một phần** (5.1). Owner phải chấp nhận rõ ràng, kèm số liệu theo dõi: số cửa sổ
+   431	  JIT mỗi tháng, số lệch phát hiện được.
+   432	- **Trên Team, không ai thấy prod diff trước khi apply.** Lớp bù "tự dừng khi diff rủi ro" là [TK], chủ yếu dựa vào
+   433	  việc parse kết quả prod preview. `--save-plan` (đánh dấu [PREVIEW]) và `up --plan` (đánh dấu [EXPERIMENTAL]) của
+   434	  Pulumi chỉ là phần bổ sung (02-research 4.1.1–4.1.3 ✅).
+   435	- **Code owner cho on-call** có thể làm yếu review của luồng thường (mục 1). Chưa có cách giải được kiểm chứng.
+   436	
+   437	## 8. Việc cần kiểm chứng trước khi viết framework
+   438	
+   439	- [ ] ⚠️ `aws:approve`: có chặn được người khởi chạy tự duyệt không; bản ghi lưu identity nào khi approver là role
+   440	      Identity Center; lịch sử execution giữ bao lâu; giá SSM Automation. (Quyết định B, mục 7.4.)
+   441	- [ ] ⚠️ Thời gian end-to-end của làn sự cố A: checks, `serverless deploy` của một service điển hình, chi phí duyệt lại sau rebase.
+   442	- [ ] ⚠️ Required check bị bỏ qua do path filter có chặn merge (pending) không.
+   443	- [ ] ⚠️ Có tách được quy tắc duyệt cho PR sự cố (ruleset riêng cho nhánh) mà không làm yếu code-owner review thường ngày không.
+   444	- [ ] ⚠️ GitHub Mobile có duyệt PR được không, và có thoả các rule của ruleset không.
+   445	- [ ] ⚠️ Thời hạn lưu log và artifact của workflow run; cách export sang log archive.
+   446	- [ ] ⚠️ Hành vi CloudFormation khi property Lambda bị sửa ngoài stack, rồi một deploy sau đổi hoặc không đổi property đó (ảnh hưởng B, C, D2).
+   447	- [ ] ⚠️ Thời gian provisioning của account assignment Identity Center (ảnh hưởng tốc độ JIT).
+   448	- [ ] ⚠️ Lambda/SQS: khuyến nghị visibility timeout so với function timeout (mở docs trước khi trích).
+   449	
+   450	## 9. Quyết định của owner
+   451	
+   452	Câu hỏi cần owner trả lời:
+   453	- **Q1.** Chọn phương án/tổ hợp nào? (Đề xuất: A + D2', kèm kiểm chứng B ở giai đoạn đầu.)
+   454	- **Q2.** Có chấp nhận rằng đường dự phòng JIT chỉ đạt ràng buộc "duyệt thay đổi" **một phần** (5.1) không, với điều
+   455	  kiện tần suất được đo và lệch được phát hiện sau?
+   456	- **Q3.** Mục tiêu end-to-end cho thay đổi trong sự cố, từ lúc quyết định sửa tới lúc áp dụng? (Đề xuất ⚠️: ≤ 30
+   457	  phút, đo ở rollout.)
+   458	
+   459	<to fill in: phương án được chọn, lý do của owner, ngày>

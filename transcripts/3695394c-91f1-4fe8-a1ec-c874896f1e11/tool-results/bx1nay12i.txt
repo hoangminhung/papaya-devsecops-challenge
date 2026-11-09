@@ -1,0 +1,671 @@
+   664 docs/framework.md
+    77 work/00-challenge.md
+   272 work/01-problem-framing.md
+  1840 work/02-research.md
+   573 work/03-options.md
+    82 work/session-log.md
+  3508 total
+     1	# Framework: coding agents for DevSecOps at Papaya
+     2	
+     3	> Status: draft v2, for owner review · Updated: 2026-11-09
+     4	> Audience: a panel of Engineering and Compliance. Every layer states what it costs engineers and
+     5	> what it gives Compliance.
+     6	
+     7	## How to read this
+     8	
+     9	The framework has eight layers. Each layer has three parts:
+    10	
+    11	- **Principle**: the rule, independent of any tool. It still holds if a tool changes.
+    12	- **On Papaya's stack**: how the rule is applied with Pulumi, Serverless Framework, GitHub
+    13	  Actions, AWS, GCP, k0s and Claude Code.
+    14	- **Audit evidence**: the records the layer produces, so an auditor can test it without asking
+    15	  anyone.
+    16	
+    17	Markers (see `CLAUDE.md` Rule 1). R*x.y* is a row in `work/02-research.md`; that row quotes and
+    18	links the official page.
+    19	
+    20	| Marker | Meaning |
+    21	|---|---|
+    22	| 📖 R*x.y* | Documented behaviour: the research row is ✅ (page read) or 📖 (page linked). |
+    23	| ⚠️ R*x.y* | The research row is an inference, an open question, or a "What this means for Papaya" conclusion (sections 1.8, 2.9, 3.6, 3.7, 4.6, 5.6, 5.7, 6.5). Reasoned, not documented. |
+    24	| [design] | A mechanism I propose, built from documented parts but not tested. Treat it as ⚠️. |
+    25	| ✅ | Checked locally in this repository. |
+    26	
+    27	Other references: **GĐ-n** = owner-confirmed assumption n in `work/01-problem-framing.md` §4;
+    28	**S-n** = success criterion n (same file, §5); **P-n / A-n** = problems (same file, §1);
+    29	**D1–D3** = owner decisions in `work/02-research.md` 6.6; **Options §n** = `work/03-options.md`;
+    30	**G-n** = gaps at the end of this file.
+    31	
+    32	---
+    33	
+    34	## 1. The decision in one page
+    35	
+    36	**The conflict is narrow.** Engineering and Compliance disagree only about *writes to
+    37	production*. Reading metadata and everything in non-prod are outside Compliance's sentence
+    38	(framing §3.1). Reading real customer data is a separate question (layer 6).
+    39	
+    40	**Chosen approach: "A + D2'"** (Options §9, owner decision 2026-11-09):
+    41	
+    42	1. **Every production change is a pull request**, approved by a named human who is not the author,
+    43	   and applied by the CI pipeline. This holds during incidents too ("IaC first").
+    44	2. **A narrow fallback (break-glass)**: only when the PR path cannot be used, a human gets a
+    45	   short, approved just-in-time (JIT) permission and runs an approved command list in a terminal
+    46	   without an agent [design]. Details in layer 7.
+    47	3. **Nobody holds standing production write access**, and the agent is never given a production
+    48	   write identity.
+    49	
+    50	| Engineering gets | Compliance gets |
+    51	|---|---|
+    52	| A free loop in non-prod: the agent reads, changes and deploys without approval (safe because non-prod holds synthetic data only, GĐ-14). | Every prod change approved **before** apply by a named human ≠ author (GĐ-8, GĐ-11), enforced by GitHub rulesets and AWS IAM rather than by the agent. |
+    53	| Read-only prod metadata for the agent (config, metrics, redacted logs). | No standing prod write for any human (S1); no long-lived keys in CI (S2). |
+    54	| Self-service: open a PR, get one approval, ship the same day (S4: wait ≤ 1 h in working hours). | One evidence chain per change. Approval and change records kept ≥ 6 years (📖 R5.2.9). |
+    55	| An incident lane: approval wait ≤ 15 min 24/7 (S7), decision-to-apply ≤ 30 min (Options §9 Q3). | Agent-side controls (managed settings, tool catalogue) as a second layer, not as the control of record. |
+    56	
+    57	**Where the design does not fully meet Compliance's sentence (stated openly):**
+    58	
+    59	- **The JIT fallback meets it only partly.** The approver approves a command list, not an applied
+    60	  change, and "the human, not the agent, ran it" is a process rule (Options §5.1). The owner
+    61	  accepted this (Options §9 Q2). It is measured (layer 7).
+    62	- **On the GitHub Team plan nobody sees the prod diff before apply** (⚠️ R4.6 #1; Team is the
+    63	  owner's assumption GĐ-5). The reviewer sees the code diff and a non-prod preview. The deploy job
+    64	  stops on risky prod diffs and asks for a second approval [design].
+    65	- **Admins can edit the gate.** Repository admins and holders of "edit repository rules" can
+    66	  change or disable rulesets; this is logged, not prevented (📖 R3.2.2, ⚠️ R3.6 #1). The agent on
+    67	  a laptop acts with its engineer's GitHub login, so an admin's agent has the same power. Few
+    68	  admins, access reviews and alerts mitigate this (layers 7, 8).
+    69	- **Incident approvers are scarce.** If the on-call approver is a code owner of every path, domain
+    70	  review gets weaker; L3 incidents need a platform approver on call 24/7 with a backup, which a
+    71	  1–2 person DevSecOps team cannot staff alone (Options §1, §7; GĐ-1).
+    72	- **HIPAA applicability is a legal question** (⚠️ R1.11.1.11). The design follows the brief and
+    73	  treats Papaya as a business associate.
+    74	
+    75	**Cross-cutting rules** (from the owner's balance principle, `work/02-research.md` 6.8):
+    76	
+    77	1. **The boundary is IAM and the CI gate.** Agent-side controls lower how often things go wrong;
+    78	   the docs call managed settings "a client-side control, not a security boundary" (📖 R1.1.7).
+    79	2. **Assume prompt injection succeeds.** No source claims a full prevention (📖 R6.1.1, R6.1.2).
+    80	3. **Friction where damage is large, none where it is small.** If the safe path is slower than the
+    81	   shortcut, people take the shortcut (P3b). So friction is measured and has a time-boxed escape.
+    82	4. **Nothing standing.** No standing prod write, no long-lived credentials.
+    83	5. **Evidence by construction.** The path itself produces the records.
+    84	
+    85	### Roles
+    86	
+    87	| Role | Who | Rule |
+    88	|---|---|---|
+    89	| Author | The engineer, and the agent working for them | Never approves their own change. GitHub blocks PR authors from approving (📖 R3.3.1). |
+    90	| Approver | A named human with write access, listed in CODEOWNERS | ≠ author, ≠ last pusher (📖 R3.2.3). For a PR opened by a GitHub App, ≠ the person who triggered it (⚠️ R3.3.4, enforced by a check, layer 5). |
+    91	| On-call approver | Primary + backup, 24/7, named in the on-call schedule | Same rule as Approver. Target: approval wait ≤ 15 min (S7). |
+    92	| Platform approver | Platform team member, also on the on-call schedule | Second approval for L3 changes. |
+    93	| Control owner | DevSecOps (1–2 people, GĐ-1) | Owns policy files and metrics. Is **not** the only approver. |
+    94	
+    95	"An agent never approves" (GĐ-11) is enforced only partly: GitHub blocks self-approval, but an
+    96	agent using its engineer's `gh` login could approve **someone else's** PR as that engineer. The
+    97	auto-mode classifier blocks only "approving Claude's own pull request" (📖 R6.3.3). This is a
+    98	process rule with residual risk; detection is in layer 7 [design].
+    99	
+   100	---
+   101	
+   102	## Layer 1 — Identity and access
+   103	
+   104	**Principle**
+   105	
+   106	- Every action traces to one named human.
+   107	- Nobody holds standing write access to production. Production is written by the pipeline role,
+   108	  or, in the fallback, by an approved, time-boxed human grant.
+   109	- Production reads default to metadata. Reads of stores that hold customer data are blocked by a
+   110	  guardrail that member-account identities cannot edit.
+   111	- No long-lived credentials. Prod and non-prod are separate boundaries.
+   112	
+   113	**On Papaya's stack**
+   114	
+   115	- **The human's access is the agent's access.** On a laptop the agent uses the engineer's AWS SSO
+   116	  cache, and one portal session reaches every role assigned to the engineer (📖 R2.2.1, R2.2.2). A
+   117	  separate "agent" permission set therefore does not separate them (⚠️ R2.9 #1). The control is
+   118	  what the **engineer** holds.
+   119	- **AWS IAM Identity Center permission sets** (📖 R2.1.1):
+   120	  - `ProdReadMetadata`: config, metrics and redacted log groups in prod; session duration 1 h, the
+   121	    minimum (📖 R2.1.4). Read actions that return secrets in configuration (for example Lambda
+   122	    environment variables) are excluded, because resolved values may sit there in plain text
+   123	    (⚠️ R4.4.7); secrets are resolved at runtime instead (⚠️ R4.6 #7).
+   124	  - `NonProdDeveloper`: broad rights in non-prod accounts only.
+   125	  - **No standing prod-write permission set.**
+   126	  - `InfraOperator-<service>`: assigned only by the JIT flow (layer 7). Tooling: a partner product,
+   127	    the TEAM sample, or a small flow on `CreateAccountAssignment` / `DeleteAccountAssignment`
+   128	    (📖 R2.4.1, R2.4.1b, R2.4.2).
+   129	- **Guardrails in the prod OU (SCPs)**, which cap member-account principals (📖 R2.3.1, R2.3.2) [design]:
+   130	  - deny data-plane reads on stores holding claim data (e.g. `s3:GetObject` on the claim-documents
+   131	    bucket, `sqs:ReceiveMessage`, `states:GetExecutionHistory`) except application roles and the
+   132	    approved data-read role, selected by `aws:PrincipalArn` (📖 R2.3.8; pattern ⚠️ R2.9 #4);
+   133	  - deny `lambda:UpdateFunctionCode` and `lambda:UpdateFunctionConfiguration` except the
+   134	    CloudFormation `deploymentRole` and the named JIT roles, to close `serverless deploy function`,
+   135	    which changes config outside CloudFormation (📖 R4.4.4; pattern ⚠️ R4.6 #3; SCP or IAM not chosen);
+   136	  - a pre-deployed revocation Deny on `identitystore:userId` (📖 R2.4.4);
+   137	  - protect the organization trail and log archive (📖 R2.6.2).
+   138	  Limits: 10 SCPs per target, 10,240 characters each; nothing applies to the management account
+   139	  (📖 R2.3.2, R2.3.4).
+   140	- **Sessions and MFA:** set the access-portal session length on purpose; the IdP session can
+   141	  silently extend it (📖 R2.1.5, R2.1.6). MFA is managed in the external IdP if one is used (📖 R2.1.7).
+   142	- **CI → AWS:** GitHub OIDC, no stored keys (📖 R3.4.1). The prod deploy role trusts only tokens
+   143	  from the `production` environment of Papaya's monorepo, in the repo's `sub` format (📖 R3.4.3,
+   144	  R3.4.4; the immutable format is assumed, ⚠️ R3.7 A2). Preferably the `sub` is customised to also
+   145	  include the reusable deploy workflow's `job_workflow_ref` (📖 R3.4.5; availability on Team ⚠️, G10).
+   146	  Non-prod roles trust non-prod environments or `pull_request` (⚠️ R4.6 #2).
+   147	- **CI → GCP:** Workload Identity Federation with an attribute condition on Papaya's GitHub
+   148	  organization, which Google requires (📖 R3.4.5b).
+   149	- **GCP, k0s and Firebase for humans:** same principles; mechanisms not researched (G1–G3). Today
+   150	  engineers reach k0s with kubeconfigs and no SSO (GĐ-4, unconfirmed). Interim rule: no admin
+   151	  kubeconfig and no GCP owner role on laptops; prod deploys to k0s and Firebase run only from CI.
+   152	
+   153	**Audit evidence**
+   154	
+   155	- Export of Identity Center assignments: no standing prod-write assignment (S1).
+   156	- CloudTrail `CreateAccountAssignment` / `DeleteAccountAssignment` per JIT grant (📖 R2.4.2), linked
+   157	  to the approval record by request ID [design].
+   158	- SCPs and trust policies as Pulumi code: version history = change history.
+   159	- IAM Access Analyzer `check-no-new-access` on every PR that changes a policy (📖 R2.8.1).
+   160	- Quarterly access review (permission sets, GitHub admins).
+   161	
+   162	**Cost / value.** Engineers lose standing prod write; they keep fast prod reads and a free non-prod
+   163	loop. Compliance gets least privilege that is enforced, not promised.
+   164	
+   165	---
+   166	
+   167	## Layer 2 — Agent runtime controls
+   168	
+   169	**Principle**
+   170	
+   171	- Agent-side controls are hygiene: they cut mistakes; they are not the boundary (📖 R1.1.7, R1.1.8).
+   172	- They are set centrally, the same for everyone, and versioned in git.
+   173	- Safe defaults with a measured escape hatch. A default that people keep overriding is replaced,
+   174	  not defended.
+   175	- The session that reads untrusted content should hold as little power as possible (📖 R6.1.2).
+   176	
+   177	**On Papaya's stack**
+   178	
+   179	- **Delivery:** server-managed settings from the claude.ai admin console (available on Team,
+   180	  📖 R1.1.5) for all laptops. Where MDM exists, also an endpoint `managed-settings.json`, protected
+   181	  at OS level, though a local admin can still edit it (📖 R1.1.3, R1.1.8). MDM is unknown, so both
+   182	  paths are prepared (R1.9).
+   183	- **Baseline keys** (template: Anthropic's `settings-hipaa.json`, 📖 R5.5.4):
+   184	
+   185	  | Key | Value | Why | Source |
+   186	  |---|---|---|---|
+   187	  | `permissions.defaultMode` | `default` (Manual) | D1. A default, not a lock: users can switch to auto; VS Code remembers the last pick. | 📖 R6.9.3 |
+   188	  | `permissions.allow` (managed) | read-only commands Papaya uses, e.g. `Bash(aws cloudwatch get-metric-data *)` | Fewer prompts for safe reads (P3b) | 📖 R6.9.3 |
+   189	  | `allowManagedPermissionRulesOnly` | `true` | One rule set for everyone (D1, owner Q4) | 📖 R1.2.5 |
+   190	  | `permissions.disableBypassPermissionsMode` | `"disable"` | Removes "prompts off" (P3a) | 📖 R1.2.2 |
+   191	  | `requiredMinimumVersion` | ≥ 2.1.295, and ≥ the latest fixed advisory at rollout | `onFailure: "block"` needs 2.1.295 (R1.5.2), `allowedProviders` 2.1.285 (R1.1.15), fail-closed locks 2.1.282 (R1.1.11); advisory history (R6.3.9) | 📖 R1.1.13 |
+   192	  | `allowedProviders` + `forceLoginOrgUUID` | `["anthropic"]` + Papaya's org | On endpoint-managed machines, closes most bypasses | 📖 R1.1.15 |
+   193	  | `allowManagedHooksOnly` | `true` | Repo and user hooks cannot run | 📖 R1.5.4 |
+   194	  | `sandbox.enabled`, `sandbox.failIfUnavailable`, `sandbox.allowUnsandboxedCommands: false`, narrow `sandbox.network.allowedDomains` | on | Shell commands only (R1.6.2) | 📖 R1.6.4 |
+   195	  | `sandbox.credentials` / `sandbox.filesystem.denyRead` on `~/.aws` | on, with `aws` in `sandbox.excludedCommands` | Trade-off below | 📖 R1.6.3, R1.6.4 |
+   196	  | MCP and plugin keys | see layer 4 | | |
+   197	  | OTel exporter with content flags `0` | on | Usage evidence without prompt content | 📖 R1.1.20, R5.5.4 |
+   198	
+   199	- **Trade-off on AWS credentials in the sandbox.** By default the sandbox can read `~/.aws`
+   200	  (📖 R1.6.3). Denying it stops other shell commands from reading the credential cache, but then
+   201	  the agent can call AWS only through `aws` as an excluded command, which "run[s] with full access"
+   202	  (📖 R1.6.4). This is accepted because the engineer holds no prod write; the deny only narrows
+   203	  which programs can take the credentials. A stronger option is a separate OS user or container for
+   204	  prod-reading sessions with only `ProdReadMetadata` (⚠️ R6.5 #2, phase 3).
+   205	- **Session types:**
+   206	
+   207	  | Session | Where | Identity | Flags | Enforcement |
+   208	  |---|---|---|---|---|
+   209	  | Daily development | laptop | non-prod roles + `ProdReadMetadata` | managed baseline | Auto mode allowed by choice (D1). `--restricted` recommended (D3). |
+   210	  | Incident analysis | laptop | intended: `ProdReadMetadata` only | `--restricted --tools "Bash,Read,Grep,Glob"` (📖 R6.9.1b) | **Process rule** (D3, owner Q1–Q2). No Edit/Write tools, but Bash remains: writes and network calls are limited only by the sandbox and Manual prompts, and Bash can reach any role in the SSO cache (📖 R2.2.2). |
+   211	  | CI agent | GitHub-hosted runner | its own GitHub App token; **no** prod environment | `--restricted`, explicit `--tools`, rules only from `--settings <runner file>` | In the workflow file under CODEOWNERS (D3, owner Q5). |
+   212	  | JIT terminal (fallback only) | laptop | JIT grant | **no agent running** | **Process rule** (D2). |
+   213	  | Auto-mode environment (phase 3) | separate environment, non-prod credentials only | non-prod | auto mode encouraged | D1 option (c). |
+   214	
+   215	- **Hard limits, stated openly:**
+   216	  - Bash permission rules are not a security boundary (📖 R1.2.6).
+   217	  - Hooks fail open unless `"onFailure": "block"` is set (📖 R1.5.2).
+   218	  - `--restricted` cannot be forced by a setting on laptops (📖 R6.9.1, R6.9.1c).
+   219	  - **On laptops without MDM there is no way to close the bypasses** of server-managed settings: a
+   220	    different login, an API key or a `CLAUDE_CODE_USE_*` variable skips them, including
+   221	    `allowedProviders` sent from the server (📖 R1.1.7; ⚠️ R1.8 #3; G11). The compensating controls
+   222	    are IAM and the CI gate.
+   223	  - In a JIT window the grant sits in the same SSO cache the agent can reach (📖 R2.2.2). "No agent
+   224	    in the JIT terminal" is a process control (D2).
+   225	- **Personal auto memory:** engineers review it periodically and delete it after a session that
+   226	  handled suspicious content; the rest is a residual risk with a named owner (D3).
+   227	- **Fallback:** switch to `disableAutoMode` if the planted-injection test (layer 8) steers auto
+   228	  mode, a serious advisory appears, or an audit finds auto mode touched a protected scope (D1).
+   229	
+   230	**Audit evidence**
+   231	
+   232	- The managed settings file in git, with PR approvals.
+   233	- `/status` and `claude doctor` output from sampled machines (📖 R1.1.18).
+   234	- OTel: `claude_code.tool_decision` with `permission_mode`; `claude_code.tool.blocked_on_user`
+   235	  with `duration_ms` as a rubber-stamping signal (D1 metrics in research 6.6).
+   236	- Settings-change audit events exist; availability on Team is unknown (⚠️ R1.1.12).
+   237	
+   238	**Cost / value.** Manual mode prompts more than auto mode; the managed read-only allowlist offsets
+   239	part of it. Compliance gets an organization policy with evidence instead of personal choices (P3c).
+   240	
+   241	---
+   242	
+   243	## Layer 3 — Change workflow by risk level
+   244	
+   245	**Principle**
+   246	
+   247	- The level is set by the damage a change can do, not by who asks.
+   248	- Above non-prod, one path: a reviewed PR, applied by the pipeline. The approver reviews what will
+   249	  be applied and is a named human who is not the author.
+   250	- Higher risk adds a specialised second approver, not a different path.
+   251	- An incident uses the same path with faster people, not fewer checks.
+   252	
+   253	**Levels**
+   254	
+   255	| Level | What | Examples | Approver | Path |
+   256	|---|---|---|---|---|
+   257	| **L0** | Read: anything in non-prod; metadata in prod | `aws cloudwatch get-metric-data`, redacted logs, `pulumi preview` on non-prod | none | Direct, read-only identity |
+   258	| **L1** | Change in non-prod (synthetic data, GĐ-14) | Deploy a branch to dev, try a queue setting | none beyond the author | Direct with non-prod roles, or PR pipeline |
+   259	| **L2** | Routine prod change expressible as code | Lambda timeout/memory, ECS desired count, app release | 1 code owner ≠ author, ≠ last pusher | PR → merge to `main` → deploy workflow |
+   260	| **L3** | High-risk prod change | IAM or SCP; replace/delete of a stateful resource; network; `.github/**`, CODEOWNERS, agent config files (layer 5), plugin/MCP catalogue; policy-pack violation | L2 + platform approver | Same PR path; second approval by path rule or by the deploy job's risk stop |
+   261	| **L3-JIT** | Break-glass when the PR path cannot be used | ECS force-redeploy while Actions is down | on-call approver ≠ requester (Options §4b) | JIT fallback, layer 7 |
+   262	| **L3-data** | Read of real customer data | Inspect one tenant's failed claim record | data owner + approver ≠ requester | Data-read request, layer 6 |
+   263	
+   264	**On Papaya's stack**
+   265	
+   266	- **The gate is the merge to `main`.** On GitHub Team, environment required reviewers are not
+   267	  available for private repos (📖 R3.1.2; Team is assumed, GĐ-5). A ruleset on `main` sets
+   268	  (📖 R3.2.3, R3.2.5):
+   269	  - require a pull request, 1 approval, code-owner review;
+   270	  - dismiss stale approvals when the diff changes;
+   271	  - require approval from someone other than the last person to push;
+   272	  - required status checks with a pinned source app;
+   273	  - block force pushes; empty bypass list (📖 R3.2.2).
+   274	- **L3 by path:** path-based required reviewers, e.g. 1 approval from `platform` on `infra/iam/**`
+   275	  and `.github/**` (📖 R3.2.4).
+   276	- **L3 by preview [design]:** the deploy job on `main` runs the prod preview. On replace/delete of a
+   277	  stateful resource, an IAM change or a policy violation, it stops. The engineer opens a second PR
+   278	  adding `deploy-approvals/<sha>.yaml` with the preview hash; platform approves; the job re-runs
+   279	  and continues only if the hash matches (Options §1; hash stability ⚠️ Options §8).
+   280	- **Making "merge approval = deploy approval" true** (⚠️ R3.6 #1, built on 📖 R3.1.3, R3.4.5c):
+   281	  - the `production` environment allows only `main`;
+   282	  - only the CODEOWNERS-protected reusable deploy workflow references `production`;
+   283	  - deploy workflows take no ref or SHA input and use no `issue_comment`, `pull_request_target`
+   284	    or `workflow_run` trigger;
+   285	  - one concurrency group per stack, without `cancel-in-progress` (📖 R4.1.4).
+   286	- **Pulumi:**
+   287	  - PRs preview **non-prod stacks only**: a prod preview would run PR code with state-write and
+   288	    secret access (📖 R4.3.3, R4.3.4; ⚠️ R4.6 #2);
+   289	  - on `main`: `pulumi preview` on prod, then `pulumi up` with the policy pack; a mandatory
+   290	    violation stops the deployment (📖 R4.2.2);
+   291	  - prod runs use an allowlist: no `--target`, `--target-replace`, `--replace`, `--exclude` or
+   292	    `--skip-preview`; no `state`, `import`, `destroy` or `stack rm` (⚠️ R4.6 #3; flags 📖 R4.1.2).
+   293	- **Serverless Framework (v4):**
+   294	  - `serverless package`, then `serverless diff --json` (sf-core ≥ 4.37.0). "Differences against the
+   295	    deployed stack do not cause a non-zero exit code", so CI parses the JSON (📖 R4.4.2);
+   296	  - `serverless deploy --package` deploys that artifact (📖 R4.4.3);
+   297	  - a least-privilege `provider.iam.deploymentRole`; it cannot be removed later (📖 R4.4.5).
+   298	- **Incident lane:** PR label `incident`; the on-call approver is paged; security checks always run
+   299	  (S10); only slow, unrelated tests are skipped [design]. Path filters on required checks may leave
+   300	  them pending (⚠️ Options §8).
+   301	
+   302	**Example: Lambda timeouts at 2 a.m.** (Options §6)
+   303	
+   304	1. The incident-analysis session reads metrics and redacted logs and proposes: `timeout` 30 → 90 s,
+   305	   `memorySize` 1024 → 2048, and a larger visibility timeout on the source queue.
+   306	2. A second session, without prod identity, edits `serverless.yml`, runs `serverless diff` on
+   307	   non-prod, and opens a PR labelled `incident` under the engineer's GitHub identity.
+   308	3. The on-call approver reviews the diff (and catches it if the queue change is missing) and
+   309	   approves. The engineer merges.
+   310	4. The deploy workflow packages, previews prod, finds no risky change, and deploys with the OIDC role.
+   311	5. Estimated 11–46 min (⚠️ unmeasured, Options §6) against a ≤ 30 min target, so measuring this lane
+   312	   is a phase-1 task.
+   313	
+   314	**Audit evidence**
+   315	
+   316	- The PR: diff, approvers, check results, labels.
+   317	- The run: prod-preview artifact and deploy log, exported because run retention is limited (G7).
+   318	- CloudTrail events of the deploy role.
+   319	- All linked by commit SHA and run ID (change record, layer 7).
+   320	
+   321	**Cost / value.** One approval for routine prod changes, two for risky ones, none in non-prod.
+   322	Compliance gets four-eyes enforced by GitHub and a record per change. Open gap: on Team the
+   323	reviewer sees the non-prod preview, not the prod diff.
+   324	
+   325	---
+   326	
+   327	## Layer 4 — Supply chain for MCP servers and plugins
+   328	
+   329	**Principle**
+   330	
+   331	- An MCP server, plugin or hook is software that runs with the engineer's access (📖 R1.6.2,
+   332	  R5.5.5). It is installed only from a reviewed catalogue, pinned to a version.
+   333	- The catalogue is the inventory (P4c).
+   334	- Review must be fast (S6: ≤ 5 working days), or people work around it.
+   335	
+   336	**On Papaya's stack**
+   337	
+   338	- **Plugins:**
+   339	  - Papaya's private marketplace is a git repo with `.claude-plugin/marketplace.json` (📖 R1.4.1);
+   340	    sources pinned to a `ref` or `sha` (📖 R1.4.1b, link only).
+   341	  - Managed: `strictKnownMarketplaces` = Papaya's marketplace only; `blockedMarketplaces`;
+   342	    `enabledPlugins: false` to pull one plugin (📖 R1.4.2). The allowlist is checked before
+   343	    download and at every session start (📖 R1.4.3).
+   344	  - Client ≥ 2.1.179, which fixes a plugin-pin bypass (📖 R6.2.7).
+   345	  - Plugin hooks run only if the plugin is force-enabled in managed `enabledPlugins` (📖 R1.5.4).
+   346	    User-installed mods are blocked with `allowManagedModsOnly` (📖 R1.5.6).
+   347	- **MCP servers:**
+   348	  - "Approved catalogue" pattern: `allowedMcpServers` + `allowManagedMcpServersOnly: true`
+   349	    (📖 R1.3.1). Without the lock, users can widen the list (📖 R1.3.4).
+   350	  - Match by `serverUrl` or `serverCommand`, never `serverName`, which "is not a security control"
+   351	    (📖 R1.3.3). The `serverCommand` argv pins an exact version, not `@latest` (⚠️ R6.4.4).
+   352	  - `disableClaudeAiConnectors: true` (📖 R1.3.7).
+   353	  - With MDM, `managed-mcp.json` gives exclusive control; it cannot be delivered server-managed
+   354	    (📖 R1.3.2).
+   355	- **Review checklist, one page per entry** [design]:
+   356	  - publisher and licence; local (`stdio`) or remote (📖 R6.4.3);
+   357	  - what it reads and where it sends data; a supplier-register entry with BAA/DPA status (⚠️ R5.6);
+   358	  - authentication: no token passthrough (📖 R6.4.2);
+   359	  - write tools (Slack, Linear, GitHub) only where needed (⚠️ R6.5 #6);
+   360	  - pinned version, reviewer's name, review date.
+   361	- **Known gaps:** server-managed settings cannot target groups (📖 R1.1.6, R1.4.4); changes to a
+   362	  server's tool descriptions after approval are not covered (⚠️ research 6.6).
+   363	
+   364	**Audit evidence**
+   365	
+   366	- The catalogue file in git: each addition is a PR with an approver.
+   367	- The supplier register.
+   368	- OTel `claude_code.plugin_installed` / `plugin_loaded` (📖 R1.4.6). MCP tool usage needs
+   369	  `OTEL_LOG_TOOL_DETAILS=1` (📖 R1.3.8); whether that logs tool inputs, which may hold data, is not
+   370	  checked (⚠️), so it is off on laptops until checked.
+   371	
+   372	**Cost / value.** Engineers wait up to 5 days for a new tool, requested with a short form.
+   373	Compliance gets an asset inventory and supplier records for every extension.
+   374	
+   375	---
+   376	
+   377	## Layer 5 — CI/CD hardening
+   378	
+   379	**Principle**
+   380	
+   381	- CI is the only production writer, so it is the most valuable target.
+   382	- No long-lived credentials; least-privilege, short-lived tokens per job.
+   383	- Every third-party dependency of CI is pinned.
+   384	- Code written by an agent goes through the same checks as code written by a person (S10).
+   385	
+   386	**On Papaya's stack**
+   387	
+   388	- **Credentials:**
+   389	  - replace AWS keys and long-lived tokens in repository secrets with OIDC (📖 R3.4.1); anyone with
+   390	    write access can read repository secrets (📖 R3.5.3b);
+   391	  - `GITHUB_TOKEN` default "restricted"; each job declares `permissions:` (📖 R3.5.3);
+   392	  - "Allow GitHub Actions to create and approve pull requests" stays **off** (📖 R3.3.3);
+   393	  - Serverless License Key in SSM per account, read by the deploy role (sf ≥ 4.4.19, 📖 R4.4.8).
+   394	- **Side paths to prod:** Pulumi ESC, Pulumi Deployments and Serverless Dashboard providers each
+   395	  hold a path to AWS outside the GitHub gate (📖 R4.4.9). Default: not used for prod (⚠️ R4.6 #6).
+   396	- **Pin CI dependencies:** workflow lockfile (`gh actions-lock`) or full SHA, enforced by the org
+   397	  policy "Require actions to be pinned to a full-length commit SHA" (📖 R3.5.5).
+   398	- **Protect the files that steer CI and agents** with CODEOWNERS: `.github/`, `CLAUDE.md`,
+   399	  `CLAUDE.local.md`, `.claude/`, `.claude.json`, `.mcp.json`, `.husky/`, `.gitmodules`, `.ripgreprc`
+   400	  (📖 R3.2.8; list ⚠️ R6.5 #5). CI validates the CODEOWNERS file, because invalid lines are skipped
+   401	  silently (📖 R3.2.7).
+   402	- **No privileged triggers with untrusted code:** no `pull_request_target` or `workflow_run` job
+   403	  that checks out PR code (📖 R3.5.4).
+   404	- **Agents in CI:**
+   405	  - `claude-code-action` with a custom GitHub App limited to Contents, Issues and Pull requests
+   406	    (📖 R1.7.8);
+   407	  - authentication through Anthropic workload identity federation, not a personal OAuth token
+   408	    (📖 R1.7.6);
+   409	  - `--restricted`, explicit `--tools`, rules from a `--settings` file on the runner (D3; 📖 R6.9.1b).
+   410	    Whether the action passes `--restricted` through `claude_args` is unverified (⚠️ research 6.9.4 Q5);
+   411	  - the MCP set is fixed by the CI configuration, because project `.mcp.json` servers load without a
+   412	    prompt in `-p` runs (📖 R1.3.5);
+   413	  - never `environment: production` (⚠️ R3.6 #4);
+   414	  - a managed-settings file written on a GitHub-hosted runner is advisory, because the job has
+   415	    passwordless `sudo` (📖 R3.5.1);
+   416	  - an app-authored PR needs 2 approvals, or a check with a pinned source app confirming one human
+   417	    approver who did not trigger the run (⚠️ R3.3.4, R3.7 A3; pinned source 📖 R3.2.5).
+   418	- **Required security checks on every PR to `main` (S10):** secret scanning, dependency check, SAST.
+   419	  The products are **not researched** (G4). Researched checks: IAM Access Analyzer
+   420	  `check-no-new-access` (📖 R2.8.1) and Pulumi policy packs (📖 R4.2.2).
+   421	
+   422	**Audit evidence**
+   423	
+   424	- Workflow files and the lockfile in git.
+   425	- Org audit log events such as `org.update_actions_secret`, `repo.set_workflow_permission_can_approve_pr`,
+   426	  `repository_ruleset.update` (📖 R3.3.3, R3.5.6).
+   427	- Check results attached to each PR.
+   428	- Inventory of repository secrets: zero cloud credentials (S2).
+   429	
+   430	**Cost / value.** A one-time migration of workflows to OIDC and pinned actions; slower updates of
+   431	actions. Compliance gets S2 and the same guardrails for agent and human code.
+   432	
+   433	---
+   434	
+   435	## Layer 6 — Data protection and prompt-injection defence
+   436	
+   437	**Principle**
+   438	
+   439	- **PHI never reaches the coding agent.** This is a hard boundary, enforced by what agent-usable
+   440	  identities can read, not by instructions (owner decision, research 1.9).
+   441	- **Other customer personal data** (e.g. a national ID number or bank account on its own) is not
+   442	  covered by that decision (owner: "not extended", research 5.8). It is handled by data
+   443	  minimisation and the default "agent reads metadata only" (GĐ-9).
+   444	- Reading real data is an approved, tenant-scoped, time-boxed exception (GĐ-9).
+   445	- Everything the agent reads from outside is untrusted: logs, tickets, PR text, web pages, MCP
+   446	  results, uploaded documents.
+   447	- Non-prod holds synthetic data only (GĐ-14).
+   448	
+   449	**On Papaya's stack**
+   450	
+   451	- **Close the paths by identity.** Research 1.11.4 lists 17 ways PHI can reach the agent (logs,
+   452	  SQL, S3, queues, tickets, uploaded documents, exec, replay…). The main control is that
+   453	  agent-usable identities have **no data-plane read** on PHI stores (⚠️ R2.9 #4, research 1.11.4):
+   454	  - SCP deny on claim buckets and queues (layer 1);
+   455	  - no Aurora credentials for engineers' agents; no prod exec (ECS Exec, `kubectl exec`) and no
+   456	    `lambda:InvokeFunction` for agent-usable roles [design; exact IAM action for ECS Exec not
+   457	    researched];
+   458	  - logs redacted at source, raw payloads in a separate log group that `ProdReadMetadata` cannot
+   459	    read [design];
+   460	  - alerts carry IDs and links, not payloads [design].
+   461	- **The real-data exception** [design]. It narrows GĐ-9 for PHI: GĐ-9 allows an agent to read real
+   462	  data case by case, but the Team plan is not shown as covered by Anthropic's BAA (⚠️ R1.11.3.4)
+   463	  and the owner keeps the agent outside PHI scope (research 1.9). So:
+   464	  - a request names tenant, purpose, store and time window; the data owner and an approver ≠
+   465	    requester approve it;
+   466	  - a JIT data-read role, 1 h; scoping it to one tenant is intended through session tags (📖 R2.1.8),
+   467	    but tags come from user attributes, so per-request tenant scope is unresolved (⚠️);
+   468	  - the human reads in a terminal without an agent; the agent gets only a redacted summary;
+   469	  - for non-PHI personal data, the same request path applies by default; whether the agent may read
+   470	    it directly is an owner decision (open).
+   471	  - Enterprise + BAA is considered only for a separate environment if a real need appears (research 1.9).
+   472	- **Partner-uploaded claim documents (A7b).** Never open a raw partner document in an agent session.
+   473	  Reproduce bugs with synthetic documents; if a real one is needed, de-identify it first [design].
+   474	  The document is both PHI and an injection vector (research 1.11.4 L6).
+   475	- **Injection controls** (each lowers frequency; layers 1 and 3 limit impact):
+   476	  - Manual mode by default (layer 2); the auto-mode classifier missed 17 % of 52 real overeager
+   477	    actions (📖 R6.3.5);
+   478	  - narrow sandbox egress; allowing a broad domain such as `github.com` is a documented
+   479	    exfiltration path (📖 R6.3.7);
+   480	  - the incident-analysis session has no edit tools, so a poisoned log line cannot edit code. It can
+   481	    still run Bash: it could send data the session has read to an allowed domain, or use any role in
+   482	    the SSO cache. Egress limits and the "no standing write" rule bound that;
+   483	  - shared knowledge in `CLAUDE.md` under CODEOWNERS; auto memory is outside protected paths unless
+   484	    `--restricted` (📖 R6.3.11, D3).
+   485	- **Tenant isolation:** one tenant per data-read grant; a session that read one tenant's data does
+   486	  not write to shared places (PRs, tickets, chat) without review (⚠️ R6.5 #8, process rule). Tenants
+   487	  are assumed logically separated in shared accounts (GĐ-3, unconfirmed).
+   488	- **Non-prod:** no copies from prod to non-prod (S11); periodic scan of non-prod stores (tool: G4).
+   489	- **Local stores:** transcripts and memory hold what the agent read (research 1.11.4). Set
+   490	  `cleanupPeriodDays` (the HIPAA sample uses 30, 📖 R5.5.4).
+   491	- **Cross-border (Vietnam example):** processing personal data collected in Vietnam on a platform
+   492	  abroad counts as a transfer (📖 R5.4.5). If agent flows carry such data, they update Papaya's
+   493	  transfer impact assessment (⚠️ R5.7 #4, needs Papaya legal).
+   494	
+   495	**Audit evidence**
+   496	
+   497	- SCP and IAM text: the written access rule for sensitive data (📖 R5.4.3, Decree 356 Art. 4(2);
+   498	  ⚠️ R5.7 #5).
+   499	- Data-read requests (requester, approver, tenant, window) and CloudTrail of the data-read role.
+   500	- Planted-injection test reports (layer 8).
+   501	- Non-prod scan results (S11).
+   502	
+   503	**Cost / value.** Engineers debug with redacted data and synthetic documents; the rare real-data
+   504	read needs a request. Compliance gets "minimum necessary" (📖 R1.11.1.8) enforced by IAM, and a
+   505	record for every exception (S9).
+   506	
+   507	---
+   508	
+   509	## Layer 7 — Observability, audit, incident response and break-glass
+   510	
+   511	**Principle**
+   512	
+   513	- One evidence chain per production change: who proposed, who approved, what was approved, what was
+   514	  applied, when. Tamper-evident.
+   515	- Every prod alert goes to one routed channel with a named on-call, including on-call approvers.
+   516	- Unapproved change is detected: drift and reconciliation are compliance signals.
+   517	- Break-glass is time-boxed, approved before use, and reconciled after.
+   518	
+   519	**On Papaya's stack**
+   520	
+   521	- **Audit stores:**
+   522	  - an organization CloudTrail to a log-archive account with integrity validation (📖 R2.6.2,
+   523	    R2.6.4, R2.6.5). Retention: approval and change records ≥ 6 years (📖 R5.2.9); whether raw logs
+   524	    need 6 years is for Papaya's compliance owner (⚠️ R5.7 #2). Data events only on PHI buckets, prod
+   525	    Lambda invoke and prod SQS, because of cost (📖 R2.6.3); these make the archive a PHI-bearing
+   526	    store (⚠️ research 1.11.4 L15). CloudTrail Lake is closed to new customers (📖 R2.6.6);
+   527	  - the GitHub org audit log keeps 180 days, so it is exported (📖 R3.5.6);
+   528	  - alerts on `repository_ruleset.update`, `environment.update_protection_rule`,
+   529	    `environment.remove_protection_rule`, `environment.delete`, `protected_branch.policy_override`
+   530	    (📖 R3.5.6, R3.6 #1). Limits: `environment.update_protection_rule` covers API changes; UI changes
+   531	    to the branch policy may leave no event, and a deleted `production` environment is recreated
+   532	    without protection by the next workflow (⚠️ R3.1.4). Hence the configuration comparison job (layer 8);
+   533	  - Aurora: SQL over a normal connection is likely invisible to CloudTrail (⚠️ R2.7.1); Database
+   534	    Activity Streams, an alert on lost-record events, and the stream treated as PHI (📖 R2.7.2;
+   535	    Serverless v2 support ⚠️);
+   536	  - Claude Code OTel without prompt content (layer 2).
+   537	- **Change record [design]:** one record per prod change, keyed by commit SHA or JIT request ID,
+   538	  linking PR, approvals, run ID, preview artifact and CloudTrail events. Monthly reconciliation:
+   539	  every prod write event must match an approved record, approved before apply (S3). The actor is
+   540	  `onBehalfOf.userId` where present, otherwise session name plus directory lookup (📖 R2.5.1;
+   541	  ⚠️ R2.5.3 for member-account events). Detecting a PR approval that an agent gave through its
+   542	  engineer's login is not possible with the researched data sources (⚠️ open).
+   543	- **Drift detection:** scheduled `pulumi preview --refresh --expect-no-changes` or
+   544	  `pulumi refresh --preview-only` (📖 R4.1.1, R4.3.1, R4.3.2); CloudFormation drift detection for
+   545	  Serverless stacks, which checks only explicitly set properties (📖 R4.4.6). Auto-remediation stays
+   546	  off, since it runs an unreviewed `pulumi up --refresh` (📖 R4.3.2). Each finding gets an actor and a ticket.
+   547	- **On-call (phase 1 minimum):** a named schedule with primary and backup approvers, 24/7, including
+   548	  a platform approver; one alert route for prod. Paging and alert tools are not researched (G5).
+   549	- **Break-glass = the JIT fallback (D2', all steps [design] unless marked):**
+   550	
+   551	  | Step | Rule |
+   552	  |---|---|
+   553	  | When | Only if the PR path cannot be used: the operation is not in IaC and has no runbook, GitHub/Actions is down, or the pipeline is broken. The approver refuses JIT for anything expressible in IaC while the pipeline works, and records why. |
+   554	  | Request | Exact command list, service scope, reason, incident link. |
+   555	  | Approval | On-call approver ≠ requester, before the grant. |
+   556	  | Grant | `InfraOperator-<service>`, session 1 h (📖 R2.1.4). Deleting the assignment likely stops only new role sessions (⚠️ R2.4.2, R2.9 #3); ending the portal session does not end role sessions (📖 R2.4.3). An immediate stop needs the revocation SCP (📖 R2.4.4). |
+   557	  | Execution | The human types the commands in a terminal with no agent; the agent may propose them from its analysis session (D2, process rule). |
+   558	  | After | A job compares CloudTrail writes in the window with the list. A codify PR within a fixed deadline; drift detection until it merges. |
+   559	  | Identity Center outage | Emergency direct SAML federation to roles, built and tested in advance, with its own approval and alerting (📖 R2.1.11; ⚠️ R2.9 #2). |
+   560	
+   561	  Metrics with review thresholds: JIT grants per month; JIT used for changes that should have gone
+   562	  through a PR; windows with writes outside the list; codify PRs past deadline (Options §7). When a
+   563	  threshold is passed, make the PR lane faster or move the operation to a runbook; do not widen JIT.
+   564	- **Roadmap:** pre-approved runbooks for repeated non-IaC operations, if SSM Automation's approval
+   565	  step meets three conditions (Options §2; source outside `02-research.md`, G6); break-glass from an
+   566	  environment without the agent installed (D2, ⚠️).
+   567	
+   568	**Audit evidence**
+   569	
+   570	- CloudTrail with digest validation; exported GitHub audit log.
+   571	- Change records and the monthly reconciliation report (S3; S8: evidence for a random change in
+   572	  ≤ 30 min).
+   573	- JIT request records, reconciliation results, codify PRs.
+   574	- Drift reports and their tickets.
+   575	- On-call schedule and approval-wait times (S7).
+   576	
+   577	**Cost / value.** The incident lane is slower than direct access (estimated 11–46 min against
+   578	2–20 min, Options §6, unmeasured), and JIT needs a written command list. Compliance gets approval
+   579	before apply even in incidents, and detection when something slips through.
+   580	
+   581	---
+   582	
+   583	## Layer 8 — Governance and rollout
+   584	
+   585	**Principle**
+   586	
+   587	- Every control has an owner, a metric and a review date.
+   588	- Policies live in git and change through PRs, like code.
+   589	- Access is never removed before its replacement works; otherwise the rule breaks in the first
+   590	  incident.
+   591	- Controls are tested against realistic attacks, not only reviewed on paper.
+   592	
+   593	**On Papaya's stack**
+   594	
+   595	- **Ownership:**
+   596	
+   597	  | Area | Owner |
+   598	  |---|---|
+   599	  | Framework, managed settings, MCP/plugin catalogue, metrics | DevSecOps |
+   600	  | Deploy workflows, rulesets, Pulumi/Serverless pipelines | Platform team |
+   601	  | Evidence review, supplier register, ISO Statement of Applicability | Compliance |
+   602	  | CODEOWNERS per domain | Engineering leads |
+   603	  | On-call schedule (incl. approvers) | Engineering management |
+   604	
+   605	- **Policy as code:** managed settings, the MCP/plugin catalogue, SCPs, trust policies, CODEOWNERS
+   606	  and deploy workflows are files under CODEOWNERS. GitHub settings that are not files (rulesets,
+   607	  environments) are compared with an expected copy by a scheduled job (⚠️ R3.6 #1; API not
+   608	  researched, G8).
+   609	- **Admins:** few GitHub admins and holders of "edit repository rules"; quarterly review; alerts as
+   610	  in layer 7.
+   611	- **Metrics** (framing §5): S1 standing prod write = 0 · S2 cloud credentials in GitHub secrets = 0
+   612	  · S3 unmatched prod changes = 0 and approvals after apply = 0 · S4 approval wait ≤ 1 h · S5
+   613	  machines with the policy = 100 % · S6 tools outside the catalogue = 0, requests handled ≤ 5 working
+   614	  days · S7 incident approval wait ≤ 15 min · S8 evidence in ≤ 30 min · S9 data reads without
+   615	  approval = 0 · S10 PRs with checks = 100 % · S11 prod copies in non-prod = 0.
+   616	- **Rollout** (≈ 90 days, GĐ-12 unconfirmed). Priorities from framing round 1 Q8: (1) remove
+   617	  long-lived CI credentials, (2) narrow standing prod access, (3) MCP/plugin catalogue; the on-call
+   618	  approver list comes first or together with (2):
+   619	
+   620	  | Phase | Days | Items |
+   621	  |---|---|---|
+   622	  | 1 | 0–30 | OIDC for all deploy workflows; remove AWS keys and long-lived tokens. Rulesets and CODEOWNERS on `main`. On-call approver schedule (primary + backup + platform). Minimal JIT fallback (request, approval, 1 h assignment). **Then** remove standing prod-write assignments. Managed settings baseline. MCP/plugin catalogue v1. Measure the incident PR lane on one real service (target ≤ 30 min). Start verifying the SSM runbook option (Options §7). |
+   623	  | 2 | 30–60 | SCP data-plane deny; drift detection; audit-log export, change records and reconciliation; Aurora activity streams; JIT reconciliation job. |
+   624	  | 3 | 60–90 | Planted-injection test on the real configuration (📖 R6.1.1, R6.1.5; ⚠️ R6.5 #12); auto-mode non-prod environment (D1 c); separate OS user or container for prod-reading sessions; first ISO 27001 evidence pack; 90-day review of D1–D3. |
+   625	
+   626	- **Exceptions:** a deviation from this framework is a ticket with an owner, a reason and an
+   627	  expiry date.
+   628	- **Standards mapping:** HIPAA Security Rule sections are cited from the text (📖 R5.2). ISO/IEC
+   629	  27001:2022 Annex A control IDs are recalled, not read, and must be checked against a licensed copy
+   630	  (⚠️ R5.1). The "named human approves" rule is Papaya's chosen way to meet change-management and
+   631	  segregation-of-duties controls, not a literal requirement (⚠️ R5.7 #1).
+   632	- **Out of scope:** security of Papaya's production AI agents (A7a); noted as a follow-up.
+   633	
+   634	**Audit evidence**
+   635	
+   636	- Git history of every policy file.
+   637	- Monthly metric report; 90-day review minutes; exception register.
+   638	- Planted-injection test reports.
+   639	
+   640	**Cost / value.** A small, steady overhead for DevSecOps and the platform team. Compliance gets a
+   641	managed system with owners and review dates.
+   642	
+   643	---
+   644	
+   645	## Gaps: things the framework needs that `work/02-research.md` does not cover
+   646	
+   647	Named at the level of principle only. Each needs research before `examples/` uses it.
+   648	
+   649	| # | Gap | Where |
+   650	|---|---|---|
+   651	| G1 | k0s: authentication, RBAC, audit logging, how kubeconfigs are issued (GĐ-4) | Layers 1, 6 |
+   652	| G2 | Firebase Hosting deploy from CI without a long-lived token | Layers 1, 5 |
+   653	| G3 | Engineer and agent access to GCP (roles, read-only, data access) | Layers 1, 6 |
+   654	| G4 | Secret scanning, dependency check, SAST, non-prod data scanning: which tools, on the Team plan | Layers 5, 6 |
+   655	| G5 | Paging and alert routing (on-call tool); approving a PR from a phone | Layer 7 |
+   656	| G6 | SSM Automation `aws:approve` (read in `work/03-options.md` §2 on 2026-11-09, not in 02-research) | Layer 7 |
+   657	| G7 | Retention of GitHub Actions logs and artifacts, and how to export them | Layers 3, 7 |
+   658	| G8 | Rulesets and environment settings through the API, for drift comparison | Layer 8 |
+   659	| G9 | How Linear and Slack MCP servers authenticate (whose identity posts) | Layers 4, 6 |
+   660	| G10 | Whether OIDC subject customisation (`job_workflow_ref`) is available on GitHub Team | Layer 1 |
+   661	| G11 | Closing provider/login bypasses of managed settings on laptops without MDM | Layer 2 |
+   662	
+   663	Open checks carried over from `work/03-options.md` §8 (preview hash stability, required checks
+   664	skipped by path filters, Identity Center provisioning time, and others) remain open.

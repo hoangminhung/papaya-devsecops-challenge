@@ -80,3 +80,209 @@ Running log of the working sessions, not part of the reading order.
 - Owner trả lời (2026-11-09): Q1 chọn A + D2' (cách đọc D2 = "IaC trước"); Q2 chấp nhận JIT dự phòng đạt một phần,
   chỉ dùng khi đường chính không dùng được và đã được approve; Q3 mục tiêu ≤ 30 phút. Ghi ở mục 9 của `03-options.md`.
 - Sửa một câu bị gãy ở mục 7 của `03-options.md` (đoạn "A + D2 như đang có").
+
+## 2026-11-09 — Thiết kế mục 1: `docs/framework.md`
+
+- Viết `docs/framework.md` (8 tầng). Review độc lập 6 vòng; mỗi vòng có HIGH/MEDIUM mới (trích dẫn
+  📖 cho dòng suy luận, lệch quyết định owner, nói quá). Sau vòng 4 viết lại thành v3 cho gọn và nhất quán.
+- Owner trả lời OQ1–OQ5 (nguyên văn):
+  - OQ1 (ngoại lệ S2 cho k0s/Firebase): "Có, k0s với firebase có thể cần key để scale in scale out liên tục, nên có thể xem là ngoại lệ, chỉ cần có single source of truth là được."
+  - OQ2 (L3 có cần người platform): "Không nhất thiết phải cần người của platform, quy trình sẽ được thống nhất cho engineer. Chỉ cần engineer on call là đủ."
+  - OQ3 (`CLAUDE.md` L2 hay L3): "Xếp hạng L3, vì workflow cần thống nhất với cả team."
+  - OQ4 (lùi baseline còn lại và kiểm chứng SSM): "Có, lùi sang phase 2."
+  - OQ5 (agent không duyệt PR): "là rule luôn, người duyệt PR luôn là engineer, không phải agent."
+  - Không cần rút gọn file; cập nhật và chạy review vòng 7.
+- Cách hiểu OQ2: L3 vẫn cần 2 engineer khác nhau, không cần thuộc platform; trong sự cố là on-call
+  primary + backup. Owner xác nhận (nguyên văn): "Đúng vậy, vẫn là 2 engineer nhưng 1 primary và 1 backup."
+- Review vòng 7: 3 HIGH, 8 MEDIUM, đã sửa. Câu hỏi mới OD6, OD7. Owner trả lời (nguyên văn):
+  - OD6: "Vậy là tôi hiểu nhầm, ở đây nói về credentials nào? giải thích cụ thể dùm với." → agent giải thích
+    hai loại (credential deploy trong GitHub secrets; credential runtime để scale trong cluster). Owner chốt:
+    "OK, chấp nhận ngoại lệ cho tới khi check được k0s và firebase áp dụng OIDC được." (chỉ credential deploy trong CI)
+  - OD7a: "Không sao, khi làm nhiệm vụ on call thì không được sửa quy trình. Tóm lại trong lúc on call thì tuyệt đối không sửa quy trình."
+    → agent hỏi lại hai cách hiểu; owner chọn (a): người on-call chỉ duyệt, không tự viết fix; fix do engineer khác viết.
+  - Owner làm rõ lại OD2/OD7 (nguyên văn): "Mình hiểu nhầm ý này, ý của mình là chỉ cần 2 người, 1 người thực thi
+    và 1 người approve thôi. Người backup chỉ là backup, không cần duyệt hoặc thực thi cùng lúc."
+  - Agent hỏi L3 có còn khác L2 về số người duyệt không; owner chọn: "L3 = 1 người duyệt mọi lúc". L3 khác L2 ở chỗ
+    người duyệt phải là owner của path đó, cộng risk stop.
+- Review vòng 8 (2 HIGH: credential ngoại lệ trong repository secret thành quyền ghi prod thường trực → chuyển sang
+  environment secret `production`; thiếu lịch trực responder ở phase 1) và vòng 9 (0 HIGH, 10 MEDIUM), đã sửa.
+  Vòng 10 để xác nhận.
+  - OD7b: "OK làm theo đề xuất." → allowlist chỉ đọc ở phase 1.
+- Review vòng 10: 1 HIGH, 7 MEDIUM, 9 LOW, đã sửa hết.
+  - HIGH: trước đây on-call approver được thêm tạm vào mọi team owner L3 trong ca trực, làm "owner" chỉ còn trên danh nghĩa.
+    Agent chọn mặc định: lịch trực chỉ lấy người vốn là owner, và mỗi ca phủ đủ owner cho mọi path L2/L3 deploy được.
+    Path nào thiếu owner trong ca thì page owner ngoài lịch; trường hợp này không mở JIT. Đây là cách agent hiểu OD2,
+    cần owner xác nhận.
+  - MEDIUM:
+    - §1 và Layer 3 giờ nói cùng một trạng thái; ví dụ Lambda ghi rõ R là owner của `serverless.yml`.
+    - Viết lại khác biệt L2/L3: khác ở team owner, không phải "any code owner".
+    - Nói rõ trường hợp PR chạm nhiều team (lệch quy tắc "2 người").
+    - Risk stop: khóa theo SHA của commit gốc; CODEOWNERS theo stack và team L3.
+    - excludedCommands làm `pulumi`/`serverless` chạy code repo ngoài sandbox; giới hạn của SCP `aws:ResourceOrgID`.
+    - Chi phí: engineer mất quyền đọc log và config thô trong giai đoạn chuyển tiếp.
+    - JIT ở phase 1 không có cách dừng ngay; drift check làm tay là lệch tạm thời so với D2.
+- Review vòng 11: 1 HIGH, 7 MEDIUM, 6 LOW.
+  - HIGH: risk stop do L3 team duyệt có thể thành người thứ ba.
+  - MEDIUM: CODEOWNERS không đổi owner theo loại trigger được; cơ chế "re-run commit gốc" khác Options §1; cách xếp
+    lịch đêm của vòng 10 mâu thuẫn với mô hình 1 primary + 1 backup.
+  - Agent hỏi owner hai câu, owner chọn cả hai phương án khuyến nghị:
+    - OD8: risk stop do owner của stack duyệt (có thể chính là người đã duyệt PR đầu), nên luôn chỉ 2 người.
+      L3 owner team chỉ giữ các path L3 thật; Access Analyzer và policy pack bù lại.
+    - OD9: nhóm on-call approvers làm co-owner mọi path deploy được, vẫn 1 primary + 1 backup. Domain review ngày thường
+      thành quy tắc quy trình, kiểm tra hàng tháng.
+  - Đã sửa thêm:
+    - Risk stop quay về cơ chế của Options §1 (preview lại trên HEAD mới, so hash).
+    - Thêm `sandbox.autoAllowBashIfSandboxed`.
+    - Self-hosted runner: gắn ⚠️, thêm G15.
+    - L3-data lúc đêm: on-call duyệt, data owner xem lại hôm sau [design].
+    - Trích dẫn GĐ-14; phạm vi SCP `aws:ResourceOrgID`.
+- Review vòng 12: 1 HIGH, 4 MEDIUM, 9 LOW, đã sửa hết.
+  - HIGH: path-based required reviewers (R3.2.4) mâu thuẫn với OD9 → bỏ rule đó, L3 chỉ dùng CODEOWNERS + code-owner review.
+  - MEDIUM:
+    - Risk stop do chính người duyệt đầu duyệt; nếu đổi người thì là 3 người, ghi lại như một độ lệch.
+    - PR liên domain: GitHub chấp nhận một approval → câu hỏi mở OQ-A cho owner.
+    - Biến thể L3-data ban đêm được đưa vào Layer 6, Roles và bảng mức.
+    - Allowlist không chứa `aws`/`pulumi`/`serverless`.
+- Review vòng 13: 0 HIGH, 5 MEDIUM, 6 LOW. Agent tự chọn mặc định và gắn nhãn "agent's reading". Đã sửa:
+  - Nhóm on-call chỉ co-own path deploy được. Path định nghĩa quy trình (`.github/**`, CODEOWNERS, agent config,
+    catalogue) chỉ L3 team duyệt; nếu workflow hỏng ban đêm thì dùng JIT.
+  - Team membership quản lý ngoài PR, chưa research (G16). Thêm G17 (thành phần của L3 owner team).
+  - Risk stop: author gốc mở PR approval, người duyệt đầu duyệt. Trường hợp người duyệt đầu vắng là câu hỏi mở OQ-B.
+  - S10 chia theo phase. Access Analyzer/policy pack có từ phase 2; trước đó OD8 chỉ dựa vào risk stop.
+  - Floor version phase 1 ≥ 2.1.248 và ≥ bản sửa advisory high mới nhất.
+- Review vòng 14: 0 HIGH, 4 MEDIUM, 9 LOW, đã sửa hết.
+  - MEDIUM:
+    - Rule OD9 có kẽ hở ban ngày trong ca trực → chỉ được duyệt PR có nhãn `incident`; report đếm mọi approval
+      cross-domain trên PR không có nhãn đó.
+    - Managed settings: bản thật nằm ở console, git là bản kỳ vọng, so sánh hàng tháng.
+    - `autoAllowBashIfSandboxed` là lựa chọn của agent → câu hỏi mở OQ-C.
+    - Phase 1 quá tải → thêm danh sách điều kiện cứng và những việc được phép trượt.
+  - Thêm dòng AR vào bảng owner decisions: gom các cách hiểu của agent đang chờ owner xác nhận.
+- Review vòng 15: 0 HIGH, 3 MEDIUM, 12 LOW. Đã sửa hết MEDIUM và phần lớn LOW. Riêng việc tách đoạn Principle ở Layer 3 chưa làm.
+  - MEDIUM:
+    - `/status` không in giá trị key → Owner export console hàng tháng để diff; thêm G18.
+    - Phase 1 thêm luồng đọc dữ liệu thật tối thiểu; chỉ gỡ broad read roles sau khi luồng này chạy được.
+    - Đưa OTel exporter vào phase-1 subset.
+  - LOW:
+    - Một danh sách L3 path chuẩn ở Layer 5.
+    - Ghi rõ catalogue v1 được trượt khỏi phase 1 là lệch so với framing Q8, cần owner đồng ý.
+- Review vòng 16: 0 HIGH, 2 MEDIUM, 15 LOW. Đã sửa hết MEDIUM và phần lớn LOW.
+  - MEDIUM:
+    - JIT chỉ dùng trong sự cố, đúng như owner chấp nhận ở Options §9 Q2.
+    - Required check do một GitHub App riêng đặt. Phương án dùng workflow chỉ ghi kèm ⚠️; thêm G19.
+  - LOW:
+    - Thêm G1/G2: break-glass cho k0s/Firebase.
+    - Thêm vai trò "L3 owner team" vào bảng Roles.
+    - Ghi mốc phase cho các mục liên quan.
+- Review vòng 17: 0 HIGH, 4 MEDIUM, 6 LOW. Đã sửa:
+  - Không cho trượt `defaultMode`, allowlist và OTel (D1, OD7b).
+  - `deploy-approvals/` ra khỏi danh sách L3 (OD8).
+  - Rủi ro phụ thuộc hai GitHub App: key, hosting, sự cố app; mở rộng G19.
+  - Thu hồi khẩn cấp ban đêm chưa có người làm (G20).
+  - k0s/Firebase thêm vào mục "falls short".
+  - Bổ sung review của agent độc lập (GĐ-11).
+  - Chưa tách đoạn Principle Layer 3. Chưa đưa `stackPolicy` vào.
+- Owner trả lời (chọn qua câu hỏi trắc nghiệm, nguyên văn lựa chọn):
+  - Bước tiếp: "Dừng, duyệt mục 1". Owner chấp nhận dừng review sau vòng 17: 0 HIGH. Các MEDIUM của vòng 17 đã sửa
+    nhưng chưa có vòng kiểm lại. **Mục 1 được duyệt.**
+  - OQ-A → OD10: "1 approval là đủ".
+  - OQ-B → OD11: "Được, ghi là lệch".
+  - OQ-C → OD12: "Giữ true".
+  - Dòng AR (cách hiểu OD8/OD9/L3-JIT của agent) vẫn chờ owner xác nhận.
+- Owner xác nhận dòng AR (nguyên văn): "OK, tôi đồng ý." → ghi thành OD13 với 3 điểm:
+  - OD8: author gốc mở PR approval, người duyệt đầu duyệt tiếp.
+  - OD9: nhóm on-call không co-own các path định nghĩa quy trình và stack SCP.
+  - L3-JIT: on-call approver được tính là owner của service.
+
+## 2026-11-09 — Thiết kế mục 2: `docs/adr/`
+
+- Viết 9 ADR, mỗi cái khoảng 420–480 từ, theo template ADR của skill `infra-docs` (bằng tiếng Anh, theo Rule 3), kèm `README.md` làm mục lục:
+  - 0001: chỉ thay đổi prod qua PR + CI;
+  - 0002: không ai có quyền ghi prod thường trực, agent chỉ đọc metadata;
+  - 0003: merge vào `main` là cổng duyệt;
+  - 0004: risk stop;
+  - 0005: break-glass bằng JIT có thời hạn;
+  - 0006: MCP/plugin theo allowlist;
+  - 0007: settings của agent là lớp hygiene, không phải ranh giới bảo mật;
+  - 0008: OIDC;
+  - 0009: agent đứng ngoài PHI.
+- Chỉ tóm tắt các quyết định đã có trong framework, không thêm quyết định mới.
+- Review ADR vòng 1: 0 HIGH, 5 MEDIUM, 17 LOW, đã sửa.
+  - ADR-0006 viết như thể đã biết Papaya dùng MCP cho Linear/Slack → giờ ghi là giả định (⚠️ G9).
+  - ADR-0009 bổ sung luồng duyệt ban ngày.
+  - ADR-0007 bổ sung rủi ro phase 1 và rủi ro của các lệnh bị loại khỏi sandbox.
+  - Thêm ADR-0010 cho mô hình mức rủi ro.
+  - Thêm ví dụ vào 0001, 0005, 0006.
+- Review ADR vòng 2: 0 HIGH, 2 MEDIUM, 17 LOW. Đã sửa:
+  - `--restricted` không thuộc managed settings: trong CI nó là flag, trên laptop là quy tắc quy trình.
+  - Ranh giới PHI là mục tiêu, không phải bảo đảm.
+  - Phần lớn LOW: sửa trích dẫn (R1.7.10), attribution (GĐ-5/6/8), các chi tiết còn thiếu.
+- Review ADR vòng 3: 0 HIGH, 2 MEDIUM, 12 LOW. Đã sửa:
+  - ADR-0007 nói quá: trước đây viết "không ghi prod, không đọc PHI".
+  - ADR-0003 thêm điều kiện để duyệt lúc merge cũng là duyệt deploy (merge = deploy approval).
+  - Sửa các LOW.
+  - Rút gọn ADR-0003.
+- Review ADR vòng 4: 0 HIGH, 2 MEDIUM, 12 LOW. Đã sửa:
+  - ADR-0002 nói quá về "không đọc customer data".
+  - ADR-0006 thiếu ý: allowlist thật nằm ở console.
+  - Phần lớn LOW.
+- Owner duyệt mục 2 (nguyên văn): "sang làm mục 3 nhé." Dừng ở review vòng 4; các sửa của vòng 4 chưa có vòng kiểm lại.
+
+## 2026-11-09 — Thiết kế mục 3: `docs/threat-model.md`
+- Viết `docs/threat-model.md`:
+  - Có mục assets / actors / trust boundaries.
+  - Bảng 16 threat theo cột threat → control (prevent/detect) → evidence → residual risk.
+  - Đủ 6 threat bắt buộc (T1–T6, đánh dấu ★), cộng 10 threat lấy từ framework.
+  - Cuối file có mục "What the controls do not cover".
+- Review threat model vòng 1: 1 HIGH, 8 MEDIUM, 7 LOW. Đã viết lại bảng.
+  - HIGH: hook của plugin chạy ngoài sandbox, nên sandbox allowlist không chặn được T3.
+  - MEDIUM:
+    - Ghi phase cho các control.
+    - Chỉ `.claude/` và `.mcp.json` là protected path.
+    - Sửa ví dụ T6 sang dữ liệu không phải PHI.
+    - Tách phạm vi policy pack (Pulumi) và Access Analyzer (Serverless chưa research).
+  - Thêm T9 (CI agent bị nội dung không tin cậy điều khiển). Tổng 17 threat.
+- Review threat model vòng 2: 0 HIGH, 5 MEDIUM, 8 LOW. Đã sửa:
+  - Allow rule ở user scope trong phase 1.
+  - Không có audit event cho branch policy.
+  - Ghi phase cho các control còn thiếu.
+  - Thêm T18 (code do agent viết làm hỏng tenant isolation) và T19 (injection qua log/ticket trong session sự cố).
+- Review threat model vòng 3: 0 HIGH, 4 MEDIUM, 11 LOW. Đã sửa:
+  - Caveat cho fresh sign-in.
+  - T7: nói rõ control kỹ thuật nào không áp dụng.
+  - GitHub token dài hạn: phần PAT chưa research.
+  - Thêm T20 (đường ghi prod đi vòng ngoài cổng GitHub).
+  - Sửa các LOW. Tổng 20 threat.
+- Owner duyệt mục 3 (nguyên văn): "Duyệt, sang mục 4 nhé." Đã chạy 3 vòng review; các sửa của vòng 3 chưa có vòng kiểm lại.
+  Chưa quyết việc thêm G21 (GitHub PAT).
+
+## 2026-11-09 — Thiết kế mục 4: bảng đối chiếu problem → control
+- Viết `docs/problem-control-map.md`: 40 dòng (P1a–P9c, A1–A13), cột Controls / Evidence / Coverage.
+  - Kết quả: Covered 12, Partial 24, Gap 4. Bốn gap: P5b (PAT), P9c (chất lượng review PR lớn), A7a (ngoài phạm vi),
+    A12b (data residency); ô control ghi rõ "none".
+- Review bảng đối chiếu vòng 1: 0 HIGH, 6 MEDIUM, 9 LOW. Đã sửa:
+  - Bốn dòng gắn Covered quá tay (P4c, P7b, A2, A9) hạ xuống Partial.
+  - Đổi định nghĩa Gap: phần lõi chưa có control.
+  - P1b: cửa sổ grant thực tế có thể tới khoảng 2 h.
+  - Số đếm mới: Covered 8, Partial 28, Gap 4.
+- Review bảng đối chiếu vòng 2: 0 HIGH, 6 MEDIUM, 9 LOW. Đã sửa: nhãn được áp đúng theo định nghĩa của chính tài liệu (dòng hỗn hợp tính là Partial; control chỉ là quy trình tính là Partial).
+  Số đếm mới: Covered 3, Partial 34, Gap 3 (P9c, A7a, A12b).
+- Review bảng đối chiếu vòng 3: 2 HIGH (P9b, P5d gắn Covered nhưng còn phần hở), 2 MEDIUM, 9 LOW. Đã sửa.
+  - Định nghĩa Covered thêm vế "nothing named left open".
+  - Gắn nhãn "[map finding]" cho các gap mới mà framework chưa có.
+  - Số đếm mới: Covered 1, Partial 36, Gap 3.
+- Review bảng đối chiếu vòng 4: 0 HIGH, 3 MEDIUM, 9 LOW. Đã sửa:
+  - P5a hạ xuống Partial, vì không có gì chặn việc thêm lại key.
+  - P7b: chưa có định nghĩa ai được tuyên bố incident, đánh dấu [map finding].
+  - P8b: lý giải vì sao là Partial.
+  - Số đếm cuối: Covered 0, Partial 37, Gap 3.
+  - Các sửa của vòng 4 chưa có vòng kiểm lại; trình owner.
+- Owner chọn (nguyên văn): "Làm theo hướng (b) nhé". Chia lại thành 4 mức: Covered (phần lõi được ép, có liệt kê residual)
+  / Partial / Gap / Out of scope. Kết quả: Covered 11, Partial 26, Gap 2, Out of scope 1.
+- Review bảng 4 mức: 1 HIGH (A9 phải là Partial), 3 MEDIUM, 5 LOW. Đã sửa:
+  - Ghi ngày có hiệu lực cho các dòng Covered.
+  - P3a thêm rủi ro trong cửa sổ JIT.
+  - P6b thêm việc chưa có nơi lưu bản ghi phê duyệt JIT.
+  - Số đếm cuối: Covered 10, Partial 27, Gap 2, Out of scope 1. Chưa có vòng kiểm lại; trình owner.
+- Owner chọn (nguyên văn) "commit đi" sau khi được trình mục 4. Commit gồm framework, ADR, threat model, bảng đối chiếu và
+  transcript tới thời điểm này. Trước khi commit đã quét mẫu secret: 0 kết quả.
