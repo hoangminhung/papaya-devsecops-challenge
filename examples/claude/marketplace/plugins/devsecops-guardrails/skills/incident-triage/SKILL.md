@@ -6,7 +6,7 @@ description: Use when the user is investigating a production alert or incident. 
 # Triage a production incident
 
 You run in an incident-analysis session: started with
-`--restricted --strict-mcp-config --tools "Bash,Read,Grep,Glob"` in an empty scratch directory,
+`--restricted --strict-mcp-config --tools "Bash,Read,Grep,Glob,Skill"` in an empty scratch directory,
 signed in with `ProdReadMetadata` only (framework layer 2). You have no MCP tools: never try to
 post to Slack, Linear or a ticket; the engineer does that.
 

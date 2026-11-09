@@ -20,7 +20,7 @@ review is highest.
 | A. PR → approval → CI deploy for everything ("IaC first") | One path, approval before apply, evidence by construction | Slower incidents (est. 11–46 min ⚠️ vs 2–20 min, Options §6) |
 | B. SSM Automation runbooks with an approval step | Approval inside AWS | Not verified that it meets the approval rule (G6); only for operations someone scripted. Kept on the roadmap, verified in phase 2 (OD4) |
 | C. JIT direct access for the engineer + agent | Fastest | Approves access, not the change; agent holds prod write |
-| D. Hosted agent with its own identity | Clean separation | New platform; does not remove the need for approval |
+| D. Hosted agent with its own identity | Clean separation | New platform; does not remove the need for approval. Not the prod path; as a development runtime it is evaluated in phase 2 (OD58, rollout 2.14) |
 
 ## 3. Decision
 

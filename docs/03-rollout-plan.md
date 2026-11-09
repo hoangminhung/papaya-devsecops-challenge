@@ -31,11 +31,11 @@ One rule from layer 8 shapes the whole plan: **access is never removed before it
 
 | # | Item | Owner | Done when | Layer |
 |---|---|---|---|---|
-| 1.1 | Measure the incident PR lane on one service. First task once that service has an OIDC deploy workflow (Options §9). Include the prompt for each `aws` read, which the allowlist does not cover | DS, PL | Decision-to-apply time measured; the target is ≤ 30 min | 3, 7 |
+| 1.1 | Measure the incident PR lane on one service. First task once that service has an OIDC deploy workflow (Options §9). Include the prompt for each `aws` read, which the allowlist does not cover. The minimal version (one drill, decision to apply, on one service) is a hard prerequisite of 1.16 (OD53); measuring more services may follow in phase 2 | DS, PL | Decision-to-apply time measured; the target is ≤ 30 min. If the drill exceeds it, the slow step is fixed before 1.16 | 3, 7 |
 | 1.2 | Scan non-prod for real data | DS, CO | First scan result recorded (S11) | 6 |
 | 1.3 | OIDC for deploy workflows; remove long-lived keys, except k0s/Firebase under OD1 | PL | No AWS access key used by a workflow (S2, with the OD1 caveat); E4 trust policy applied | 1, 5 |
 | 1.4 | Move laptop deploys to CI (GĐ-10, unconfirmed) | PL | No laptop deploy in CloudTrail since the move | 1 |
-| 1.5 | Rulesets, CODEOWNERS and the CODEOWNERS validation check | DS; EL decide CODEOWNERS content | E1, E2 and `codeowners-validate` live on `main`; a test PR shows whether "Update branch" keeps approvals (OD31) | 3, 5 |
+| 1.5 | Rulesets, CODEOWNERS and the CODEOWNERS validation check | DS; EL decide CODEOWNERS content | E1, E2 and `codeowners-validate` live on `main`; a test PR shows whether "Update branch" keeps approvals (OD31). The ruleset requires only checks that exist (OD53): `approval-gate`, `codeowners-validate`, and `data-fix-scan` with 1.23; each S10 check of 1.8 and `agent-eval` (OD45) joins the required list the day it runs on every PR, so no merge waits for a check that never reports | 3, 5 |
 | 1.6 | The approval-gate app (decision logic E12): human approvals only, kept across a branch update that leaves the diff unchanged (OD31), two L3 owner team members on process paths (OD26), on-call approvals for another team only with an open incident and on shift (OD27), flagged approvals in the monthly report. Live before or with 1.5, whose ruleset requires its check (G19). Rolled out in two steps (OD49): two weeks report-only, where the app posts its result but the ruleset does not yet require it and every failure it would have caused is reviewed; then required. Availability target: 99.5 % of working hours, and an alert when it has not answered a PR event within 5 minutes [design]; if it is down longer than an hour, the controlled removal of the required check (layer 3: two L3 approvals, alerted, time-boxed) is the tested fallback | DS | App is the required source of the `approval-gate` check; a test PR shows each rule; the report-only fortnight reviewed; the removal runbook drilled once | 3 |
 | 1.7 | Remove human write kubeconfigs for prod k0s (interim) | PL | No human holds a prod k0s write kubeconfig | 1 |
 | 1.8 | S10 checks (OD39): `dependency-check` (Dependabot plus a lockfile scanner), `secret-scan` and `sast` (GitHub Secret Protection and Code Security if Papaya buys them, else open-source scanners), `iac-scan` (Trivy), `workflow-lint`, `pr-size`. Access Analyzer and policy packs follow in phase 2, so until then OD8 relies on the risk stop alone | DS | Required checks on every PR to `main` (S10) | 5 |
@@ -70,6 +70,8 @@ One rule from layer 8 shapes the whole plan: **access is never removed before it
 6. The k0s/Firebase secret move (1.15): a repository secret would be standing prod write (layer 5).
 7. The database change path (1.23): without it, removing standing write leaves migrations and data fixes no legitimate path (ADR-0011).
 8. No human write kubeconfig for prod k0s (1.7): S1 counts k0s too, and a write kubeconfig is standing prod write (OD42).
+9. Laptop deploys moved to CI (1.4, OD53): without it, removing standing write leaves the services still deployed from laptops (GĐ-10, unconfirmed) without a path.
+10. The incident PR lane measured once (minimal 1.1, OD53): direct access goes only once the replacement's real time is known.
 
 If one of these slips, standing prod write stays until it lands, and the slip is reported. Likewise,
 broad read roles stay until the minimal real-data read flow (1.9) works.
@@ -100,6 +102,7 @@ broad read roles stay until the minimal real-data read flow (1.9) works.
 | 2.11 | Images (OD39): ECR enhanced scanning and managed signing with AWS Signer; images referenced by digest. Done when: every prod image scanned on push and signed; no tag references in prod stacks | PL, DS | 5 |
 | 2.12 | Mobile (OD40): EAS Update code signing (paid Expo plan), the CI robot as the only Release Manager, the nightly comparison of `production` channel updates with deploy runs; test that the app rejects an unsigned update. Done when: a test update without a run raises an alert; an unsigned update is rejected on a test device | PL, DS | 5, 7 |
 | 2.13 | Prod access on GCP, Firebase and k0s (OD36): PAM entitlements, Data Access logs for Vertex AI and partner-document buckets, WIF narrowed to the `production` subject, the Firebase WIF spike, k0s OIDC for people. Done when: no standing GCP prod role for people; spike result recorded; one sealed k0s break-glass certificate | DS, PL | 1, 7 |
+| 2.14 | Isolated agent runtime, evaluated with the pilot of 2.1 (OD58, framework layer 2): a development box with its own AWS role and a per-session GitHub App token; compared with OD50's narrow credential on S4, P1a and cost. Done when: the pilot team used it for two weeks; result and recommendation recorded for the final review (3.5) | DS, PL | 1, 2 |
 
 ## Phase 3 — days 75–100: test, measure, review
 
@@ -121,13 +124,13 @@ S1–S11 are the success criteria of framing §5, unchanged; targets were confir
 | S2 | No long-lived cloud credential in GitHub secrets | 0 (k0s/Firebase excepted, OD1; Expo, OD40) | Phase 1, after 1.3 |
 | S3 | Every prod change approved by a named person other than the author, **before** it is applied | 0 unmatched / 0 late | Phase 2 (2.4); by hand before that |
 | S4 | Engineers keep their speed: PR to prod the same working day; approval wait ≤ 1 h in working hours; in the non-prod loop, only the phase-2 steps of OD34 (push and PR at the `!` prompt, a confirmation per cloud CLI call), with prompts per session and PR-opening time measured | as stated | Phase 1 (phase-2 steps from the first phase-2 team) |
-| S5 | Every laptop gets the organisation's Claude Code policy; no one can turn off all prompts unnoticed | 100 % / 0 (depends on GĐ-6; caveat in layer 2) | Phase 1 (1.18) |
+| S5 | Every laptop gets the organisation's Claude Code policy; no one can turn off all prompts unnoticed. **Met only on laptops with MDM (OD54):** without it, another login, an API key or a `CLAUDE_CODE_USE_*` variable skips server-managed settings (📖 R1.1.7), so on those laptops S5 is reported as not met, and what is measured instead is the share of sessions whose OTel data shows the managed policy | 100 % / 0 on MDM laptops; not met without MDM (layer 2) | Phase 1 (1.18) |
 | S6 | No MCP server or plugin outside the catalogue; new requests decided in ≤ 5 working days | 0 / ≤ 5 days | When 1.17 lands |
 | S7 | Named on-call including approvers; all prod alerts in one channel; incident approval wait ≤ 15 min, 24/7 | as stated | Schedules: phase 1; alert routing: phase 2 |
 | S8 | Evidence for a random prod change shown in ≤ 30 min without asking anyone | ≤ 30 min | Records kept from phase 1 (1.22); linked lookup from phase 2 (2.4); first full pack in 3.4 |
-| S9 | No real-data read on prod without an approved request | 0 | Phase 1 (1.9) |
-| S10 | 100 % of PRs to `main` pass secret scan, dependency check and SAST; 0 direct pushes; 0 secrets found after merge | 100 % / 0 / 0 | Phase 1 (1.8) |
-| S11 | No real data in non-prod | 0 | Phase 1 (1.2) |
+| S9 | No real-data read on prod without an approved request | 0 | When 1.9 lands: phase 1, or early phase 2 in the minimum variant (Load and risks) |
+| S10 | 100 % of PRs to `main` pass secret scan, dependency check and SAST; 0 direct pushes; 0 secrets found after merge | 100 % / 0 / 0 | When 1.8 lands: phase 1, or early phase 2 in the minimum variant |
+| S11 | No real data in non-prod | 0 | When 1.2 lands: phase 1, or early phase 2 in the minimum variant |
 
 The framework adds two metric sets: the prompt metrics of [layer 2](01-framework.md#layer-2--agent-runtime-controls)
 (OTel `permission_mode` and time blocked on the user; thresholds ⚠️) and the JIT metrics of
@@ -155,14 +158,35 @@ thresholds ⚠️). A breach of a JIT metric leads to a faster PR lane or a runb
   **Minimum headcount:** about 4 people full time for 30 days, which Papaya does not have (GĐ-1).
   **Critical path:** 1.6 → 1.5 (the ruleset requires the app's check) → 1.16, about three weeks
   for the app alone; in parallel 1.3 → 1.19 → 1.14 → 1.23 → 1.16. **Minimum safe phase 1** (what
-  removing standing prod write needs, plus the items that may not slip): 1.3, 1.5, 1.6, 1.7, 1.12,
-  1.13, 1.14, 1.15, 1.16, 1.18 (may-not-slip keys), 1.19, 1.21, 1.22, 1.23: about 57–83 pd, i.e. **2
-  DevSecOps people plus one platform engineer for about 45 days**, or 1–2 people for about 60 days.
-  The other items (1.1, 1.2, 1.4, 1.8–1.11, 1.17, 1.20) move into the first weeks of phase 2 in
-  that order; broad read roles stay until 1.9 and 1.10 land. Until 1.20 lands,
+  removing standing prod write needs, plus the items that may not slip): minimal 1.1, 1.3, 1.4, 1.5,
+  1.6, 1.7, 1.12, 1.13, 1.14, 1.15, 1.16, 1.18 (may-not-slip keys), 1.19, 1.21, 1.22, 1.23: about
+  62–90 pd, i.e. **2 DevSecOps people plus one platform engineer for about 45 days**, or 1–2 people
+  for about 65 days (OD53 added 1.4 and the minimal 1.1, ⚠️ +5–7 pd). The other items (1.2,
+  1.8–1.11, 1.17, 1.20) move into the first weeks of phase 2 in that order; until 1.8 lands, the
+  S10 checks are not required (1.5) and PRs carry only the approval-gate and data-fix checks; broad read roles stay until 1.9 and 1.10 land. Until 1.20 lands,
   `OrganizationAccountAccessRole` remains a standing admin path from the management account, so
   S1 is reported as "0 except the management account's named group" in that window. Which variant (more people or more
   days) is a decision for Papaya's management.
+- **Steady-state run cost (OD57) [design; every number ⚠️ an estimate].** The custom parts need an
+  owner after they ship. Per year, in person-days:
+
+  | Component | Run effort | What it is |
+  |---|---|---|
+  | Approval-gate app (E12) | 15–25 pd | Dependency and GitHub API updates, rule changes, its alerts (answered by the DevSecOps owner in working hours; out of hours it fails closed and the JIT path applies), flagged-approval triage |
+  | Risk stop and SQL classifier (E7) | 8–15 pd | Following Pulumi and Serverless output changes, false-positive handling |
+  | JIT receiver (E16), Linear mirror, evidence export (E13) | 7–14 pd | Payload changes, failed nights re-run |
+  | Reconciliation jobs, settings comparison, monthly report | 15–20 pd | About a day a month plus fixes |
+  | Catalogue reviews, managed settings, `data-fix-scan` | 15–30 pd | Depends on request volume (S6) |
+  | **Total** | **≈ 60–105 pd a year** | About a third to a half of one DevSecOps person |
+
+  GitHub Enterprise Cloud removes part of the reconciliation and register work (framework layer 3,
+  "GitHub plan"). The 24/7 approver and responder rotas are sized by Papaya's engineering
+  management (OD51) and are not in this table.
+- **Lean first version, a decision for Papaya (OD57).** If the headcount above is not available,
+  phase 1 can ship the degraded mode below on purpose instead of the approval-gate app: about
+  10–15 pd less in phase 1 and about 15–25 pd a year less to run, at the price of R2–R4 being
+  detected the next morning instead of blocked. It needs Compliance's written acceptance with an
+  end date, as below; the app follows in phase 2.
 - **If the approval-gate app is late (degraded mode).** The ruleset ships without the
   `approval-gate` check; GitHub still enforces code-owner review, no self-approval and approval
   after the last push (layer 3). Rules R2–R4 (on-call only in an incident, two L3 approvers, the

@@ -29,6 +29,12 @@ Rules:
       config, catalogue, SCP and IAM stacks, risk stop, ...) needs counted approvals from TWO different
       L3 owner team members (OD26). The ruleset keeps one approval for the rest of the repository,
       because a path-scoped reviewer rule was not found for GitHub Team (📖 R9.1.15).
+  R3i The IAM stack (`infra/pulumi/iam/`, `deploy-approvals/iam/`) in an incident (OD55): one L3
+      owner team member plus a different person who is the on-call approver on shift also
+      counts, because JIT cannot change the IAM stack's roles (the SCP exempts only the IAM
+      stack's deploy role) and two L3 owners may not be awake. The L3 member is reached by phone;
+      the PR passes with a warning, so every such approval is in the monthly report. Other
+      process paths keep two L3 approvals in an incident.
   R4  A data fix (`db/<service>/data-fixes/<tenant>/...`, L3-data-write, OD29) needs, besides the
       R2 approval, an approval from a different person who is a member of the team
       `data-owners-<tenant>`. The tenant comes from the path, not from CODEOWNERS, so data owners
@@ -67,6 +73,7 @@ ONCALL = "oncall-approvers"
 L3 = "l3-owners"
 DATA_OWNERS = "data-owners-"
 DATA_FIX = re.compile(r"^db/[^/]+/data-fixes/([^/]+)/")
+IAM_STACK = re.compile(r"^(infra/pulumi/iam/|deploy-approvals/iam/)")
 MIN_REVIEW_SECONDS = 120  # [design] calibrate from the first months of data
 NIGHT_START, NIGHT_END = 22, 6  # local hours, [design]
 DEFAULT_UTC_OFFSET = 7  # Vietnam, Thailand; Hong Kong is +8, so offsets come per approver
@@ -111,8 +118,13 @@ def decide(data):
     for path, owners in sorted(pr["files"].items()):
         if owners == [L3]:  # R3: process path
             l3 = approvers & set(teams.get(L3, []))
-            if len(l3) < 2:
-                reasons.append(f"{path}: process path, needs 2 approvals from {L3} (has {len(l3)})")
+            if len(l3) >= 2:
+                continue
+            oncall = approvers & set(teams.get(ONCALL, [])) & on_shift
+            if incident and IAM_STACK.match(path) and any(a != b for a in l3 for b in oncall):  # R3i
+                warnings.append(f"{path}: IAM stack approved in an incident by one {L3} member and the on-call approver")
+                continue
+            reasons.append(f"{path}: process path, needs 2 approvals from {L3} (has {len(l3)})")
             continue
         code_owners = owners
         m = DATA_FIX.match(path)

@@ -38,7 +38,7 @@ stricter rules.
 | A risky change (deleting a database, changing access) | Same, but the pipeline previews production first and stops. An owner of that system reads what will change and approves it before anything is applied. |
 | An incident at 2 a.m. | The responder and the agent read metrics and masked logs, write the fix as a pull request marked as an incident, and page the on-call approver, who approves within 15 minutes. |
 | A data fix for one insurer | A file in the repository, scoped to one tenant, with the expected number of rows; the code owner and that tenant's data owner both approve. |
-| Someone needs to see real customer data | A request for one tenant, one store, one hour, approved by someone else, with the data owner informed. Agents never receive raw medical documents. |
+| Someone needs to see real customer data | A request for one tenant, one store, one hour, approved by someone else and by the Papaya employee who is data owner for that insurer (at night, the data owner reviews it the next working day). Agents never receive raw medical documents. |
 
 ## How Papaya uses the agents for DevSecOps
 
@@ -72,7 +72,7 @@ auditor. People still approve, run break-glass commands and decide on data acces
 The list, with the author's recommendation for each, is in
 [framework §1](01-framework.md#1-the-decision-in-one-page): accepting break-glass as partial
 compliance, one or two approvers for high-risk changes, GitHub Team or Enterprise, scanning
-licences, the stored-credential exceptions, phase-1 staffing, the on-call rota, auto mode, and the
+licences, the stored-credential exceptions, phase-1 staffing and the yearly cost of running the custom tools, a lean first version of the approval check, an isolated runtime for the agent, the on-call rota, auto mode, and the
 legal questions.
 
 ## Rollout
@@ -88,7 +88,7 @@ settings, alert routing and automated evidence. Phase 3 tests and reviews.
 | Code | Meaning |
 |---|---|
 | L0–L3 | Risk levels: read; non-prod change; routine prod change; high-risk prod change ([layer 3](01-framework.md#layer-3--change-workflow-by-risk-level)) |
-| OD-n | A design decision by the author of this submission ([end of the framework](01-framework.md#authors-design-decisions-od-n-2026-11-09)) |
+| OD-n | A design decision by the author of this submission ([framework appendix](07-framework-appendix.md#r-authors-design-decisions-od-n-2026-11-09)) |
 | GĐ-n | An assumption made at the start (from Vietnamese "giả định"); the ones the documents use are listed below |
 | S-n | A success criterion, e.g. S1 "no standing prod write" ([rollout plan](03-rollout-plan.md#metrics-by-phase)) |
 | G-n | A gap: not designed, or only an open item |

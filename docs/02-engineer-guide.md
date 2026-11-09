@@ -26,12 +26,13 @@ the success criteria (S-n) or estimates marked ⚠️.
 - **What is different:** the organisation's managed settings apply to everyone; bypass mode is
   removed; plugins and MCP servers come from the catalogue only (section 6). From phase 2 the sandbox
   hides credentials and blocks Unix sockets, so `git push`, `gh`, Docker and private-registry `npm ci` fail inside it: run
-  them yourself at the `!` prompt. Using `--restricted` is recommended (D3).
+  them yourself at the `!` prompt. Do not start daily sessions with `--restricted`: it removes Bash
+  unless `--tools` names it, so the agent could not run tests; it is for incident analysis (section 4).
 - **Workarounds (OD34):** ask the agent to write the PR text to a file, then run `git push` and
   `gh pr create --body-file <file>` at the `!` prompt; run Docker-based tests in CI on the PR;
   private packages install with the read-only registry token set up for you. For prod questions use
   metrics and masked logs through `ProdReadMetadata` (section 4) before asking for real data (section 5).
-- **From phase 1** each `aws`, `pulumi` or `serverless` call asks you first, in auto mode too
+- **From phase 1** each `aws`, `pulumi` or `serverless` call (also `sls` and `npx …`) asks you first, in auto mode too
   (OD43): until standing prod write is removed, your sign-in can still change prod.
 - **From phase 2 you will also notice** (layer 2, examples E8): each WebFetch asks; your own and the project's permission
   rules are ignored, so prompts may rise; sign-in is locked to Papaya's organisation (API-key sessions
@@ -67,7 +68,8 @@ the success criteria (S-n) or estimates marked ⚠️.
      owner of each.
    - Process files (`.github/`, `CLAUDE.md`, `.claude/`, the catalogue, the SCP and IAM stacks,
      `tools/risk-stop/`, `tools/ci/`, `oncall/`): **two** members of the L3 owner team (OD26,
-     OD32). A night fix that needs an IAM change goes through JIT.
+     OD32). In an incident, a fix to the IAM stack takes one L3 owner team member (called by phone)
+     plus the on-call approver on shift (OD55); JIT cannot change the IAM stack's roles.
    - Clicking "Update branch" after someone else's merge keeps your approvals as long as your own
      changes are the same; a push that changes them needs a new approval (OD31).
 4. Merge (squash only). The deploy job previews prod and applies the change.
@@ -101,7 +103,7 @@ the success criteria (S-n) or estimates marked ⚠️.
   credentials (OD29, ADR-0011).
 - **Data fix** (a stuck claim, a payout to retry): a file `db/<service>/data-fixes/<tenant>/<ticket>.sql`
   for one tenant, with a `-- expected_rows: N` header. It needs a code owner **and** a different
-  person from that tenant's data owners (L3-data-write). The job rolls it back if the row count
+  person from that tenant's data owners, Papaya employees named for that insurer (L3-data-write). The job rolls it back if the row count
   differs, and its summary shows counts only. Name records by their internal IDs only: no account
   numbers, national IDs, names or diagnoses in the file. If the fix needs such a value, the data
   owner uploads it as a values file and your SQL uses `:'variable'`; the `data-fix-scan` check fails
@@ -118,7 +120,7 @@ the success criteria (S-n) or estimates marked ⚠️.
 You are the **incident responder**. The **on-call approver** only approves; they never write the fix (OD7).
 
 1. Start an incident-analysis session with read-only roles, in an empty scratch directory outside
-   the repository: `claude --restricted --strict-mcp-config --tools "Bash,Read,Grep,Glob"` (no
+   the repository: `claude --restricted --strict-mcp-config --tools "Bash,Read,Grep,Glob,Skill"` (no
    WebFetch, no MCP servers; Bash can still reach the network). Read metrics and masked logs; the
    `incident-triage` skill guides the session.
 2. Open (or find) the incident issue in Linear. Make the fix in a normal session, preview on

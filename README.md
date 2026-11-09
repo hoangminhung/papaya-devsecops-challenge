@@ -45,7 +45,7 @@ legal question.
 
 | Path | Contents |
 |---|---|
-| [docs/](docs/) | Executive brief; framework (the decision, agent-assisted workflows, 8 layers: principle, Papaya's stack, audit evidence, cost/value); guide, rollout, register, threat model, map, [ADRs](docs/adr/README.md) |
+| [docs/](docs/) | Executive brief; framework (the decision, agent-assisted workflows, 8 layers: principle, Papaya's stack, audit evidence, cost/value); guide, rollout, register, threat model, map, [framework appendix](docs/07-framework-appendix.md) (detail, gaps, the author's decisions), [ADRs](docs/adr/README.md) |
 | [examples/](examples/README.md) | Ruleset, CODEOWNERS, workflows, a runnable risk stop, IAM/OIDC/SCP, managed settings, plugin marketplace, policy pack; each with a local check and what it does **not** prove |
 | [diagrams/](diagrams/README.md) | Change workflow, trust boundaries, incident lane |
 | [work/](work/) | Working notes and decision log (Vietnamese, with English summaries) |
@@ -70,7 +70,7 @@ The repository was written with Claude Code under the same approach it recommend
   started most working sessions in **auto mode** (transcripts record `permissionMode: "auto"`;
   `"default"` only in three short sessions, ✅ grep). Auto mode is allowed by choice (D1), but these
   transcripts do not show Manual-mode prompts. Sessions 1–2 (2026-11-08) used the default config profile; later sessions the clean one.
-- Material choices were taken by the author, called "owner" in the documents (OD1–OD21 in the framework; OD22 onwards are the fixes after an independent review, `work/07-review.md`). They are not Papaya sign-offs; the choices left to Papaya are in [framework §1](docs/01-framework.md#1-the-decision-in-one-page).
+- Material choices were taken by the author, called "owner" in the documents (OD1–OD21, listed in the [framework appendix](docs/07-framework-appendix.md#r-authors-design-decisions-od-n-2026-11-09); OD22 onwards are the fixes after an independent review, `work/07-review.md`). They are not Papaya sign-offs; the choices left to Papaya are in [framework §1](docs/01-framework.md#1-the-decision-in-one-page).
 
 **Deviation from the agreed form** (framing Q14): there is no Claude Code hook example. The framework
 defines no specific hook, and hooks fail open unless set to block (framework layer 2); `allowManagedHooksOnly` is in the managed

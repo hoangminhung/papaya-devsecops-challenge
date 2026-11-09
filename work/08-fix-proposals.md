@@ -600,3 +600,28 @@ file mới đang untracked; cần commit trước khi push (chỉ khi owner bả
 - **#6 → OD51:** nói rõ blast radius (role domain dùng chung trong `production`), tách environment theo
   domain là bước tiếp theo; T21 cập nhật. **#10:** không sửa (owner chọn), ghi trong OD51.
 - ✅ `validate.sh` đủ actionlint/zizmor: 191 test OK; link/anchor: 0 lỗi.
+
+### #1 (phần còn lại) → OD52 (owner đồng ý 2026-11-09)
+
+- 16 khối chi tiết (§1a, SCP, quản trị Identity Center, GCP/Firebase/k0s, AWS credentials trên
+  laptop, vận hành gate app, phê duyệt ban đêm, GitHub plan, risk stop, database, pinning, điều kiện
+  credential lưu trữ, Expo, audit stores, drift, alert routing) cùng Gaps và bảng OD chuyển nguyên văn
+  sang `docs/07-framework-appendix.md` (mục A–R); framework giữ tên mục và tóm tắt có link, nên các
+  tham chiếu theo tên vẫn đúng. Framework 1.309 → 937 dòng.
+- ✅ `validate.sh` đủ actionlint/zizmor: 191 test OK; link/anchor: 0 lỗi.
+
+## Vòng chấm sau OD52 (2026-11-09): Hire, 11 finding
+
+| # | Mức | Finding (tóm tắt) | Xử lý |
+|---|---|---|---|
+| 1 | major | "Minimum safe phase 1" hoãn 1.4 (deploy từ laptop) và 1.8 (check S10) nhưng vẫn gỡ quyền ghi ở phase 1 và ruleset vẫn bắt các check đó; S9–S11, C-09/15/17 lệch | hỏi owner |
+| 2 | major | JIT ban đêm cho IAM stack bị chính SCP chặn (chỉ `github-prod-deploy-iam` được miễn) | hỏi owner |
+| 3 | major | MDM là điều kiện then chốt nhưng không nằm trong quyết định của Papaya | hỏi owner |
+| 4 | major | Khó đọc: chuỗi mã OD/Options; meta-text quá trình review | meta-text đã bỏ; viết lại: hỏi owner |
+| 5 | major | Chi phí vận hành tooling tự xây, rota 24/7 chưa định cỡ | hỏi owner |
+| 6 | major | Không có runtime riêng cho agent; attribution vẫn Partial | hỏi owner |
+| 7 | minor | `--restricted` bỏ Bash (✅ help) nên không hợp cho daily; `Skill` thiếu trong `--tools` | đã sửa |
+| 8 | minor | `sls`, `npx …` lọt rule `ask` | đã sửa |
+| 9 | minor | Brief "data owner informed" lệch với co-approve; vai trò data owner chưa định nghĩa | câu chữ đã sửa; vai trò: hỏi owner |
+| 10 | minor | ★ "named in the task" không chính xác | đã sửa |
+| 11 | minor | Tham chiếu cũ sau OD52 | đã sửa (tên `production-k0s` giữ nguyên) |

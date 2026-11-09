@@ -3,7 +3,7 @@
 Proves the [design] rules: which approvals count (R1, including an unchanged diff after a branch
 update, OD31), domain review enforced on normal days and
 on-call approvals only with an open incident and on shift (R2, OD27), two L3 approvals on process
-paths (R3, OD26), and warnings that feed the monthly report (W1).
+paths (R3, OD26) with the IAM stack's incident rule (R3i, OD55), and warnings that feed the monthly report (W1).
 
 Does NOT prove: anything about the GitHub App around it (hosting, key, triggers, and how it reads
 reviews, teams, incidents and the schedule: G19), nor that GitHub treats its check as required.
@@ -103,6 +103,25 @@ class ApprovalGateTest(unittest.TestCase):
         self.assertFalse(self.passes(case(files=files, labels=["incident"], incident_id="INC-1",
                                           open_incidents=["INC-1"], on_shift=["dan"],
                                           reviews=[review("dan")])))
+
+    def test_iam_stack_in_an_incident_takes_one_l3_owner_and_the_oncall_approver(self):
+        # OD55: JIT cannot change the IAM stack's roles, so the PR path must work at night.
+        files = {"infra/pulumi/iam/index.ts": ["l3-owners"]}
+        incident = dict(labels=["incident"], incident_id="INC-1", open_incidents=["INC-1"])
+        passed, _, warnings = gate.decide(case(files=files, on_shift=["carol"],
+                                               reviews=[review("dan"), review("carol")], **incident))
+        self.assertTrue(passed)
+        self.assertTrue(any("IAM stack approved in an incident" in w for w in warnings))
+        # no open incident, or the on-call approver off shift: two L3 approvals as usual
+        self.assertFalse(self.passes(case(files=files, on_shift=["carol"], reviews=[review("dan"), review("carol")])))
+        self.assertFalse(self.passes(case(files=files, reviews=[review("dan"), review("carol")], **incident)))
+        # two people still: an L3 member who is also on call does not count twice
+        self.assertFalse(self.passes(case(files=files, on_shift=["bob"], reviews=[review("bob")], **incident)))
+        # the on-call approver alone is not enough
+        self.assertFalse(self.passes(case(files=files, on_shift=["carol"], reviews=[review("carol")], **incident)))
+        # other process paths keep two L3 approvals in an incident
+        self.assertFalse(self.passes(case(files={WORKFLOW_FILE: ["l3-owners"]}, on_shift=["carol"],
+                                          reviews=[review("dan"), review("carol")], **incident)))
 
     def test_every_file_needs_its_owner(self):
         files = {CLAIMS_FILE: ["team-claims", "oncall-approvers"], WORKFLOW_FILE: ["l3-owners"]}

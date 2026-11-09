@@ -47,7 +47,8 @@ OTel; the rest of the baseline follows in phase 2 (OD4).
   are process-only, ADR-0009). Compliance gets
   one organization policy with evidence instead of personal choices.
 - **Negative / trade-offs:** more prompts than auto mode; a prompt for every `aws` read. S5
-  ("nobody can turn off all prompts unnoticed") is likely unreachable without MDM (⚠️).
+  ("nobody can turn off all prompts unnoticed") is met only on laptops with MDM and reported as not
+  met elsewhere (OD54).
 - **Risks & how we watch them:** the auto-mode classifier missed 17 % of 52 real overeager actions
   (📖 R6.3.5); fallback to `disableAutoMode` (📖 R1.2.2) if the planted-injection test steers it (D1). The live
   settings are edited in the admin console, not by PR (📖 R1.1.5); an Owner exports them monthly and

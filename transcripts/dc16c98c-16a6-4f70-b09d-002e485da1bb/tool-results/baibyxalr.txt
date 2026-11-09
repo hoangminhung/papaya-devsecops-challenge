@@ -1,0 +1,393 @@
+examples/pulumi-policy/node_modules/long/README.md: missing ./wasm.wat
+examples/pulumi-policy/node_modules/long/README.md: missing ./tests
+examples/pulumi-policy/node_modules/node-gyp/CONTRIBUTING.md: missing .github/workflows/update-gyp-next.yml
+examples/pulumi-policy/node_modules/node-gyp/README.md: missing ./docs/
+examples/pulumi-policy/node_modules/node-gyp/README.md: missing ./docs/binding.gyp-files-in-the-wild.md
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Merging
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Settings_Keys
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #includes
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #includes
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Variables_and_Conditionals
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Variable_Expansions
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #includes
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Conditionals
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Predefined_Variables
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Variables_and_Conditionals
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Early_and_Late_Phases
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #target_conditions
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Early_and_Late_Phases
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Variable_Expansions
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #target_conditions
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Variable_Expansions
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Command_Expansions_(!,_!@
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #target_conditions
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #targets
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #target_defaults
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Variables
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Conditionals
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #User-Defined
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Variable_Expansions
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Command_Expansions
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Variables
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #User-Defined
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #target_conditions
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Conditionals
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Variables
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #User-Defined
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Conditionals
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Variables
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Conditionals
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #target_conditions
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #dependencies
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #direct_dependent_settings
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #all_dependnet_settings
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #link_settings
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #export_dependent_settings
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #direct_dependent_settings
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #direct_dependent_settings
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #all_dependent_settings
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #export_dependent_settings
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #libraries
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #library_dirs
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #link_settings
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #type
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #targets
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #rules
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #actions
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #hard_dependency
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #dependencies
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Conditionals
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Exclusion_Lists_(!
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Exclusion_Lists_(!
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Exclusion_Lists_(!
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Merging
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Conditonals
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Exclusion_Lists_(!
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Pattern_Lists_(/
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Including_Other_Files
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Including_Other_Files
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Merging
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #includes
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Early_and_Late_Phases
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Variables_and_Conditionals
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Merging
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #targets
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #target_defaults
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #targets
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #dependencies
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #targets
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #dependencies
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Dependent_Settings
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #all_dependent_settings
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #direct_dependent_settings
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #link_dependent_settings
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Linking_Dependencies
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Early_and_Late_Phases
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #Variables_and_Conditionals
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #targets
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #targets
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #configurations
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/InputFormatReference.md: bad anchor #List_Exclusions_and_Patterns
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/LanguageSpecification.md: missing InputFormatReference#Merge_Basics_(=,_?,_+
+examples/pulumi-policy/node_modules/node-gyp/gyp/docs/LanguageSpecification.md: missing InputFormatReference#List_Filters.md
+examples/pulumi-policy/node_modules/fdir/README.md: missing /documentation.md
+examples/pulumi-policy/node_modules/fdir/README.md: missing /BENCHMARKS.md
+examples/pulumi-policy/node_modules/ip-address/README.md: missing ./SECURITY.md#classifiers-are-not-an-ssrf-defense
+examples/pulumi-policy/node_modules/ip-address/README.md: missing ./SECURITY.md
+examples/pulumi-policy/node_modules/ip-address/README.md: missing ./SECURITY.md#classifiers-are-not-an-ssrf-defense
+examples/pulumi-policy/node_modules/picomatch/README.md: bad anchor #makeRe
+examples/pulumi-policy/node_modules/picomatch/README.md: bad anchor #optionsonIgnore
+examples/pulumi-policy/node_modules/picomatch/README.md: bad anchor #optionsonMatch
+examples/pulumi-policy/node_modules/picomatch/README.md: bad anchor #optionsonResult
+examples/pulumi-policy/node_modules/picomatch/README.md: bad anchor #brace-expansion
+examples/pulumi-policy/node_modules/picomatch/README.md: missing ../../issues/new
+examples/pulumi-policy/node_modules/picomatch/README.md: missing .github/contributing.md
+examples/pulumi-policy/node_modules/picomatch/README.md: missing .verb.md
+examples/pulumi-policy/node_modules/source-map/CHANGELOG.md: missing bugzil.la/1090768
+examples/pulumi-policy/node_modules/@opentelemetry/semantic-conventions/README.md: missing ./src/experimental_attributes.ts
+examples/pulumi-policy/node_modules/@opentelemetry/semantic-conventions/README.md: missing ./src/experimental_metrics.ts
+examples/pulumi-policy/node_modules/@opentelemetry/sdk-trace-base/README.md: missing ./src/config.ts
+examples/pulumi-policy/node_modules/@opentelemetry/sdk-logs/README.md: missing ./src/config.ts
+examples/pulumi-policy/node_modules/@opentelemetry/exporter-trace-otlp-grpc/README.md: missing ./test/certs/regenerate.sh
+examples/pulumi-policy/node_modules/protobufjs/README.md: bad anchor #installation
+examples/pulumi-policy/node_modules/protobufjs/README.md: bad anchor #usage
+examples/pulumi-policy/node_modules/protobufjs/README.md: bad anchor #examples
+examples/pulumi-policy/node_modules/protobufjs/README.md: bad anchor #additional-documentation
+examples/pulumi-policy/node_modules/protobufjs/README.md: bad anchor #performance
+examples/pulumi-policy/node_modules/protobufjs/README.md: bad anchor #compatibility
+examples/pulumi-policy/node_modules/protobufjs/README.md: bad anchor #building
+examples/pulumi-policy/node_modules/protobufjs/README.md: missing ./cli/
+examples/pulumi-policy/node_modules/protobufjs/README.md: bad anchor #performance
+examples/pulumi-policy/node_modules/protobufjs/README.md: bad anchor #additional-documentation
+examples/pulumi-policy/node_modules/protobufjs/README.md: bad anchor #pbts-for-typescript
+examples/pulumi-policy/node_modules/mime/README.md: missing src/README_js.md
+examples/pulumi-policy/node_modules/pacote/README.md: missing npm.im/npm-package-arg
+examples/pulumi-policy/node_modules/pacote/README.md: missing npm.im/npm-package-arg
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #contributing
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #api
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #fetch
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #fetch-defaults
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #minipass-fetch-options
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #extra-options
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-cache-path
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-cache
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-cache-additional-headers
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-proxy
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-no-proxy
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #https-opts
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-max-sockets
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-retry
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-onretry
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-integrity
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-dns
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #wow
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #minipass-fetch-options
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #extra-options
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-cache-path
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-cache
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-cache-additional-headers
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-proxy
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-no-proxy
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #https-opts
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-local-address
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-max-sockets
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-retry
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-onretry
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-integrity
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-dns
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-agent
+examples/pulumi-policy/node_modules/make-fetch-happen/README.md: bad anchor #opts-cache-path
+examples/pulumi-policy/node_modules/execa/readme.md: bad anchor #childProcessResult
+examples/pulumi-policy/node_modules/execa/readme.md: bad anchor #childProcessResult
+examples/pulumi-policy/node_modules/execa/readme.md: bad anchor #execacommand-command-options
+examples/pulumi-policy/node_modules/execa/readme.md: bad anchor #childProcessResult
+examples/pulumi-policy/node_modules/execa/readme.md: bad anchor #originalMessage
+examples/pulumi-policy/node_modules/json-parse-even-better-errors/README.md: bad anchor #contributing
+examples/pulumi-policy/node_modules/json-parse-even-better-errors/README.md: bad anchor #parse
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #localized-api
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #ls
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #ls-stream
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #get-data
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #get-stream
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #get-info
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #get-hasContent
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #put-data
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #put-stream
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #rm-all
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #rm-entry
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #rm-content
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #index-compact
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #index-insert
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #clear-memoized
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #tmp-mkdir
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #with-tmp
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #integrity
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #verify
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #verify-last-run
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #integrity
+examples/pulumi-policy/node_modules/cacache/README.md: missing CODE_OF_CONDUCT.md
+examples/pulumi-policy/node_modules/cacache/README.md: missing CHANGELOG.md
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #get-info
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #ls
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #get-info
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #integrity
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #get-options
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #get-stream
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #get-options
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #integrity
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #integrity
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #put-options
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #put-options
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #integrity
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #get-stream
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #rm-content
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #verify
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #tmp-fix
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #with-tpm
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #tmp-options
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #tmp-mkdir
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #with-tmp
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #tmp-mkdir
+examples/pulumi-policy/node_modules/cacache/README.md: bad anchor #tmp-options
+examples/pulumi-policy/node_modules/safer-buffer/Porting-Buffer.md: bad anchor #variant-1
+examples/pulumi-policy/node_modules/safer-buffer/Porting-Buffer.md: bad anchor #variant-2
+examples/pulumi-policy/node_modules/safer-buffer/Porting-Buffer.md: bad anchor #variant-3
+examples/pulumi-policy/node_modules/safer-buffer/Porting-Buffer.md: missing Slow
+examples/pulumi-policy/node_modules/safer-buffer/Porting-Buffer.md: bad anchor #variant-2
+examples/pulumi-policy/node_modules/safer-buffer/Porting-Buffer.md: bad anchor #variant-3
+examples/pulumi-policy/node_modules/safer-buffer/Porting-Buffer.md: bad anchor #variant-1
+examples/pulumi-policy/node_modules/es-module-lexer/README.md: missing src/lexer.ts
+examples/pulumi-policy/node_modules/undici/README.md: missing ./CONTRIBUTING.md
+examples/pulumi-policy/node_modules/undici/README.md: missing ./examples/README.md
+examples/pulumi-policy/node_modules/undici/README.md: bad anchor ./docs/docs/api/Dispatcher.md#parameter-streamoptions
+examples/pulumi-policy/node_modules/undici/docs/docs/api/WebSocket.md: missing /docs/docs/api/Dispatcher.md
+examples/pulumi-policy/node_modules/undici/docs/docs/api/ProxyAgent.md: missing /docs/docs/api/Client.md#parameter-connectoptions
+examples/pulumi-policy/node_modules/undici/docs/docs/api/ProxyAgent.md: missing /docs/docs/api/Client.md#parameter-connectoptions
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #fetch
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #fetch-json
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #fetch-opts
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: missing CONTRIBUTING.md
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: missing CODE_OF_CONDUCT.md
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: missing CHANGELOG.md
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #fetch-opts
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #fetch-opts
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #fetch-opts
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-headers
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-strictSSL
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-ca
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-key
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-offline
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-preferOffline
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-preferOnline
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-ca
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-key
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-retry
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-retry
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-retry
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-retry
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-body
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-cache
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-ca
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-cert
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-proxy
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-agent
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-preferOffline
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-cache
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-token
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-username
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-offline
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-cache
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-cache
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-scope
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-spec
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-scope-registry
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-scope-registry
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-spec
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-registry
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-scope
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-spec
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-scope
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-ca
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-authtoken
+examples/pulumi-policy/node_modules/npm-registry-fetch/README.md: bad anchor #opts-password
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #parse
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #stringify
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #integrity-concat
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #integrity-merge
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #integrity-to-string
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #integrity-to-json
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #integrity-match
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #integrity-pick-algorithm
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #integrity-hex-digest
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #from-hex
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #from-data
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #from-stream
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #create
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #check-data
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #check-stream
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #integrity-stream
+examples/pulumi-policy/node_modules/ssri/README.md: missing CONTRIBUTING.md
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #integrity-to-string
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #parse
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #parse
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #ssri-parse
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #parse
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #stringify
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #parse
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #parse
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #integrity-pick-algorithm
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #parse
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #parse
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #from-data
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #parse
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #from-data
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #parse
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #parse
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #integrity-pick-algorithm
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #parse
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #integrity-pick-algorithm
+examples/pulumi-policy/node_modules/ssri/README.md: bad anchor #parse
+examples/pulumi-policy/node_modules/import-in-the-middle/README.md: missing benchmark/README.md
+examples/pulumi-policy/node_modules/glob/README.md: bad anchor #fn-webscale
+examples/pulumi-policy/node_modules/human-signals/README.md: missing ../../issues
+examples/pulumi-policy/node_modules/human-signals/README.md: missing CODE_OF_CONDUCT.md
+examples/pulumi-policy/node_modules/human-signals/README.md: missing CONTRIBUTING.md
+examples/pulumi-policy/node_modules/human-signals/CHANGELOG.md: missing src/main.d.ts
+examples/pulumi-policy/node_modules/http-cache-semantics/README.md: missing fresh.jpg
+examples/pulumi-policy/node_modules/@gar/promise-retry/README.md: missing ./CHANGELOG.md
+examples/pulumi-policy/node_modules/@sigstore/tuf/README.md: missing ./store/public-good-instance-root.json
+examples/pulumi-policy/node_modules/@sigstore/tuf/README.md: missing ./store/public-good-instance-root.json
+examples/pulumi-policy/node_modules/@sigstore/sign/README.md: missing ./src/bundler/dsse.ts
+examples/pulumi-policy/node_modules/@sigstore/sign/README.md: missing ./src/bundler/message.ts
+examples/pulumi-policy/node_modules/@sigstore/sign/README.md: missing ./src/signer/fulcio/index.ts
+examples/pulumi-policy/node_modules/@sigstore/sign/README.md: missing ./src/witness/tlog/index.ts
+examples/pulumi-policy/node_modules/@sigstore/sign/README.md: missing ./src/witness/tsa/index.ts
+examples/pulumi-policy/node_modules/argparse/README.md: missing ./doc
+examples/pulumi-policy/node_modules/argparse/README.md: missing ./doc
+examples/pulumi-policy/node_modules/argparse/CHANGELOG.md: missing ./doc
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/api.md
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/typescript.md
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/browser.md
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/api.md
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/examples.md
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/tricks.md
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/tricks.md#stop
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/tricks.md#negate
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/tricks.md#numbers
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/tricks.md#arrays
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/tricks.md#objects
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/tricks.md#quotes
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/advanced.md
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/advanced.md#commands
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/advanced.md#configuration
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/advanced.md#customizing
+examples/pulumi-policy/node_modules/yargs/README.md: missing /docs/bundling.md
+examples/pulumi-policy/node_modules/yargs/README.md: missing /contributing.md
+examples/pulumi-policy/node_modules/@npmcli/map-workspaces/README.md: missing ./LICENSE
+examples/pulumi-policy/node_modules/@logdna/tail-file/README.md: bad anchor #example-consuming-data-events
+examples/pulumi-policy/node_modules/@logdna/tail-file/README.md: bad anchor #start
+examples/pulumi-policy/node_modules/debug/README.md: missing ./examples/node/app.js
+examples/pulumi-policy/node_modules/debug/README.md: missing ./examples/node/worker.js
+examples/pulumi-policy/node_modules/debug/README.md: missing ./examples/node/stdout.js
+examples/pulumi-policy/node_modules/npm-pick-manifest/README.md: bad anchor #pick-manifest
+examples/pulumi-policy/node_modules/bin-links/README.md: bad anchor #binLinks
+examples/pulumi-policy/node_modules/bin-links/README.md: bad anchor #getPaths
+examples/pulumi-policy/node_modules/bin-links/README.md: bad anchor #checkBins
+examples/pulumi-policy/node_modules/bin-links/README.md: missing CONTRIBUTING.md
+examples/pulumi-policy/node_modules/lru-cache/README.md: missing ./LICENSE
+examples/pulumi-policy/node_modules/lru-cache/README.md: missing CHANGELOG.md
+examples/pulumi-policy/node_modules/postcss-selector-parser/README.md: missing SECURITY.md
+examples/pulumi-policy/node_modules/normalize-package-data/node_modules/lru-cache/README.md: missing CHANGELOG.md
+work/07-review.md: bad anchor ../docs/06-problem-control-map.md#L61
+work/07-review.md: bad anchor ../docs/06-problem-control-map.md#L63
+work/07-review.md: bad anchor ../docs/01-framework.md#L329-L344
+work/07-review.md: bad anchor ../docs/02-engineer-guide.md#L132
+work/07-review.md: bad anchor ../docs/06-problem-control-map.md#L50
+work/07-review.md: bad anchor ../examples/README.md#L294-L296
+work/07-review.md: bad anchor ../docs/01-framework.md#L299
+work/07-review.md: bad anchor ../docs/01-framework.md#L392-L405
+work/07-review.md: bad anchor ../docs/01-framework.md#L249
+work/07-review.md: bad anchor ../docs/02-engineer-guide.md#L30-L34
+work/07-review.md: bad anchor ../docs/01-framework.md#L260-L264
+work/07-review.md: bad anchor ../docs/01-framework.md#L636-L641
+work/07-review.md: bad anchor ../docs/04-compliance-mapping.md#L100
+work/07-review.md: bad anchor ../docs/05-threat-model.md#L42
+work/07-review.md: bad anchor ../docs/04-compliance-mapping.md#L35-L83
+work/07-review.md: bad anchor ../docs/04-compliance-mapping.md#L104-L106
+work/07-review.md: bad anchor ../docs/04-compliance-mapping.md#L151
+work/07-review.md: bad anchor ../docs/06-problem-control-map.md#L72
+work/07-review.md: bad anchor ../docs/01-framework.md#L148-L164
+work/07-review.md: bad anchor ../docs/04-compliance-mapping.md#L108-L110
+work/07-review.md: bad anchor ../docs/04-compliance-mapping.md#L163-L164
+work/07-review.md: bad anchor ../docs/01-framework.md#L764
+work/07-review.md: bad anchor ../docs/06-problem-control-map.md#L55
+work/07-review.md: bad anchor ../docs/01-framework.md#L554
+work/07-review.md: bad anchor ../docs/05-threat-model.md#L37-L42
+work/07-review.md: bad anchor ../docs/03-rollout-plan.md#L45
+work/07-review.md: bad anchor ../examples/github/environment-production/secrets.md#L8
+work/07-review.md: bad anchor ../docs/01-framework.md#L118-L122
+work/07-review.md: bad anchor ../README.md#L6
+work/07-review.md: bad anchor ../docs/01-framework.md#L743-L770
+work/07-review.md: bad anchor ../docs/01-framework.md#L506-L514
+work/07-review.md: bad anchor ../docs/03-rollout-plan.md#L124-L125
+link problems: 392

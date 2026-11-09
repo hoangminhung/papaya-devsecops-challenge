@@ -56,7 +56,11 @@
       "WebFetch",
       "Bash(aws *)",
       "Bash(pulumi *)",
-      "Bash(serverless *)"
+      "Bash(serverless *)",
+      "Bash(sls *)",
+      "Bash(npx pulumi *)",
+      "Bash(npx serverless *)",
+      "Bash(npx sls *)"
     ]
   },
   "autoMode": {
@@ -167,7 +171,11 @@
     "excludedCommands": [
       "aws *",
       "pulumi *",
-      "serverless *"
+      "serverless *",
+      "sls *",
+      "npx pulumi *",
+      "npx serverless *",
+      "npx sls *"
     ],
     "filesystem": {
       "denyRead": [

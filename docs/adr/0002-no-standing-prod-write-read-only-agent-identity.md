@@ -26,7 +26,7 @@ Option B. Prod is written only by the CI pipeline role, or by an approved, time-
 (ADR-0005). The standing prod role is `ProdReadMetadata` [design name]: metrics, redacted log groups,
 configuration of services whose secrets are resolved at runtime; no data-plane reads of claim stores;
 1-hour role session, the minimum (📖 R2.1.4). From phase 2, SCPs on the prod OU deny data-plane reads and
-direct Lambda updates except for named roles (pattern ⚠️ R2.9 #4, R4.6 #3). Option C follows in phase 3.
+direct Lambda updates except for named roles (pattern ⚠️ R2.9 #4, R4.6 #3). Option C follows in phase 3. Refinement (OD58, 2026-11-09): a development box with its own AWS role and GitHub token is evaluated earlier, with the phase-2 pilot (rollout 2.14).
 
 ## 4. Consequences
 

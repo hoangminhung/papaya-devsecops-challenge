@@ -10,7 +10,11 @@
     "ask": [
       "Bash(aws *)",
       "Bash(pulumi *)",
-      "Bash(serverless *)"
+      "Bash(serverless *)",
+      "Bash(sls *)",
+      "Bash(npx pulumi *)",
+      "Bash(npx serverless *)",
+      "Bash(npx sls *)"
     ],
     "deny": [
       "Read(~/.aws/**)",

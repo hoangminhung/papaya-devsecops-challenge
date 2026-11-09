@@ -37,7 +37,9 @@ Option C [design]. The app's decision logic is examples E12 (`examples/approval-
   `incident` label, links an incident that is open when the check runs, and the approver is on
   shift (OD27);
 - a file owned only by the L3 owner team (a process path, including the IAM stack since OD32) needs
-  two different members of that team (OD26);
+  two different members of that team (OD26); for the IAM stack in an open incident, one member plus
+  a different on-call approver on shift, flagged for the monthly report (OD55, refinement
+  2026-11-09: JIT cannot change the roles the SCP reserves for the IAM stack's deploy role);
 - approvals within two minutes of the last push, or at night without an incident, are flagged for
   the monthly report, not blocked.
 

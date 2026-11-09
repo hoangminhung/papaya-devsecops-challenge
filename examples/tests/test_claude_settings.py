@@ -83,7 +83,10 @@ MARKETPLACE = {"source": "github", "repo": "example-org/claude-plugins", "ref": 
 REVIEW_DENIES = ["Bash(gh pr review *)", "Bash(gh api *reviews*)"]
 # Entries use Bash rule syntax; without a trailing " *" an entry matches only the bare command
 # with no arguments (📖 sandboxing#run-commands-outside-the-sandbox-with-excludedcommands).
-EXCLUDED_FROM_SANDBOX = ["aws *", "pulumi *", "serverless *"]
+# `sls` is the Serverless CLI's short alias, and `npx` is how the CLIs are often run from a
+# repository (grading round after OD52, #8): each form needs its own rule.
+CLOUD_CLIS = ["aws *", "pulumi *", "serverless *", "sls *", "npx pulumi *", "npx serverless *", "npx sls *"]
+EXCLUDED_FROM_SANDBOX = CLOUD_CLIS
 # The only allow rules: exact repo scripts. Read-only git, cat, grep etc. are already in Claude
 # Code's built-in read-only set (📖 permissions#read-only-commands); `git log/show/diff *` rules
 # would also match `--output=<path>`, which writes any file (✅ git 2.34.1).
@@ -183,7 +186,7 @@ class Phase1Test(SettingsCommon, unittest.TestCase):
         # OD43: until 1.16 removes standing prod write, an engineer's SSO session can still write
         # to prod, and auto mode is allowed (D1). A content-scoped ask rule prompts in auto mode
         # too (📖 auto-mode-config, permissions.ask). WebFetch's ask waits for phase 2.
-        self.assertEqual(self.s["permissions"]["ask"], ["Bash(aws *)", "Bash(pulumi *)", "Bash(serverless *)"])
+        self.assertEqual(self.s["permissions"]["ask"], [f"Bash({c})" for c in CLOUD_CLIS])
 
 
 class Phase2Test(SettingsCommon, unittest.TestCase):

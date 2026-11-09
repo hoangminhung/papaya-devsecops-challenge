@@ -4,7 +4,7 @@ Each record states one major decision behind [`../01-framework.md`](../01-framew
 and what it costs. The reasoning and its sources live in the framework, audit evidence in
 [`../04-compliance-mapping.md`](../04-compliance-mapping.md); an ADR only records the choice. Markers follow the framework legend: 📖 R*x.y* = documented research row in
 `work/02-research.md`, ⚠️ = inference or unverified, [design] = proposal of this submission. OD*n* = owner
-decisions in the framework's last table; D1–D3 = owner decisions in research 6.6. Other codes (GĐ-n
+decisions in the [framework appendix](../07-framework-appendix.md#r-authors-design-decisions-od-n-2026-11-09); D1–D3 = owner decisions in research 6.6. Other codes (GĐ-n
 assumptions, S-n success criteria, P-n problems, G-n gaps, Options §n, framing §n) are explained in the
 framework's "How to read this" section.
 
