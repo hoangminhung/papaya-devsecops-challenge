@@ -69,7 +69,7 @@ robot token and update-signing key, and the private keys of two GitHub Apps the 
 | [examples/](examples/README.md) | Ruleset, CODEOWNERS, workflows, a runnable risk stop, IAM/OIDC/SCP, managed settings, plugin marketplace, policy pack; each with a local check and what it does **not** prove |
 | [diagrams/](diagrams/README.md) | Change workflow, trust boundaries, incident lane |
 | [work/](work/) | Working notes and decision log (Vietnamese, with English summaries), including the [independent review](work/07-review.md) and the [verify report](work/10-verify.md) |
-| [transcripts/](transcripts/) | Complete Claude Code session files, raw except the redaction of two work email addresses (see below); [session index](transcripts/README.md) |
+| [transcripts/](transcripts/) | Complete Claude Code session files in one lossless archive, `transcripts.tar.xz`, raw except the redaction of two work email addresses (see below); [session index](transcripts/README.md) |
 | [CLAUDE.md](CLAUDE.md) | The rules the agent followed in this repository |
 
 ## Evidence markers
@@ -121,18 +121,32 @@ All Claude Code sessions for this challenge were run in this repository. The ses
 `<session-id>.jsonl` file plus an optional `<session-id>/` directory holding subagent
 transcripts and large tool results (📖 [Claude directory reference](https://code.claude.com/docs/en/claude-directory#cleaned-up-automatically)).
 [transcripts/README.md](transcripts/README.md) lists every session with its date and phase.
-They are copied into [transcripts/](transcripts/) before each commit that ends a session. One
-mechanical redaction is applied: the author's two work email addresses are replaced with
+One mechanical redaction is applied: the author's two work email addresses are replaced with
 `<redacted-work-email>` by [work/redact-emails.py](work/redact-emails.py) (matched by SHA-256;
 nothing else changes). Git history was rewritten on 2026-11-09 to apply it to every commit.
 
+The files are stored as one lossless archive, `transcripts/transcripts.tar.xz` (about 13 MB instead
+of about 140 MB), so that the repository's ZIP download stays under 30 MB. Extracting it gives the
+session files byte for byte (✅ `diff -r` against the redacted copies, 2026-11-10). Up to commit
+`1122376` the raw files were committed directly, and that history still holds them. To read them:
+
 ```bash
+mkdir -p transcripts/raw && tar -xJf transcripts/transcripts.tar.xz -C transcripts/raw
+```
+
+`transcripts/raw/` is git-ignored. Before each commit that ends a session, the sessions are copied
+there, redacted, checked and archived again:
+
+```bash
+mkdir -p transcripts/raw
 for CFG in ~/.claude ~/.claude-papaya; do
   SRC="$CFG/projects/$(pwd | tr '/.' '--')"   # run from the repository root
-  [ -d "$SRC" ] && rsync -a --exclude='memory/' --include='*.jsonl' --include='*/' --include='*/**' "$SRC"/ transcripts/
+  [ -d "$SRC" ] && rsync -a --exclude='memory/' "$SRC"/ transcripts/raw/
 done
-python3 work/redact-emails.py transcripts
-python3 work/redact-emails.py --check transcripts   # must print "total: 0"
+python3 work/redact-emails.py transcripts/raw
+python3 work/redact-emails.py --check transcripts/raw   # must print "total: 0"
+tar --sort=name --mtime='2026-11-10 00:00:00Z' --owner=0 --group=0 --numeric-owner --format=gnu \
+  -C transcripts/raw -cf - . | xz -9e -T1 > transcripts/transcripts.tar.xz   # GNU tar
 ```
 
 Claude Code deletes local transcripts after `cleanupPeriodDays` (⚠️ from the settings reference as read

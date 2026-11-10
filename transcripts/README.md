@@ -1,6 +1,13 @@
 # Transcripts
 
 Raw Claude Code session files for this submission, one row per session, in start order.
+They are stored in one lossless archive, [`transcripts.tar.xz`](transcripts.tar.xz), to keep the
+repository's ZIP download under 30 MB. From the repository root:
+
+```bash
+mkdir -p transcripts/raw && tar -xJf transcripts/transcripts.tar.xz -C transcripts/raw
+```
+
 Each session is `<session-id>.jsonl`; the optional `<session-id>/` directory holds its subagent
 transcripts (`subagents/`) and large tool results (`tool-results/`). The only edit is the
 mechanical redaction of two work email addresses (see the [README](../README.md#transcripts)).
